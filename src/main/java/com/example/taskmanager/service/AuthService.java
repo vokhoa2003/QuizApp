@@ -29,6 +29,7 @@ public class AuthService {
     
     private String accessToken;
     private String refreshToken;
+    private String lastLoginRole; // Thêm để lưu role từ response
     private LocalDateTime expiryTime;
     
     private static final String PREF_ACCESS_TOKEN = "access_token";
@@ -192,6 +193,8 @@ public class AuthService {
                     this.accessToken = jsonNode.has("token") ? jsonNode.get("token").asText() : null;
                     this.refreshToken = this.accessToken;
                     this.expiryTime = LocalDateTime.now().plusHours(1);
+                    // Giải mã token để lấy role
+                    this.lastLoginRole = extractRoleFromToken(this.accessToken);
                     saveTokenToPreferences();
                     System.out.println("Google login successful for user: " + userInfo.getEmail());
                     return true;
@@ -217,5 +220,24 @@ public class AuthService {
 
     private boolean saveGoogleUserToDatabase(Userinfo userInfo) {
         return true;
+    }
+    private String extractRoleFromToken(String token) {
+        try {
+            String[] tokenParts = token.split("\\.");
+            if (tokenParts.length != 3) {
+                return null;
+            }
+            String payload = new String(Base64.getDecoder().decode(tokenParts[1]));
+            JsonNode payloadNode = objectMapper.readTree(payload);
+            JsonNode dataNode = payloadNode.get("data");
+            return dataNode != null ? dataNode.get("role").asText() : null;
+        } catch (Exception e) {
+            System.err.println("Error extracting role from token: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    public String getLastLoginRole() {
+        return lastLoginRole;
     }
 }

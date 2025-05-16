@@ -93,42 +93,80 @@ public class ApiService {
 //    }
 //    return Collections.emptyList();
 //}
-    public Task getUsers() {
-    try {
-        String uri = apiConfig.getApiBaseUrl() + "/get";
-        System.out.println("Calling API: " + uri);
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(uri))
-                .header("Authorization", "Bearer " + authService.getAccessToken())
-                .GET()
-                .build();
+//    public Task getUsers() {
+//    try {
+//        String uri = apiConfig.getApiBaseUrl() + "/get";
+//        System.out.println("Calling API: " + uri);
+//        HttpRequest request = HttpRequest.newBuilder()
+//                .uri(URI.create(uri))
+//                .header("Authorization", "Bearer " + authService.getAccessToken())
+//                .GET()
+//                .build();
+//
+//        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+//        System.out.println("API Response: " + response.statusCode() + " - " + response.body());
+//
+//        if (response.statusCode() == 200) {
+//            JsonNode rootNode = objectMapper.readTree(response.body());
+//            if (rootNode.has("error")) {
+//                System.err.println("API Error: " + rootNode.get("error").asText());
+//                return null;
+//            }
+//            try {
+//                Task task = objectMapper.readValue(response.body(), Task.class);
+//                System.out.println("Task object: " + (task != null ? task.getEmail() : "null"));
+//                return task;
+//            } catch (JsonProcessingException e) {
+//                System.err.println("Error parsing JSON: " + e.getMessage());
+//                e.printStackTrace();
+//                return null;
+//            }
+//        } else {
+//            System.err.println("Error fetching users: " + response.statusCode() + " - " + response.body());
+//        }
+//    } catch (IOException | InterruptedException e) {
+//        e.printStackTrace();
+//    }
+//    return null;
+//}
+    public List<Task> getUsers() {
+        try {
+            String uri = apiConfig.getApiBaseUrl() + "/get";
+            System.out.println("Calling API: " + uri);
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(uri))
+                    .header("Authorization", "Bearer " + authService.getAccessToken())
+                    .GET()
+                    .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        System.out.println("API Response: " + response.statusCode() + " - " + response.body());
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("API Response: " + response.statusCode() + " - " + response.body());
 
-        if (response.statusCode() == 200) {
-            JsonNode rootNode = objectMapper.readTree(response.body());
-            if (rootNode.has("error")) {
-                System.err.println("API Error: " + rootNode.get("error").asText());
-                return null;
+            if (response.statusCode() == 200) {
+                JsonNode rootNode = objectMapper.readTree(response.body());
+                if (rootNode.has("error")) {
+                    System.err.println("API Error: " + rootNode.get("error").asText());
+                    return null;
+                }
+                try {
+                    // Parse JSON array into List<Task>
+                    List<Task> users = objectMapper.readValue(response.body(), 
+                        objectMapper.getTypeFactory().constructCollectionType(List.class, Task.class));
+                    System.out.println("Users fetched: " + (users != null ? users.size() : 0) + " users");
+                    return users;
+                } catch (JsonProcessingException e) {
+                    System.err.println("Error parsing JSON: " + e.getMessage());
+                    e.printStackTrace();
+                    return null;
+                }
+            } else {
+                System.err.println("Error fetching users: " + response.statusCode() + " - " + response.body());
             }
-            try {
-                Task task = objectMapper.readValue(response.body(), Task.class);
-                System.out.println("Task object: " + (task != null ? task.getEmail() : "null"));
-                return task;
-            } catch (JsonProcessingException e) {
-                System.err.println("Error parsing JSON: " + e.getMessage());
-                e.printStackTrace();
-                return null;
-            }
-        } else {
-            System.err.println("Error fetching users: " + response.statusCode() + " - " + response.body());
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
         }
-    } catch (IOException | InterruptedException e) {
-        e.printStackTrace();
+        return null;
     }
-    return null;
-}
     public Task createUser(Task user) {
         try {
             String requestBody = objectMapper.writeValueAsString(user);
