@@ -17,9 +17,15 @@ public class MainWindow extends JFrame {
     private static final Color PRIMARY_COLOR = new Color(79, 70, 229); // Indigo color like in your web design
     private static final Color BACKGROUND_COLOR = new Color(250, 250, 252);
     private static final Color TEXT_COLOR = new Color(71, 85, 105);
-    private static final Font MAIN_FONT = new Font("Segoe UI", Font.PLAIN, 14);
-    private static final Font WELCOME_FONT = new Font("Segoe UI", Font.BOLD, 24);
+    private static Font MAIN_FONT = new Font("Segoe UI", Font.PLAIN, 14);
+    private static Font WELCOME_FONT = new Font("Segoe UI", Font.BOLD, 24);
     private static final String WEB_APP_URL = "http://localhost:8080/customer"; // URL của ứng dụng web
+    
+    // Lưu trữ font size gốc
+    private static final int MAIN_FONT_SIZE = 14;
+    private static final int WELCOME_FONT_SIZE = 24;
+    private static final int TITLE_BAR_FONT_SIZE = 20;
+    private static final int FOOTER_FONT_SIZE = 12;
     
     // Services
     private final AuthService authService;
@@ -32,10 +38,24 @@ public class MainWindow extends JFrame {
     // Panels
     private final TaskPanel taskPanel;
     
+    // Components để cập nhật font
+    private JLabel welcomeLabel;
+    private JLabel subtitleLabel;
+    private JButton googleLoginButton;
+    private JLabel footerLabel;
+    private JButton minimizeButton;
+    private JButton maximizeButton;
+    private JButton closeButton;
+    
     // Constants
     private static final String LOGIN_PANEL = "LOGIN";
     private static final String TASK_PANEL = "TASKS";
     
+    // Trạng thái phóng to/thu nhỏ
+    private boolean isMaximized = false;
+    private String currentPanel = LOGIN_PANEL; // Theo dõi panel hiện tại
+    private double scaleFactor = 1.0; // Tỷ lệ phóng to font
+
     public MainWindow() {
         // Khởi tạo services
         this.authService = new AuthService();
@@ -100,21 +120,116 @@ public class MainWindow extends JFrame {
         titleBar.setLayout(new BorderLayout());
         titleBar.setOpaque(false);
         
-        // Close button
-        JButton closeButton = new JButton("×");
+        // Panel chứa các nút điều khiển (minimize, maximize/restore, close)
+        JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        controlPanel.setOpaque(false);
+
+        // Nút Minimize
+        minimizeButton = new JButton("–");
+        minimizeButton.setForeground(TEXT_COLOR);
+        minimizeButton.setBorderPainted(false);
+        minimizeButton.setContentAreaFilled(false);
+        minimizeButton.setFocusPainted(false);
+        minimizeButton.setFont(new Font("Arial", Font.BOLD, TITLE_BAR_FONT_SIZE));
+        minimizeButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        minimizeButton.addActionListener(e -> setState(Frame.ICONIFIED)); // Thu nhỏ cửa sổ
+        
+        // Nút Maximize/Restore
+        maximizeButton = new JButton("□");
+        maximizeButton.setForeground(TEXT_COLOR);
+        maximizeButton.setBorderPainted(false);
+        maximizeButton.setContentAreaFilled(false);
+        maximizeButton.setFocusPainted(false);
+        maximizeButton.setFont(new Font("Arial", Font.BOLD, TITLE_BAR_FONT_SIZE));
+        maximizeButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        maximizeButton.addActionListener(e -> toggleMaximizeRestore());
+
+        // Nút Close
+        closeButton = new JButton("×");
         closeButton.setForeground(TEXT_COLOR);
         closeButton.setBorderPainted(false);
         closeButton.setContentAreaFilled(false);
         closeButton.setFocusPainted(false);
-        closeButton.setFont(new Font("Arial", Font.BOLD, 20));
+        closeButton.setFont(new Font("Arial", Font.BOLD, TITLE_BAR_FONT_SIZE));
         closeButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         closeButton.addActionListener(e -> {
             authService.logout(); // Đảm bảo logout khi đóng ứng dụng
             System.exit(0);
         });
         
-        titleBar.add(closeButton, BorderLayout.EAST);
+        // Thêm các nút vào panel điều khiển
+        controlPanel.add(minimizeButton);
+        controlPanel.add(maximizeButton);
+        controlPanel.add(closeButton);
+        
+        titleBar.add(controlPanel, BorderLayout.EAST);
         return titleBar;
+    }
+
+    private void toggleMaximizeRestore() {
+        if (isMaximized) {
+            // Khôi phục kích thước bình thường
+            setExtendedState(Frame.NORMAL);
+            maximizeButton.setText("□"); // Biểu tượng khi ở trạng thái bình thường
+            scaleFactor = 1.0; // Đặt lại tỷ lệ phóng to
+            
+            // Điều chỉnh kích thước và góc bo tròn dựa trên panel hiện tại
+            if (currentPanel.equals(TASK_PANEL)) {
+                setSize(1100, 750);
+                setShape(null); // TaskPanel không có góc bo tròn theo thiết kế hiện tại
+                // Nếu muốn TaskPanel có góc bo tròn, uncomment dòng dưới
+                // setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 15, 15));
+            } else {
+                setSize(400, 500);
+                setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 15, 15));
+            }
+            setLocationRelativeTo(null);
+        } else {
+            // Phóng to toàn màn hình
+            setExtendedState(Frame.MAXIMIZED_BOTH);
+            maximizeButton.setText("❐"); // Biểu tượng khi phóng to
+            setShape(null); // Bỏ góc bo tròn khi phóng to
+            
+            // Tính tỷ lệ phóng to dựa trên kích thước màn hình
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            Dimension originalSize = currentPanel.equals(TASK_PANEL) ? new Dimension(1100, 750) : new Dimension(400, 500);
+            scaleFactor = Math.min(screenSize.getWidth() / originalSize.getWidth(), screenSize.getHeight() / originalSize.getHeight());
+        }
+        isMaximized = !isMaximized;
+        
+        // Cập nhật font size
+        updateFonts();
+        taskPanel.updateFonts(scaleFactor); // Cập nhật font trong TaskPanel
+    }
+
+    private void updateFonts() {
+        // Cập nhật font cho các thành phần trong MainWindow
+        MAIN_FONT = new Font("Segoe UI", Font.PLAIN, (int) (MAIN_FONT_SIZE * scaleFactor));
+        WELCOME_FONT = new Font("Segoe UI", Font.BOLD, (int) (WELCOME_FONT_SIZE * scaleFactor));
+        Font titleBarFont = new Font("Arial", Font.BOLD, (int) (TITLE_BAR_FONT_SIZE * scaleFactor));
+        Font footerFont = new Font("Segoe UI", Font.PLAIN, (int) (FOOTER_FONT_SIZE * scaleFactor));
+        
+        if (welcomeLabel != null) {
+            welcomeLabel.setFont(WELCOME_FONT);
+        }
+        if (subtitleLabel != null) {
+            subtitleLabel.setFont(MAIN_FONT);
+        }
+        if (googleLoginButton != null) {
+            googleLoginButton.setFont(new Font("Segoe UI", Font.BOLD, (int) (14 * scaleFactor)));
+        }
+        if (footerLabel != null) {
+            footerLabel.setFont(footerFont);
+        }
+        if (minimizeButton != null) {
+            minimizeButton.setFont(titleBarFont);
+        }
+        if (maximizeButton != null) {
+            maximizeButton.setFont(titleBarFont);
+        }
+        if (closeButton != null) {
+            closeButton.setFont(titleBarFont);
+        }
     }
     
     private JLabel createLogoLabel() {
@@ -122,42 +237,42 @@ public class MainWindow extends JFrame {
         try {
             // Use a placeholder logo (you should replace this with your actual logo)
             ImageIcon icon = new ImageIcon(getClass().getResource("/com/example/taskmanager/resources/logo.png"));
-            Image img = icon.getImage().getScaledInstance(120, 120, Image.SCALE_SMOOTH);
+            Image img = icon.getImage().getScaledInstance((int) (120 * scaleFactor), (int) (120 * scaleFactor), Image.SCALE_SMOOTH);
             logoLabel.setIcon(new ImageIcon(img));
         } catch (Exception e) {
             // If logo not found, use text instead
             logoLabel.setText("TASK MANAGER");
-            logoLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
+            logoLabel.setFont(new Font("Segoe UI", Font.BOLD, (int) (18 * scaleFactor)));
             logoLabel.setForeground(PRIMARY_COLOR);
         }
         return logoLabel;
     }
     
     private JButton createGoogleLoginButton() {
-        JButton loginButton = new JButton("Đăng nhập bằng Google");
-        loginButton.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        loginButton.setForeground(Color.BLACK);
-        loginButton.setBackground(Color.WHITE);
-        loginButton.setFocusPainted(false);
-        loginButton.setBorder(BorderFactory.createCompoundBorder(
+        googleLoginButton = new JButton("Đăng nhập bằng Google");
+        googleLoginButton.setFont(new Font("Segoe UI", Font.BOLD, (int) (14 * scaleFactor)));
+        googleLoginButton.setForeground(Color.BLACK);
+        googleLoginButton.setBackground(Color.WHITE);
+        googleLoginButton.setFocusPainted(false);
+        googleLoginButton.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(226, 232, 240), 1, true),
             BorderFactory.createEmptyBorder(10, 15, 10, 15)
         ));
-        loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        googleLoginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
         
         // Try to load Google icon
         try {
             ImageIcon googleIcon = new ImageIcon(getClass().getResource("/com/example/taskmanager/resources/google.png"));
-            Image img = googleIcon.getImage().getScaledInstance(20, 20, Image.SCALE_SMOOTH);
-            loginButton.setIcon(new ImageIcon(img));
-            loginButton.setIconTextGap(10);
+            Image img = googleIcon.getImage().getScaledInstance((int) (20 * scaleFactor), (int) (20 * scaleFactor), Image.SCALE_SMOOTH);
+            googleLoginButton.setIcon(new ImageIcon(img));
+            googleLoginButton.setIconTextGap(10);
         } catch (Exception e) {
             // If icon not found, continue without it
             System.out.println("Google icon not found");
         }
         
         // Custom button UI
-        loginButton.setUI(new BasicButtonUI() {
+        googleLoginButton.setUI(new BasicButtonUI() {
             @Override
             public void paint(Graphics g, JComponent c) {
                 Graphics2D g2 = (Graphics2D) g.create();
@@ -188,22 +303,22 @@ public class MainWindow extends JFrame {
         });
         
         // Hover effect
-        loginButton.addMouseListener(new MouseAdapter() {
+        googleLoginButton.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseEntered(MouseEvent e) {
-                loginButton.setBackground(new Color(248, 250, 252));
+                googleLoginButton.setBackground(new Color(248, 250, 252));
             }
             
             @Override
             public void mouseExited(MouseEvent e) {
-                loginButton.setBackground(Color.WHITE);
+                googleLoginButton.setBackground(Color.WHITE);
             }
         });
         
         // Add action - sử dụng GoogleLoginHelper thật
-        loginButton.addActionListener(this::handleGoogleLogin);
+        googleLoginButton.addActionListener(this::handleGoogleLogin);
         
-        return loginButton;
+        return googleLoginButton;
     }
     
     private void handleGoogleLogin(ActionEvent e) {
@@ -311,13 +426,13 @@ public class MainWindow extends JFrame {
         centerPanel.add(Box.createVerticalStrut(30));
         
         // Welcome text
-        JLabel welcomeLabel = new JLabel("Welcome!");
+        welcomeLabel = new JLabel("Welcome!");
         welcomeLabel.setFont(WELCOME_FONT);
         welcomeLabel.setForeground(new Color(30, 41, 59));
         welcomeLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         centerPanel.add(welcomeLabel);
         
-        JLabel subtitleLabel = new JLabel("Please login using your Google account.");
+        subtitleLabel = new JLabel("Please login using your Google account.");
         subtitleLabel.setFont(MAIN_FONT);
         subtitleLabel.setForeground(TEXT_COLOR);
         subtitleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -325,14 +440,14 @@ public class MainWindow extends JFrame {
         centerPanel.add(Box.createVerticalStrut(40));
         
         // Google Login button
-        JButton googleLoginButton = createGoogleLoginButton();
+        googleLoginButton = createGoogleLoginButton();
         googleLoginButton.setAlignmentX(Component.CENTER_ALIGNMENT);
         centerPanel.add(googleLoginButton);
         centerPanel.add(Box.createVerticalStrut(30));
         
         // Footer text
-        JLabel footerLabel = new JLabel("Only Google login is supported.");
-        footerLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        footerLabel = new JLabel("Only Google login is supported.");
+        footerLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (FOOTER_FONT_SIZE * scaleFactor)));
         footerLabel.setForeground(new Color(148, 163, 184));
         footerLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
         centerPanel.add(footerLabel);
@@ -342,19 +457,32 @@ public class MainWindow extends JFrame {
     
     public void showLoginPanel() {
         cardLayout.show(contentPanel, LOGIN_PANEL);
+        currentPanel = LOGIN_PANEL;
+        
+        // Điều chỉnh kích thước và góc bo tròn nếu không ở trạng thái phóng to
+        if (!isMaximized) {
+            setSize(400, 500);
+            setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 15, 15));
+            setLocationRelativeTo(null);
+        }
+        updateFonts();
     }
     
     public void showTaskPanel() {
-        // Resize window for task panel
-        setSize(800, 600);
-        setLocationRelativeTo(null);
-        
-        // Remove rounded shape for task panel
-        setShape(null);
-        
         cardLayout.show(contentPanel, TASK_PANEL);
+        currentPanel = TASK_PANEL;
+        
+        // Điều chỉnh kích thước và góc bo tròn nếu không ở trạng thái phóng to
+        if (!isMaximized) {
+            setSize(1100, 750);
+            setShape(null); // TaskPanel không có góc bo tròn theo thiết kế hiện tại
+            // Nếu muốn TaskPanel có góc bo tròn, uncomment dòng dưới
+            // setShape(new RoundRectangle2D.Double(0, 0, getWidth(), getHeight(), 15, 15));
+            setLocationRelativeTo(null);
+        }
         // Refresh tasks khi hiển thị panel
         taskPanel.refreshUsers();
+        taskPanel.updateFonts(scaleFactor);
     }
     
     // Main method for testing

@@ -211,7 +211,7 @@ public class AuthService {
         return false;
     }
 
-    private String generateCsrfToken() {
+    public String generateCsrfToken() {
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);

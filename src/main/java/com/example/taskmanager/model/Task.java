@@ -15,7 +15,7 @@ public class Task {
     private String status;
     private String phone;
     private String address;
-    private LocalDate birthDate; // Thay LocalDateTime bằng LocalDate
+    private LocalDate birthDate;
     private String identityNumber;
 
     // Getters và setters
@@ -31,53 +31,25 @@ public class Task {
     @JsonProperty("CreateDate")
     public LocalDateTime getCreateDate() { return createDate; }
     public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
-    @JsonProperty("UpdateDate")
+    @JsonProperty("updateDate")
     public LocalDateTime getUpdateDate() { return updateDate; }
     public void setUpdateDate(LocalDateTime updateDate) { this.updateDate = updateDate; }
-    @JsonProperty("FullName")
+    @JsonProperty("fullName")
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
     @JsonProperty("Status")
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    @JsonProperty("Phone")
+    @JsonProperty("phone")
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
-    @JsonProperty("Address")
+    @JsonProperty("address")
     public String getAddress() { return address; }
     public void setAddress(String address) { this.address = address; }
-    @JsonProperty("BirthDate")
+    @JsonProperty("birthDate")
     public LocalDate getBirthDate() { return birthDate; }
     public void setBirthDate(LocalDate birthDate) { this.birthDate = birthDate; }
-    @JsonProperty("IdentityNumber")
+    @JsonProperty("identityNumber")
     public String getIdentityNumber() { return identityNumber; }
     public void setIdentityNumber(String identityNumber) { this.identityNumber = identityNumber; }
-
-    public String getTitle() {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    public void setTitle(String title) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    public void setDescription(String description) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    public void setCompleted(boolean selected) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    public void setUpdatedAt(LocalDateTime now) {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    public boolean isCompleted() {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
-
-    public String getDescription() {
-        throw new UnsupportedOperationException("Not supported yet."); // Generated from nbfs://nbhost/SystemFileSystem/Templates/Classes/Code/GeneratedMethodBody
-    }
 }
