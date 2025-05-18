@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import java.util.Vector;
 
 public class TaskPanel extends JPanel {
@@ -28,8 +29,8 @@ public class TaskPanel extends JPanel {
     private final JButton logoutButton;
     
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-    private static final int BASE_FONT_SIZE = 12; // Font size gốc cho các thành phần
-    private double scaleFactor = 1.0; // Tỷ lệ phóng to font
+    private static final int BASE_FONT_SIZE = 12;
+    private double scaleFactor = 1.0;
 
     public TaskPanel(ApiService apiService, AuthService authService, MainWindow mainWindow) {
         this.apiService = apiService;
@@ -39,7 +40,6 @@ public class TaskPanel extends JPanel {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
         
-        // Create table model with column names for user data
         String[] columnNames = {"ID", "Email", "Full Name", "Role", "Status", "Created Date", "Updated Date", "Phone", "Address", "Birth Date", "Identity Number"};
         tableModel = new DefaultTableModel(columnNames, 0) {
             @Override
@@ -48,7 +48,6 @@ public class TaskPanel extends JPanel {
             }
         };
         
-        // Create table and scroll pane
         userTable = new JTable(tableModel);
         userTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         userTable.getTableHeader().setReorderingAllowed(false);
@@ -57,7 +56,6 @@ public class TaskPanel extends JPanel {
         
         JScrollPane scrollPane = new JScrollPane(userTable);
         
-        // Create button panel
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         
         refreshButton = new JButton("Refresh");
@@ -109,11 +107,9 @@ public class TaskPanel extends JPanel {
         buttonPanel.add(deleteButton);
         buttonPanel.add(logoutButton);
         
-        // Add components to panel
         add(buttonPanel, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
         
-        // Initial load of users
         refreshUsers();
     }
 
@@ -122,13 +118,11 @@ public class TaskPanel extends JPanel {
         Font scaledFont = new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor));
         Font scaledBoldFont = new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor));
         
-        // Cập nhật font cho bảng
         userTable.setFont(scaledFont);
         userTable.getTableHeader().setFont(scaledBoldFont);
         userTable.revalidate();
         userTable.repaint();
         
-        // Cập nhật font cho các nút
         refreshButton.setFont(scaledFont);
         addButton.setFont(scaledFont);
         editButton.setFont(scaledFont);
@@ -234,7 +228,7 @@ public class TaskPanel extends JPanel {
         user.setUpdateDate(updateDate);
         user.setPhone(phone);
         user.setAddress(address);
-        user.setBirthDate(birthDate); // Sử dụng LocalDate
+        user.setBirthDate(birthDate);
         user.setIdentityNumber(identityNumber);
 
         return user;
@@ -243,16 +237,16 @@ public class TaskPanel extends JPanel {
     private Object parseDateTime(String dateTimeStr) {
         if (dateTimeStr == null || dateTimeStr.isEmpty()) return null;
         try {
-            return LocalDateTime.parse(dateTimeStr, DATE_FORMATTER); // Thử parse với định dạng đầy đủ
+            return LocalDateTime.parse(dateTimeStr, DATE_FORMATTER);
         } catch (Exception e) {
-            return LocalDate.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd")); // Thử parse với định dạng ngày
+            return LocalDate.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         }
     }
 
     private void showAddUserDialog() {
         JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Add New User", Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setLayout(new BorderLayout(10, 10));
-        dialog.setSize((int) (550 * scaleFactor), (int) (350 * scaleFactor)); // Tăng chiều rộng dialog
+        dialog.setSize((int) (550 * scaleFactor), (int) (350 * scaleFactor));
         dialog.getContentPane().setBackground(new Color(240, 248, 255));
         dialog.setLocationRelativeTo(this);
 
@@ -290,27 +284,27 @@ public class TaskPanel extends JPanel {
 
         JLabel roleLabel = new JLabel("Role:");
         roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        JTextField roleField = new JTextField("customer", 20);
-        roleField.setBorder(BorderFactory.createCompoundBorder(
+        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"admin"});
+        roleComboBox.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
             BorderFactory.createEmptyBorder(2, 2, 2, 2)
         ));
-        roleField.setEnabled(true);
-        roleField.setBackground(Color.WHITE);
-        roleField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
-        roleField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        roleComboBox.setEnabled(true);
+        roleComboBox.setBackground(Color.WHITE);
+        roleComboBox.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        roleComboBox.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
 
         JLabel statusLabel = new JLabel("Status:");
         statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        JTextField statusField = new JTextField("Active", 20);
-        statusField.setBorder(BorderFactory.createCompoundBorder(
+        JComboBox<String> statusComboBox = new JComboBox<>(new String[]{"Active", "Blocked"});
+        statusComboBox.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
             BorderFactory.createEmptyBorder(2, 2, 2, 2)
         ));
-        statusField.setEnabled(true);
-        statusField.setBackground(Color.WHITE);
-        statusField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
-        statusField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        statusComboBox.setEnabled(true);
+        statusComboBox.setBackground(Color.WHITE);
+        statusComboBox.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        statusComboBox.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
 
         JLabel phoneLabel = new JLabel("Phone:");
         phoneLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
@@ -360,11 +354,11 @@ public class TaskPanel extends JPanel {
         identityNumberField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
         identityNumberField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
 
-        gbc.weightx = 0.3; // Label chiếm 30% chiều rộng
+        gbc.weightx = 0.3;
         gbc.gridx = 0;
         gbc.gridy = 0;
         formPanel.add(emailLabel, gbc);
-        gbc.weightx = 0.7; // Text field chiếm 70% chiều rộng
+        gbc.weightx = 0.7;
         gbc.gridx = 1;
         formPanel.add(emailField, gbc);
 
@@ -382,7 +376,7 @@ public class TaskPanel extends JPanel {
         formPanel.add(roleLabel, gbc);
         gbc.weightx = 0.7;
         gbc.gridx = 1;
-        formPanel.add(roleField, gbc);
+        formPanel.add(roleComboBox, gbc);
 
         gbc.weightx = 0.3;
         gbc.gridx = 0;
@@ -390,7 +384,7 @@ public class TaskPanel extends JPanel {
         formPanel.add(statusLabel, gbc);
         gbc.weightx = 0.7;
         gbc.gridx = 1;
-        formPanel.add(statusField, gbc);
+        formPanel.add(statusComboBox, gbc);
 
         gbc.weightx = 0.3;
         gbc.gridx = 0;
@@ -450,8 +444,8 @@ public class TaskPanel extends JPanel {
         saveButton.addActionListener(e -> {
             String email = emailField.getText().trim();
             String fullName = fullNameField.getText().trim();
-            String role = roleField.getText().trim();
-            String status = statusField.getText().trim();
+            String role = (String) roleComboBox.getSelectedItem();
+            String status = (String) statusComboBox.getSelectedItem();
             String phone = phoneField.getText().trim();
             String address = addressField.getText().trim();
             Object birthDateObj = parseDateTime(birthDateField.getText().trim());
@@ -477,6 +471,8 @@ public class TaskPanel extends JPanel {
             newUser.setIdentityNumber(identityNumber);
             newUser.setCreateDate(LocalDateTime.now());
             newUser.setUpdateDate(LocalDateTime.now());
+//            // Tạo GoogleID ngẫu nhiên
+//            newUser.setGoogleId(UUID.randomUUID().toString().replaceAll("-", ""));
 
             createUser(newUser);
             dialog.dispose();
@@ -500,13 +496,13 @@ public class TaskPanel extends JPanel {
 
         JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Edit User", Dialog.ModalityType.APPLICATION_MODAL);
         dialog.setLayout(new BorderLayout(10, 10));
-        dialog.setSize((int) (550 * scaleFactor), (int) (350 * scaleFactor)); // Tăng chiều rộng dialog
-        dialog.getContentPane().setBackground(new Color(240, 248, 255)); // Màu nền nhẹ (AliceBlue)
+        dialog.setSize((int) (550 * scaleFactor), (int) (350 * scaleFactor));
+        dialog.getContentPane().setBackground(new Color(240, 248, 255));
         dialog.setLocationRelativeTo(this);
 
         JPanel formPanel = new JPanel(new GridBagLayout());
         formPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
-        formPanel.setBackground(new Color(245, 245, 245)); // Màu nền xám nhạt
+        formPanel.setBackground(new Color(245, 245, 245));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 5, 5, 5);
@@ -538,27 +534,29 @@ public class TaskPanel extends JPanel {
 
         JLabel roleLabel = new JLabel("Role:");
         roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        JTextField roleField = new JTextField(user.getRole() != null ? user.getRole() : "", 20);
-        roleField.setBorder(BorderFactory.createCompoundBorder(
+        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"admin"});
+        roleComboBox.setSelectedItem(user.getRole() != null ? user.getRole() : "admin");
+        roleComboBox.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
             BorderFactory.createEmptyBorder(2, 2, 2, 2)
         ));
-        roleField.setEnabled(true);
-        roleField.setBackground(Color.WHITE);
-        roleField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
-        roleField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        roleComboBox.setEnabled(true);
+        roleComboBox.setBackground(Color.WHITE);
+        roleComboBox.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        roleComboBox.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
 
         JLabel statusLabel = new JLabel("Status:");
         statusLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        JTextField statusField = new JTextField(user.getStatus() != null ? user.getStatus() : "", 20);
-        statusField.setBorder(BorderFactory.createCompoundBorder(
+        JComboBox<String> statusComboBox = new JComboBox<>(new String[]{"Active", "Blocked"});
+        statusComboBox.setSelectedItem(user.getStatus() != null ? user.getStatus() : "Active");
+        statusComboBox.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
             BorderFactory.createEmptyBorder(2, 2, 2, 2)
         ));
-        statusField.setEnabled(true);
-        statusField.setBackground(Color.WHITE);
-        statusField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
-        statusField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        statusComboBox.setEnabled(true);
+        statusComboBox.setBackground(Color.WHITE);
+        statusComboBox.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        statusComboBox.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
 
         JLabel phoneLabel = new JLabel("Phone:");
         phoneLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
@@ -608,11 +606,11 @@ public class TaskPanel extends JPanel {
         identityNumberField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
         identityNumberField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
 
-        gbc.weightx = 0.3; // Label chiếm 30% chiều rộng
+        gbc.weightx = 0.3;
         gbc.gridx = 0;
         gbc.gridy = 0;
         formPanel.add(emailLabel, gbc);
-        gbc.weightx = 0.7; // Text field chiếm 70% chiều rộng
+        gbc.weightx = 0.7;
         gbc.gridx = 1;
         formPanel.add(emailField, gbc);
 
@@ -630,7 +628,7 @@ public class TaskPanel extends JPanel {
         formPanel.add(roleLabel, gbc);
         gbc.weightx = 0.7;
         gbc.gridx = 1;
-        formPanel.add(roleField, gbc);
+        formPanel.add(roleComboBox, gbc);
 
         gbc.weightx = 0.3;
         gbc.gridx = 0;
@@ -638,7 +636,7 @@ public class TaskPanel extends JPanel {
         formPanel.add(statusLabel, gbc);
         gbc.weightx = 0.7;
         gbc.gridx = 1;
-        formPanel.add(statusField, gbc);
+        formPanel.add(statusComboBox, gbc);
 
         gbc.weightx = 0.3;
         gbc.gridx = 0;
@@ -676,8 +674,8 @@ public class TaskPanel extends JPanel {
         buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
 
         JButton saveButton = new JButton("Save");
-        saveButton.setBackground(new Color(46, 139, 87)); // Màu nền xanh lá
-        saveButton.setForeground(Color.BLACK); // Màu chữ đen
+        saveButton.setBackground(new Color(46, 139, 87));
+        saveButton.setForeground(Color.BLACK);
         saveButton.setFocusPainted(false);
         saveButton.setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
         saveButton.setBorder(BorderFactory.createCompoundBorder(
@@ -686,8 +684,8 @@ public class TaskPanel extends JPanel {
         ));
 
         JButton cancelButton = new JButton("Cancel");
-        cancelButton.setBackground(new Color(255, 99, 71)); // Màu nền đỏ cam
-        cancelButton.setForeground(Color.BLACK); // Màu chữ đen
+        cancelButton.setBackground(new Color(255, 99, 71));
+        cancelButton.setForeground(Color.BLACK);
         cancelButton.setFocusPainted(false);
         cancelButton.setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
         cancelButton.setBorder(BorderFactory.createCompoundBorder(
@@ -698,8 +696,8 @@ public class TaskPanel extends JPanel {
         saveButton.addActionListener(e -> {
             String email = emailField.getText().trim();
             String fullName = fullNameField.getText().trim();
-            String role = roleField.getText().trim();
-            String status = statusField.getText().trim();
+            String role = (String) roleComboBox.getSelectedItem();
+            String status = (String) statusComboBox.getSelectedItem();
             String phone = phoneField.getText().trim();
             String address = addressField.getText().trim();
             Object birthDateObj = parseDateTime(birthDateField.getText().trim());
@@ -759,17 +757,17 @@ public class TaskPanel extends JPanel {
     }
     
     private void createUser(Task user) {
-        SwingWorker<Task, Void> worker = new SwingWorker<>() {
+        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
             @Override
-            protected Task doInBackground() {
+            protected Boolean doInBackground() {
                 return apiService.createUser(user);
             }
             
             @Override
             protected void done() {
                 try {
-                    Task createdUser = get();
-                    if (createdUser != null) {
+                    boolean success = get();
+                    if (success) {
                         refreshUsers();
                         JOptionPane.showMessageDialog(TaskPanel.this, 
                             "User created successfully", 
@@ -795,17 +793,17 @@ public class TaskPanel extends JPanel {
     }
     
     public void updateUser(Task user) {
-        SwingWorker<List<Task>, Void> worker = new SwingWorker<>() {
+        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
             @Override
-            protected List<Task> doInBackground() {
+            protected Boolean doInBackground() {
                 return apiService.updateUser(user);
             }
             
             @Override
             protected void done() {
                 try {
-                    List<Task> updatedUser = get();
-                    if (updatedUser != null) {
+                    boolean success = get();
+                    if (success) {
                         refreshUsers();
                         JOptionPane.showMessageDialog(TaskPanel.this, 
                             "User updated successfully", 

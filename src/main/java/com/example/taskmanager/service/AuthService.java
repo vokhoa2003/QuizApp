@@ -31,6 +31,7 @@ public class AuthService {
     private String refreshToken;
     private String lastLoginRole; // Thêm để lưu role từ response
     private LocalDateTime expiryTime;
+    private String lastLoginResponse; // Thêm để lưu response từ /app_login
     
     private static final String PREF_ACCESS_TOKEN = "access_token";
     private static final String PREF_REFRESH_TOKEN = "refresh_token";
@@ -173,7 +174,7 @@ public class AuthService {
                     "&expires_at=" + LocalDateTime.now().plusHours(1).toString() +
                     "&csrf_token=" + csrfToken;
 
-            String fullUrl = apiConfig.getApiBaseUrl() + "/login";
+            String fullUrl = apiConfig.getApiBaseUrl() + "/app_login";
             System.out.println("Sending POST request to: " + fullUrl);
             System.out.println("Request body: " + formData);
 
@@ -186,6 +187,7 @@ public class AuthService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             System.out.println("Backend login response: " + response.body());
+            this.lastLoginResponse = response.body(); // Lưu response
 
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
@@ -239,5 +241,8 @@ public class AuthService {
     }
     public String getLastLoginRole() {
         return lastLoginRole;
+    }
+    public String getLastLoginResponse() {
+        return lastLoginResponse;
     }
 }

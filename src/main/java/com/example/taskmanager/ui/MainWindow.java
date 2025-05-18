@@ -4,6 +4,8 @@ import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.google.api.services.oauth2.model.Userinfo;
 import com.example.taskmanager.auth.GoogleLoginHelper;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.swing.*;
 import javax.swing.plaf.basic.BasicButtonUI;
@@ -321,6 +323,76 @@ public class MainWindow extends JFrame {
         return googleLoginButton;
     }
     
+//    private void handleGoogleLogin(ActionEvent e) {
+//        JButton googleLoginButton = (JButton)e.getSource();
+//        googleLoginButton.setEnabled(false);
+//        googleLoginButton.setText("Đang đăng nhập...");
+//        
+//        SwingWorker<Userinfo, Void> worker = new SwingWorker<>() {
+//            @Override
+//            protected Userinfo doInBackground() throws Exception {
+//                return GoogleLoginHelper.login();
+//            }
+//            
+//            @Override
+//            protected void done() {
+//                try {
+//                    Userinfo userInfo = get();
+//                    if (userInfo != null) {
+//                        boolean success = authService.loginWithGoogle(userInfo);
+//                        if (success) {
+//                            // Kiểm tra role
+//                            String userRole = authService.getLastLoginRole();
+//                            String userEmail = userInfo.getEmail();
+//                            if (userRole == null || !userRole.equals("admin")) {
+//                                String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";
+//                                if (userRole != null && userRole.equals("customer")) {
+//                                    errorMessage += "Vui lòng truy cập ứng dụng web tại: " + WEB_APP_URL;
+//                                } else {
+//                                    errorMessage += "Tài khoản của bạn (" + userEmail + ") không có quyền truy cập.";
+//                                }
+//                                JOptionPane.showMessageDialog(MainWindow.this, 
+//                                    errorMessage, 
+//                                    "Access Denied", 
+//                                    JOptionPane.ERROR_MESSAGE);
+//                                authService.logout();
+//                            } else {
+//                                // Role là admin, chuyển sang TaskPanel
+//                                JOptionPane.showMessageDialog(MainWindow.this, 
+//                                    "Xin chào " + userInfo.getName() + "\nEmail: " + userInfo.getEmail(), 
+//                                    "Đăng nhập thành công", 
+//                                    JOptionPane.INFORMATION_MESSAGE);
+//                                showTaskPanel();
+//                            }
+//                        } else {
+//                            JOptionPane.showMessageDialog(MainWindow.this, 
+//                                "Không thể đăng nhập với tài khoản Google này", 
+//                                "Lỗi đăng nhập", 
+//                                JOptionPane.ERROR_MESSAGE);
+//                            authService.logout();
+//                        }
+//                    } else {
+//                        JOptionPane.showMessageDialog(MainWindow.this, 
+//                            "Đăng nhập Google thất bại", 
+//                            "Lỗi đăng nhập", 
+//                            JOptionPane.ERROR_MESSAGE);
+//                        authService.logout();
+//                    }
+//                } catch (Exception ex) {
+//                    ex.printStackTrace();
+//                    JOptionPane.showMessageDialog(MainWindow.this, 
+//                        "Lỗi đăng nhập Google: " + ex.getMessage(), 
+//                        "Lỗi đăng nhập", 
+//                        JOptionPane.ERROR_MESSAGE);
+//                    authService.logout();
+//                } finally {
+//                    googleLoginButton.setEnabled(true);
+//                    googleLoginButton.setText("Đăng nhập bằng Google");
+//                }
+//            }
+//        };
+//        worker.execute();
+//    }
     private void handleGoogleLogin(ActionEvent e) {
         JButton googleLoginButton = (JButton)e.getSource();
         googleLoginButton.setEnabled(false);
@@ -339,28 +411,38 @@ public class MainWindow extends JFrame {
                     if (userInfo != null) {
                         boolean success = authService.loginWithGoogle(userInfo);
                         if (success) {
-                            // Kiểm tra role
+                            // Lấy role và status từ response
                             String userRole = authService.getLastLoginRole();
+                            String userStatus = null; // Cần lấy status từ response
+                            // Giả sử response từ /app_login trả về status trong JSON
+                            String responseBody = authService.getLastLoginResponse(); // Cần thêm phương thức này
+                            if (responseBody != null) {
+                                JsonNode jsonNode = new ObjectMapper().readTree(responseBody);
+                                userStatus = jsonNode.has("status") ? jsonNode.get("status").asText() : null;
+                            }
+
                             String userEmail = userInfo.getEmail();
-                            if (userRole == null || !userRole.equals("admin")) {
+                            if (userRole != null && userRole.equals("admin") && userStatus != null && userStatus.equals("Active")) {
+                                // Role là admin và status là Active, chuyển sang TaskPanel
+                                JOptionPane.showMessageDialog(MainWindow.this, 
+                                    "Xin chào " + userInfo.getName() + "\nEmail: " + userInfo.getEmail(), 
+                                    "Đăng nhập thành công", 
+                                    JOptionPane.INFORMATION_MESSAGE);
+                                showTaskPanel();
+                            } else {
                                 String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";
                                 if (userRole != null && userRole.equals("customer")) {
                                     errorMessage += "Vui lòng truy cập ứng dụng web tại: " + WEB_APP_URL;
+                                } else if (userStatus != null && userStatus.equals("Blocked")) {
+                                    errorMessage += "Tài khoản của bạn (" + userEmail + ") đã bị chặn.";
                                 } else {
-                                    errorMessage += "Tài khoản của bạn (" + userEmail + ") không có quyền truy cập.";
+                                    errorMessage += "Tài khoản của bạn (" + userEmail + ") không có quyền admin hoặc không Active.";
                                 }
                                 JOptionPane.showMessageDialog(MainWindow.this, 
                                     errorMessage, 
                                     "Access Denied", 
                                     JOptionPane.ERROR_MESSAGE);
                                 authService.logout();
-                            } else {
-                                // Role là admin, chuyển sang TaskPanel
-                                JOptionPane.showMessageDialog(MainWindow.this, 
-                                    "Xin chào " + userInfo.getName() + "\nEmail: " + userInfo.getEmail(), 
-                                    "Đăng nhập thành công", 
-                                    JOptionPane.INFORMATION_MESSAGE);
-                                showTaskPanel();
                             }
                         } else {
                             JOptionPane.showMessageDialog(MainWindow.this, 

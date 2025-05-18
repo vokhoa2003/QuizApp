@@ -28,7 +28,7 @@ public class Task {
     @JsonProperty("GoogleID")
     public String getGoogleId() { return googleId; }
     public void setGoogleId(String googleId) { this.googleId = googleId; }
-    @JsonProperty("CreateDate")
+    @JsonProperty("createDate")
     public LocalDateTime getCreateDate() { return createDate; }
     public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
     @JsonProperty("updateDate")
@@ -37,7 +37,7 @@ public class Task {
     @JsonProperty("fullName")
     public String getFullName() { return fullName; }
     public void setFullName(String fullName) { this.fullName = fullName; }
-    @JsonProperty("Status")
+    @JsonProperty("status")
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
     @JsonProperty("phone")
