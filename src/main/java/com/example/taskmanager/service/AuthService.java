@@ -242,7 +242,7 @@ public class AuthService {
 
             // Lưu email người dùng để sử dụng cho mã hóa
             this.userEmail = userInfo.getEmail();
-            System.out.println("User email set for encryption: " + userEmail);
+            //System.out.println("User email set for encryption: " + userEmail);
 
             String csrfToken = generateCsrfToken();
             String formData = "GoogleID=" + userInfo.getId() +
@@ -271,7 +271,7 @@ public class AuthService {
                     this.expiryTime = LocalDateTime.now().plusHours(1);
                     this.lastLoginRole = extractRoleFromToken(this.accessToken);
                     saveTokenToPreferences();
-                    System.out.println("Google login successful for user: " + userEmail);
+                    //System.out.println("Google login successful for user: " + userEmail);
                     return true;
                 }
             }

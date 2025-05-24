@@ -91,7 +91,9 @@ public class GoogleLoginHelper {
         // Mã hóa access token với email người dùng
         String encryptedAccessToken = EncryptionUtil.encrypt(credential.getAccessToken(), userinfo.getEmail());
         credential.setAccessToken(encryptedAccessToken);
-
+        String encryptedRefreshToken = credential.getRefreshToken() != null 
+        ? EncryptionUtil.encrypt(credential.getRefreshToken(), userinfo.getEmail()) 
+        : null;
         return userinfo;
     }
 
