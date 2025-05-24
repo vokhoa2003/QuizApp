@@ -20,6 +20,8 @@ import java.util.List;
 
 import com.example.taskmanager.config.ApiConfig;
 import com.example.taskmanager.security.EncryptionUtil;
+import com.google.api.client.auth.oauth2.StoredCredential;
+import com.google.api.client.util.store.DataStore;
 
 public class GoogleLoginHelper {
     private static final List<String> SCOPES = List.of(
@@ -91,9 +93,60 @@ public class GoogleLoginHelper {
         // Mã hóa access token với email người dùng
         String encryptedAccessToken = EncryptionUtil.encrypt(credential.getAccessToken(), userinfo.getEmail());
         credential.setAccessToken(encryptedAccessToken);
+        
         String encryptedRefreshToken = credential.getRefreshToken() != null 
         ? EncryptionUtil.encrypt(credential.getRefreshToken(), userinfo.getEmail()) 
         : null;
+        if (encryptedRefreshToken != null) {
+            credential.setRefreshToken(encryptedRefreshToken);
+        }
+        // Lưu credential vào file sau khi mã hóa
+//        try {
+//            DataStore<com.google.api.client.auth.oauth2.StoredCredential> dataStore = 
+//                flow.getDataStoreFactory().getDataStore("StoredCredential");
+//            dataStore.set("user", new com.google.api.client.auth.oauth2.StoredCredential(credential));
+//            System.out.println("Credential saved to tokens directory");
+//            
+//            // Kiểm tra lại nội dung file
+//            com.google.api.client.auth.oauth2.StoredCredential storedCredential = dataStore.get("user");
+//            if (storedCredential != null) {
+//                System.out.println("Stored Access Token: " + storedCredential.getAccessToken());
+//                System.out.println("Stored Refresh Token: " + storedCredential.getRefreshToken());
+//                String decryptedAccessToken = EncryptionUtil.decrypt(storedCredential.getAccessToken(), userinfo.getEmail());
+//                System.out.println("Decrypted Stored Access Token: " + decryptedAccessToken);
+//            } else {
+//                System.out.println("No credential found in tokens directory");
+//            }
+//        } catch (Exception e) {
+//            System.out.println("Error saving credential: " + e.getMessage());
+//            e.printStackTrace();
+//        }
+try {
+    FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(TOKENS_DIRECTORY_PATH));
+    DataStore<StoredCredential> dataStore = dataStoreFactory.getDataStore("StoredCredential");
+    if (dataStore == null) {
+        System.out.println("DataStore is null. Check if tokens directory is accessible.");
+        throw new Exception("Failed to initialize DataStore");
+    }
+    StoredCredential storedCredential = new StoredCredential(credential);
+    dataStore.set("user", storedCredential);
+    //System.out.println("Credential saved successfully to tokens directory");
+
+    // Kiểm tra lại nội dung
+    StoredCredential retrievedCredential = dataStore.get("user");
+    if (retrievedCredential != null) {
+        //System.out.println("Stored Access Token: " + retrievedCredential.getAccessToken());
+        //System.out.println("Stored Refresh Token: " + retrievedCredential.getRefreshToken());
+        String decryptedAccessToken = EncryptionUtil.decrypt(retrievedCredential.getAccessToken(), userinfo.getEmail());
+        //System.out.println("Decrypted Stored Access Token: " + decryptedAccessToken);
+    } else {
+        //System.out.println("No credential found in DataStore");
+    }
+} catch (Exception e) {
+    System.out.println("Error saving or retrieving credential: " + e.getMessage());
+    e.printStackTrace();
+    throw e;
+}
         return userinfo;
     }
 
