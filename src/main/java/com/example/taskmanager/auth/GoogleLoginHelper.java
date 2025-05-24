@@ -64,7 +64,18 @@ public class GoogleLoginHelper {
             @Override
             protected void onAuthorization(com.google.api.client.auth.oauth2.AuthorizationCodeRequestUrl authorizationUrl) throws IOException {
                 authorizationUrl.set("prompt", "select_account");
-                super.onAuthorization(authorizationUrl);
+                // Gọi phương thức browse tùy chỉnh thay vì super.onAuthorization
+                customBrowse(authorizationUrl.build());
+            }
+
+            // Không gắn @Override vì có thể không tồn tại trong phiên bản cũ
+            protected boolean customBrowse(String url) throws IOException {
+                try {
+                    java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
+                    return true;
+                } catch (Exception e) {
+                    throw new IOException("Failed to open browser: " + e.getMessage(), e);
+                }
             }
         }.authorize("user");
 
