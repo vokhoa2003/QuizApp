@@ -534,7 +534,7 @@ public class TaskPanel extends JPanel {
 
         JLabel roleLabel = new JLabel("Role:");
         roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"admin"});
+        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"admin", "customer"});
         roleComboBox.setSelectedItem(user.getRole() != null ? user.getRole() : "admin");
         roleComboBox.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
@@ -770,12 +770,12 @@ public class TaskPanel extends JPanel {
                     if (success) {
                         refreshUsers();
                         JOptionPane.showMessageDialog(TaskPanel.this, 
-                            "User created successfully", 
+                            "Thêm người dùng thành công!", 
                             "Success", 
                             JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         JOptionPane.showMessageDialog(TaskPanel.this, 
-                            "Failed to create user", 
+                            "Lỗi khi thêm người dùng!", 
                             "Error", 
                             JOptionPane.ERROR_MESSAGE);
                     }
@@ -806,12 +806,12 @@ public class TaskPanel extends JPanel {
                     if (success) {
                         refreshUsers();
                         JOptionPane.showMessageDialog(TaskPanel.this, 
-                            "User updated successfully", 
+                            "Cập nhật thông tin người dùng thành công!", 
                             "Success", 
                             JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         JOptionPane.showMessageDialog(TaskPanel.this, 
-                            "Failed to update user", 
+                            "Lỗi cập nhật thông tin người dùng!", 
                             "Error", 
                             JOptionPane.ERROR_MESSAGE);
                     }
@@ -842,12 +842,12 @@ public class TaskPanel extends JPanel {
                     if (success) {
                         refreshUsers();
                         JOptionPane.showMessageDialog(TaskPanel.this, 
-                            "User deleted successfully", 
+                            "Xóa người dùng thành công!", 
                             "Success", 
                             JOptionPane.INFORMATION_MESSAGE);
                     } else {
                         JOptionPane.showMessageDialog(TaskPanel.this, 
-                            "Failed to delete user", 
+                            "Lỗi khi xóa người dùng!", 
                             "Error", 
                             JOptionPane.ERROR_MESSAGE);
                     }

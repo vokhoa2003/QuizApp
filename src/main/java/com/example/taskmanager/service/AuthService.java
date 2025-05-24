@@ -26,6 +26,7 @@ public class AuthService {
     private final ObjectMapper objectMapper;
     private final ApiConfig apiConfig;
     private final Preferences preferences;
+    private String userEmail; // Lưu email người dùng sau khi đăng nhập
     
     private String accessToken;
     private String refreshToken;
@@ -49,22 +50,41 @@ public class AuthService {
         loadTokenFromPreferences();
     }
     
+//    private void loadTokenFromPreferences() {
+//        String encryptedAccessToken = preferences.get(PREF_ACCESS_TOKEN, null);
+//        String encryptedRefreshToken = preferences.get(PREF_REFRESH_TOKEN, null);
+//        String expiryTimeStr = preferences.get(PREF_EXPIRY_TIME, null);
+//        
+//        if (encryptedAccessToken != null && encryptedRefreshToken != null && expiryTimeStr != null) {
+//            this.accessToken = EncryptionUtil.decrypt(encryptedAccessToken);
+//            this.refreshToken = EncryptionUtil.decrypt(encryptedRefreshToken);
+//            this.expiryTime = LocalDateTime.parse(expiryTimeStr);
+//        }
+//    }
+//    
+//    private void saveTokenToPreferences() {
+//        if (accessToken != null && refreshToken != null && expiryTime != null) {
+//            preferences.put(PREF_ACCESS_TOKEN, EncryptionUtil.encrypt(accessToken));
+//            preferences.put(PREF_REFRESH_TOKEN, EncryptionUtil.encrypt(refreshToken));
+//            preferences.put(PREF_EXPIRY_TIME, expiryTime.toString());
+//        }
+//    }
     private void loadTokenFromPreferences() {
         String encryptedAccessToken = preferences.get(PREF_ACCESS_TOKEN, null);
         String encryptedRefreshToken = preferences.get(PREF_REFRESH_TOKEN, null);
         String expiryTimeStr = preferences.get(PREF_EXPIRY_TIME, null);
-        
+
         if (encryptedAccessToken != null && encryptedRefreshToken != null && expiryTimeStr != null) {
-            this.accessToken = EncryptionUtil.decrypt(encryptedAccessToken);
-            this.refreshToken = EncryptionUtil.decrypt(encryptedRefreshToken);
+            this.accessToken = EncryptionUtil.decrypt(encryptedAccessToken, userEmail);
+            this.refreshToken = EncryptionUtil.decrypt(encryptedRefreshToken, userEmail);
             this.expiryTime = LocalDateTime.parse(expiryTimeStr);
         }
     }
-    
+
     private void saveTokenToPreferences() {
-        if (accessToken != null && refreshToken != null && expiryTime != null) {
-            preferences.put(PREF_ACCESS_TOKEN, EncryptionUtil.encrypt(accessToken));
-            preferences.put(PREF_REFRESH_TOKEN, EncryptionUtil.encrypt(refreshToken));
+        if (accessToken != null && refreshToken != null && expiryTime != null && userEmail != null) {
+            preferences.put(PREF_ACCESS_TOKEN, EncryptionUtil.encrypt(accessToken, userEmail));
+            preferences.put(PREF_REFRESH_TOKEN, EncryptionUtil.encrypt(refreshToken, userEmail));
             preferences.put(PREF_EXPIRY_TIME, expiryTime.toString());
         }
     }
@@ -154,40 +174,94 @@ public class AuthService {
         return (accessToken != null && expiryTime != null && LocalDateTime.now().isBefore(expiryTime));
     }
 
+//    public boolean loginWithGoogle(Userinfo userInfo) {
+//        try {
+//            System.out.println("Attempting Google login for user: " + (userInfo != null ? userInfo.getEmail() : "null"));
+//            if (userInfo == null || userInfo.getEmail() == null || userInfo.getId() == null) {
+//                System.out.println("Invalid Userinfo: " + (userInfo == null ? "null" : "email or ID missing"));
+//                return false;
+//            }
+//
+//            // Tạo CSRF token
+//            String csrfToken = generateCsrfToken();
+//            System.out.println("Generated CSRF Token: " + csrfToken);
+//
+//            String formData = "GoogleID=" + userInfo.getId() +
+//                    "&email=" + userInfo.getEmail() +
+//                    "&FullName=" + (userInfo.getName() != null ? userInfo.getName() : 
+//                        (userInfo.getGivenName() + " " + userInfo.getFamilyName())) +
+//                    "&access_token=google_" + System.currentTimeMillis() +
+//                    "&expires_at=" + LocalDateTime.now().plusHours(1).toString() +
+//                    "&csrf_token=" + csrfToken;
+//
+//            String fullUrl = apiConfig.getApiBaseUrl() + "/app_login";
+//            System.out.println("Sending POST request to: " + fullUrl);
+//            System.out.println("Request body: " + formData);
+//
+//            HttpRequest request = HttpRequest.newBuilder()
+//                    .uri(URI.create(fullUrl))
+//                    .header("Content-Type", "application/x-www-form-urlencoded")
+//                    .header("Cookie", "csrf_token=" + csrfToken) // Gửi CSRF token trong cookie
+//                    .POST(HttpRequest.BodyPublishers.ofString(formData))
+//                    .build();
+//
+//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+//            System.out.println("Backend login response: " + response.body());
+//            this.lastLoginResponse = response.body(); // Lưu response
+//
+//            if (response.statusCode() == 200) {
+//                JsonNode jsonNode = objectMapper.readTree(response.body());
+//                if (jsonNode.has("token") || jsonNode.has("status")) {
+//                    this.accessToken = jsonNode.has("token") ? jsonNode.get("token").asText() : null;
+//                    this.refreshToken = this.accessToken;
+//                    this.expiryTime = LocalDateTime.now().plusHours(1);
+//                    // Giải mã token để lấy role
+//                    this.lastLoginRole = extractRoleFromToken(this.accessToken);
+//                    saveTokenToPreferences();
+//                    System.out.println("Google login successful for user: " + userInfo.getEmail());
+//                    return true;
+//                } else {
+//                    System.err.println("No token in response: " + response.body());
+//                }
+//            } else {
+//                System.err.println("Backend login failed: " + response.statusCode() + " - " + response.body());
+//            }
+//        } catch (Exception e) {
+//            System.err.println("Google login failed: " + e.getMessage());
+//            e.printStackTrace();
+//        }
+//        return false;
+//    }
+
     public boolean loginWithGoogle(Userinfo userInfo) {
         try {
-            System.out.println("Attempting Google login for user: " + (userInfo != null ? userInfo.getEmail() : "null"));
             if (userInfo == null || userInfo.getEmail() == null || userInfo.getId() == null) {
                 System.out.println("Invalid Userinfo: " + (userInfo == null ? "null" : "email or ID missing"));
                 return false;
             }
 
-            // Tạo CSRF token
-            String csrfToken = generateCsrfToken();
-            System.out.println("Generated CSRF Token: " + csrfToken);
+            // Lưu email người dùng để sử dụng cho mã hóa
+            this.userEmail = userInfo.getEmail();
+            System.out.println("User email set for encryption: " + userEmail);
 
+            String csrfToken = generateCsrfToken();
             String formData = "GoogleID=" + userInfo.getId() +
-                    "&email=" + userInfo.getEmail() +
-                    "&FullName=" + (userInfo.getName() != null ? userInfo.getName() : 
-                        (userInfo.getGivenName() + " " + userInfo.getFamilyName())) +
+                    "&email=" + userEmail +
+                    "&FullName=" + (userInfo.getName() != null ? userInfo.getName() :
+                    (userInfo.getGivenName() + " " + userInfo.getFamilyName())) +
                     "&access_token=google_" + System.currentTimeMillis() +
                     "&expires_at=" + LocalDateTime.now().plusHours(1).toString() +
                     "&csrf_token=" + csrfToken;
 
-            String fullUrl = apiConfig.getApiBaseUrl() + "/app_login";
-            System.out.println("Sending POST request to: " + fullUrl);
-            System.out.println("Request body: " + formData);
-
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(fullUrl))
+                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/app_login"))
                     .header("Content-Type", "application/x-www-form-urlencoded")
-                    .header("Cookie", "csrf_token=" + csrfToken) // Gửi CSRF token trong cookie
+                    .header("Cookie", "csrf_token=" + csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(formData))
                     .build();
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println("Backend login response: " + response.body());
-            this.lastLoginResponse = response.body(); // Lưu response
+            this.lastLoginResponse = response.body();
 
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
@@ -195,16 +269,11 @@ public class AuthService {
                     this.accessToken = jsonNode.has("token") ? jsonNode.get("token").asText() : null;
                     this.refreshToken = this.accessToken;
                     this.expiryTime = LocalDateTime.now().plusHours(1);
-                    // Giải mã token để lấy role
                     this.lastLoginRole = extractRoleFromToken(this.accessToken);
                     saveTokenToPreferences();
-                    System.out.println("Google login successful for user: " + userInfo.getEmail());
+                    System.out.println("Google login successful for user: " + userEmail);
                     return true;
-                } else {
-                    System.err.println("No token in response: " + response.body());
                 }
-            } else {
-                System.err.println("Backend login failed: " + response.statusCode() + " - " + response.body());
             }
         } catch (Exception e) {
             System.err.println("Google login failed: " + e.getMessage());
@@ -212,7 +281,6 @@ public class AuthService {
         }
         return false;
     }
-
     public String generateCsrfToken() {
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomBytes = new byte[32];
@@ -235,6 +303,22 @@ public class AuthService {
             return dataNode != null ? dataNode.get("role").asText() : null;
         } catch (Exception e) {
             System.err.println("Error extracting role from token: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+    public String extractEmailFromToken(String token) {
+        try {
+            String[] tokenParts = token.split("\\.");
+            if (tokenParts.length != 3) {
+                return null;
+            }
+            String payload = new String(Base64.getDecoder().decode(tokenParts[1]));
+            JsonNode payloadNode = objectMapper.readTree(payload);
+            JsonNode dataNode = payloadNode.get("data");
+            return dataNode != null ? dataNode.get("email").asText() : null;
+        } catch (Exception e) {
+            System.err.println("Error extracting email from token: " + e.getMessage());
             e.printStackTrace();
             return null;
         }

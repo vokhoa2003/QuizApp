@@ -1,0 +1,17 @@
+# Bỏ qua tệp cấu hình nhạy cảm
+Other Source/src/main/resources/config.properties
+
+# Bỏ qua thư mục target và build
+target/
+build/
+
+# Bỏ qua tệp NetBeans
+nbproject/private/
+
+# Bỏ qua thư mục tokens
+tokens/
+
+# Bỏ qua tệp log hoặc IDE
+*.log
+.idea/
+*.iml

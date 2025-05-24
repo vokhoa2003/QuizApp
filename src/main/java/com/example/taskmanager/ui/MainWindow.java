@@ -446,7 +446,7 @@ public class MainWindow extends JFrame {
                             }
                         } else {
                             JOptionPane.showMessageDialog(MainWindow.this, 
-                                "Không thể đăng nhập với tài khoản Google này", 
+                                "Tài khoản không tồn tại hoặc chưa được admin tạo. Vui ", 
                                 "Lỗi đăng nhập", 
                                 JOptionPane.ERROR_MESSAGE);
                             authService.logout();

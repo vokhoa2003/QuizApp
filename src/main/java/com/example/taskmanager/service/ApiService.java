@@ -49,90 +49,6 @@ public class ApiService {
         this.csrfToken = authService.generateCsrfToken(); // Sử dụng CSRF token từ AuthService
     }
 
-//    public List<Task> getUsers() {
-//        try {
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/get"))
-//                    .header("Authorization", "Bearer " + authService.getAccessToken())
-//                    .header("Content-Type", "application/json")
-//                    .GET()
-//                    .build();
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//
-//            if (response.statusCode() == 200) {
-//                return objectMapper.readValue(
-//                        response.body(),
-//                        new TypeReference<List<Task>>() {});
-//            } else {
-//                System.err.println("Error fetching users: " + response.statusCode() + " - " + response.body());
-//            }
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//        return Collections.emptyList();
-//    }
-
-//    public List<Task> getUsers() {
-//    try {
-//        String uri = apiConfig.getApiBaseUrl() + "/get";
-//        HttpRequest request = HttpRequest.newBuilder()
-//                .uri(URI.create(uri))
-//                .header("Authorization", "Bearer " + authService.getAccessToken())
-//                .header("Content-Type", "application/x-www-form-urlencoded")
-//                .GET()
-//                .build();
-//
-//        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//
-//        if (response.statusCode() == 200) {
-//            return objectMapper.readValue(
-//                    response.body(),
-//                    new TypeReference<List<Task>>() {});
-//        } else {
-//            System.err.println("Error fetching users: " + response.statusCode() + " - " + response.body());
-//        }
-//    } catch (IOException | InterruptedException e) {
-//        e.printStackTrace();
-//    }
-//    return Collections.emptyList();
-//}
-//    public Task getUsers() {
-//    try {
-//        String uri = apiConfig.getApiBaseUrl() + "/get";
-//        System.out.println("Calling API: " + uri);
-//        HttpRequest request = HttpRequest.newBuilder()
-//                .uri(URI.create(uri))
-//                .header("Authorization", "Bearer " + authService.getAccessToken())
-//                .GET()
-//                .build();
-//
-//        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//        System.out.println("API Response: " + response.statusCode() + " - " + response.body());
-//
-//        if (response.statusCode() == 200) {
-//            JsonNode rootNode = objectMapper.readTree(response.body());
-//            if (rootNode.has("error")) {
-//                System.err.println("API Error: " + rootNode.get("error").asText());
-//                return null;
-//            }
-//            try {
-//                Task task = objectMapper.readValue(response.body(), Task.class);
-//                System.out.println("Task object: " + (task != null ? task.getEmail() : "null"));
-//                return task;
-//            } catch (JsonProcessingException e) {
-//                System.err.println("Error parsing JSON: " + e.getMessage());
-//                e.printStackTrace();
-//                return null;
-//            }
-//        } else {
-//            System.err.println("Error fetching users: " + response.statusCode() + " - " + response.body());
-//        }
-//    } catch (IOException | InterruptedException e) {
-//        e.printStackTrace();
-//    }
-//    return null;
-//}
     public List<Task> getUsers() {
         try {
             String uri = apiConfig.getApiBaseUrl() + "/get";
@@ -146,7 +62,7 @@ public class ApiService {
             //System.out.println("bla bla bla:"+authService.getAccessToken());
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println("API Response: " + response.statusCode() + " - " + response.body());
+            System.out.println("API Response: " + response.statusCode());
 
             if (response.statusCode() == 200) {
                 JsonNode rootNode = objectMapper.readTree(response.body());
@@ -173,6 +89,7 @@ public class ApiService {
         }
         return null;
     }
+    
 //    public List<Task> createUser(Task user) {
 //        try {
 //            String requestBody = objectMapper.writeValueAsString(user);
@@ -350,6 +267,9 @@ public class ApiService {
             if (user.getUpdateDate() != null) {
                 data.put("updateDate", user.getUpdateDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
             }
+            if (user.getBirthDate() != null) {
+                data.put("birthDate", user.getBirthDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
+            }
             String requestBody = objectMapper.writeValueAsString(data);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
@@ -379,23 +299,7 @@ public class ApiService {
         }
         return false;
     }
-//    public boolean deleteUser(Long userId) {
-//        try {
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/delete"))
-//                    .header("Authorization", "Bearer " + authService.getAccessToken())
-//                    .DELETE()
-//                    .build();
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//
-//            return response.statusCode() == 200;
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//            return false;
-//        }
-//    }
-//}
+//    
     public boolean deleteUser(Long userId) {
         try {
             // Gửi userId và csrf_token qua query string
