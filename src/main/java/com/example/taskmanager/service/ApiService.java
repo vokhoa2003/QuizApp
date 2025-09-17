@@ -48,63 +48,26 @@ public class ApiService {
                 .connectTimeout(Duration.ofMillis(apiConfig.getConnectTimeout()))
                 .build();
         this.csrfToken = authService.generateCsrfToken(); // Sử dụng CSRF token từ AuthService
-    }
-
-//    public List<Task> getUsers() {
-//        try {
-//            String uri = apiConfig.getApiBaseUrl() + "/get";
-//            System.out.println("Calling API: " + uri);
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(uri))
-//                    .header("Authorization", "Bearer " + authService.getAccessToken())
-//                    
-//                    .GET()
-//                    .build();
-//            //System.out.println("bla bla bla:"+authService.getAccessToken());
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//            System.out.println("API Response: " + response.statusCode());
-//
-//            if (response.statusCode() == 200) {
-//                JsonNode rootNode = objectMapper.readTree(response.body());
-//                if (rootNode.has("error")) {
-//                    System.err.println("API Error: " + rootNode.get("error").asText());
-//                    return null;
-//                }
-//                try {
-//                    // Parse JSON array into List<Task>
-//                    List<Task> users = objectMapper.readValue(response.body(), 
-//                        objectMapper.getTypeFactory().constructCollectionType(List.class, Task.class));
-//                    System.out.println("Users fetched: " + (users != null ? users.size() : 0) + " users");
-//                    return users;
-//                } catch (JsonProcessingException e) {
-//                    System.err.println("Error parsing JSON: " + e.getMessage());
-//                    e.printStackTrace();
-//                    return null;
-//                }
-//            } else {
-//                System.err.println("Error fetching users: " + response.statusCode() + " - " + response.body());
-//            }
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//        return null;
-//    }
-    
+    }    
     public List<Task> getUsers() {
         try {
             String uri = apiConfig.getApiBaseUrl() + "/get";
             System.out.println("Calling API: " + uri);
 
-            // Tạo Map chứa dữ liệu, bao gồm csrf_token
+            // Tạo Map chứa dữ liệu, bao gồm csrf_tokena
             Map<String, Object> data = new HashMap<>();
             data.put("csrf_token", csrfToken); // Thêm vào body JSON
+            String userRole = authService.getLastLoginRole();
+            if(userRole != null && userRole.equals("admin")) {
+               data.put("scope", "all"); // Nếu là admin, lấy tất cả người dùng
+            }
             String requestBody = objectMapper.writeValueAsString(data);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(uri))
                     .header("Authorization", "Bearer " + authService.getAccessToken())
                     .header("Content-Type", "application/json")
+                    .header("Cookie", "csrf_token=" + csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody)) // Chuyển sang POST
                     .build();
 
@@ -137,129 +100,6 @@ public class ApiService {
         }
         return null;
     }
-//    public List<Task> createUser(Task user) {
-//        try {
-//            String requestBody = objectMapper.writeValueAsString(user);
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/add"))
-//                    .header("Authorization", "Bearer " + authService.getAccessToken())
-//                    .header("Content-Type", "application/json")
-//                    .PUT(HttpRequest.BodyPublishers.ofString(requestBody))
-//                    .build();
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//            System.out.println("API Response: " + response.statusCode() + " - " + response.body());
-//            System.out.println("Request body: " + requestBody);
-//            if (response.statusCode() == 200) {
-//                System.out.println("THÊM THÀNH CÔNG");
-//                return (List<Task>) objectMapper.readValue(response.body(), Task.class);
-//                
-//            } else {
-//                System.err.println("Error creating user: " + response.statusCode() + " - " + response.body());
-//            }
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//        return null;
-//    }
-//    public List<Task> updateUser(Task user) {
-//            try {
-//                String requestBody = objectMapper.writeValueAsString(user);
-//                HttpRequest request = HttpRequest.newBuilder()
-//                        .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
-//                        .header("Authorization", "Bearer " + authService.getAccessToken())
-//                        .header("Content-Type", "application/json")
-//                        .PUT(HttpRequest.BodyPublishers.ofString(requestBody))
-//                        .build();
-//
-//                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//                System.out.println("API Response: " + response.statusCode() + " - " + response.body());
-//                System.out.println("Request body: " + requestBody);
-//
-//                if (response.statusCode() == 200) {
-//                    try {
-//                        List<Task> updatedUsers = objectMapper.readValue(response.body(),
-//                                objectMapper.getTypeFactory().constructCollectionType(List.class, Task.class));
-//                        System.out.println("Users updated: " + (updatedUsers != null ? updatedUsers.size() : 0) + " users");
-//                        return updatedUsers;
-//                    } catch (JsonProcessingException e) {
-//                        System.err.println("Error parsing JSON to List<Task>: " + e.getMessage());
-//                        e.printStackTrace();
-//                        return null;
-//                    }
-//                } else {
-//                    System.err.println("Error updating user: " + response.statusCode() + " - " + response.body());
-//                }
-//            } catch (IOException | InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//            return null;
-//        }
-
-//    public boolean createUser(Task user) {
-//        try {
-//            String requestBody = objectMapper.writeValueAsString(user);
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/add"))
-//                    .header("Authorization", "Bearer " + authService.getAccessToken())
-//                    .header("Content-Type", "application/json")
-//                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-//                    .build();
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//            System.out.println("API Response: " + response.statusCode() + " - " + response.body());
-//            System.out.println("Request body: " + requestBody);
-//
-//            if (response.statusCode() == 200) {
-//                JsonNode jsonNode = objectMapper.readTree(response.body());
-//                if (jsonNode.has("status") && "success".equals(jsonNode.get("status").asText())) {
-//                    System.out.println("THÊM THÀNH CÔNG");
-//                    return true;
-//                } else {
-//                    System.err.println("Error: " + (jsonNode.has("message") ? jsonNode.get("message").asText() : "Unknown error"));
-//                    return false;
-//                }
-//            } else {
-//                System.err.println("Error creating user: " + response.statusCode() + " - " + response.body());
-//            }
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//        return false;
-//    }
-//
-//    public boolean updateUser(Task user) {
-//        try {
-//            String requestBody = objectMapper.writeValueAsString(user);
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
-//                    .header("Authorization", "Bearer " + authService.getAccessToken())
-//                    .header("Content-Type", "application/json")
-//                    .header("Cookie", "csrf_token=" + authService.generateCsrfToken()) // Sử dụng CSRF token từ AuthService
-//                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-//                    .build();
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//            System.out.println("API Response: " + response.statusCode() + " - " + response.body());
-//            System.out.println("Request body: " + requestBody);
-//
-//            if (response.statusCode() == 200) {
-//                JsonNode jsonNode = objectMapper.readTree(response.body());
-//                if (jsonNode.has("status") && "success".equals(jsonNode.get("status").asText())) {
-//                    System.out.println("CẬP NHẬT THÀNH CÔNG");
-//                    return true;
-//                } else {
-//                    System.err.println("Error: " + (jsonNode.has("message") ? jsonNode.get("message").asText() : "Unknown error"));
-//                    return false;
-//                }
-//            } else {
-//                System.err.println("Error updating user: " + response.statusCode() + " - " + response.body());
-//            }
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//        }
-//        return false;
-//    }
 
     public boolean createUser(Task user) {
         try {
@@ -277,6 +117,7 @@ public class ApiService {
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/add"))
                     .header("Authorization", "Bearer " + authService.getAccessToken())
                     .header("Content-Type", "application/json")
+                    .header("Cookie", "csrf_token=" + csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
@@ -322,6 +163,7 @@ public class ApiService {
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
                     .header("Authorization", "Bearer " + authService.getAccessToken())
                     .header("Content-Type", "application/json")
+                    .header("Cookie", "csrf_token=" + csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
@@ -346,38 +188,6 @@ public class ApiService {
         }
         return false;
     }
-//    
-//    public boolean deleteUser(Long userId) {
-//        try {
-//            // Gửi userId và csrf_token qua query string
-//            String uri = apiConfig.getApiBaseUrl() + "/delete?id=" + userId + "&csrf_token=" + csrfToken;
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(uri))
-//                    .header("Authorization", "Bearer " + authService.getAccessToken())
-//                    .DELETE()
-//                    .build();
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//            System.out.println("API Response: " + response.statusCode() + " - " + response.body());
-//
-//            if (response.statusCode() == 200) {
-//                JsonNode jsonNode = objectMapper.readTree(response.body());
-//                if (jsonNode.has("message") && "Xóa thành công".equals(jsonNode.get("message").asText())) {
-//                    System.out.println("XÓA THÀNH CÔNG");
-//                    return true;
-//                } else {
-//                    System.err.println("Error: " + (jsonNode.has("message") ? jsonNode.get("message").asText() : "Unknown error"));
-//                    return false;
-//                }
-//            } else {
-//                System.err.println("Error deleting user: " + response.statusCode() + " - " + response.body());
-//                return false;
-//            }
-//        } catch (IOException | InterruptedException e) {
-//            e.printStackTrace();
-//            return false;
-//        }
-//    }
     public boolean deleteUser(Long userId) {
         try {
             // Tạo Map chứa dữ liệu, bao gồm id và csrf_token
@@ -390,6 +200,7 @@ public class ApiService {
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/delete"))
                     .header("Authorization", "Bearer " + authService.getAccessToken())
                     .header("Content-Type", "application/json")
+                    .header("Cookie", "csrf_token=" + csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
@@ -414,4 +225,5 @@ public class ApiService {
         }
         return false;
     }
+    //-------------------------------------------------------------------------------------------------------
 }

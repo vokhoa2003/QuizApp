@@ -1,18 +1,49 @@
 package com.example.taskmanager.ui;
 
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.Point;
+import java.awt.RenderingHints;
+import java.awt.Toolkit;
+import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.awt.geom.RoundRectangle2D;
+
+import javax.swing.AbstractButton;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.ButtonModel;
+import javax.swing.ImageIcon;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
+import javax.swing.plaf.basic.BasicButtonUI;
+
+import com.example.taskmanager.auth.GoogleLoginHelper;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
-import com.google.api.services.oauth2.model.Userinfo;
-import com.example.taskmanager.auth.GoogleLoginHelper;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import javax.swing.*;
-import javax.swing.plaf.basic.BasicButtonUI;
-import java.awt.*;
-import java.awt.event.*;
-import java.awt.geom.RoundRectangle2D;
-import javax.imageio.ImageIO;
+import com.google.api.services.oauth2.model.Userinfo;
 
 public class MainWindow extends JFrame {
     
@@ -397,30 +428,32 @@ public class MainWindow extends JFrame {
         JButton googleLoginButton = (JButton)e.getSource();
         googleLoginButton.setEnabled(false);
         googleLoginButton.setText("Đang đăng nhập...");
-        
         SwingWorker<Userinfo, Void> worker = new SwingWorker<>() {
             @Override
             protected Userinfo doInBackground() throws Exception {
                 return GoogleLoginHelper.login();
             }
-            
             @Override
             protected void done() {
                 try {
                     Userinfo userInfo = get();
                     if (userInfo != null) {
                         boolean success = authService.loginWithGoogle(userInfo);
+                        String responseBody = authService.getLastLoginResponse(); // Cần thêm phương thức này
+                         // In ra để kiểm tra
+                        System.err.println("Response Body: " + responseBody);
                         if (success) {
                             // Lấy role và status từ response
                             String userRole = authService.getLastLoginRole();
-                            String userStatus = null; // Cần lấy status từ response
+                            String userStatus = ""; // Cần lấy status từ response
                             // Giả sử response từ /app_login trả về status trong JSON
-                            String responseBody = authService.getLastLoginResponse(); // Cần thêm phương thức này
+                            
+                            //String responseBody = authService.getLastLoginResponse(); // Cần thêm phương thức này
+                             // In ra để kiểm tra
                             if (responseBody != null) {
                                 JsonNode jsonNode = new ObjectMapper().readTree(responseBody);
-                                userStatus = jsonNode.has("status") ? jsonNode.get("status").asText() : null;
+                                userStatus = jsonNode.has("account_status") ? jsonNode.get("account_status").asText() : null;
                             }
-
                             String userEmail = userInfo.getEmail();
                             if (userRole != null && userRole.equals("admin") && userStatus != null && userStatus.equals("Active")) {
                                 // Role là admin và status là Active, chuyển sang TaskPanel
@@ -429,7 +462,15 @@ public class MainWindow extends JFrame {
                                     "Đăng nhập thành công", 
                                     JOptionPane.INFORMATION_MESSAGE);
                                 showTaskPanel();
-                            } else {
+                            }
+                            else if (userRole != null && userRole.equals("student") && userStatus != null && userStatus.equals("Active")) {
+                                // Mở cửa sổ QuizAppSwing
+                                QuizAppSwing quizWindow = new QuizAppSwing();
+                                quizWindow.setVisible(true);
+                                // Nếu muốn đóng MainWindow sau khi mở quiz:
+                                MainWindow.this.dispose();
+                            }
+                            else {
                                 String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";
                                 if (userRole != null && userRole.equals("customer")) {
                                     errorMessage += "Vui lòng truy cập ứng dụng web tại: " + WEB_APP_URL;

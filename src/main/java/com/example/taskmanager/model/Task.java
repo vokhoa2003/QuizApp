@@ -1,8 +1,9 @@
 package com.example.taskmanager.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Task {
     private Long id;
@@ -17,6 +18,9 @@ public class Task {
     private String address;
     private LocalDate birthDate;
     private String identityNumber;
+    private String question; 
+    private String answer;
+    private String accountStatus;
 
     // Getters và setters
     public Long getId() { return id; }
@@ -52,4 +56,12 @@ public class Task {
     @JsonProperty("identityNumber")
     public String getIdentityNumber() { return identityNumber; }
     public void setIdentityNumber(String identityNumber) { this.identityNumber = identityNumber; }
+
+    //--------------------------------------
+    @JsonProperty("question")
+    public String getQuestion() { return question; }
+    public void setQuestion(String question) { this.question = question; }
+    @JsonProperty("answer")
+    public String getAnswer() { return answer; }
+    public void setAnswer(String answer) { this.answer = answer; }
 }

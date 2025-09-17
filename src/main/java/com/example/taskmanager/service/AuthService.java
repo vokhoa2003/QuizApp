@@ -1,13 +1,5 @@
 package com.example.taskmanager.service;
 
-import com.example.taskmanager.auth.GoogleLoginHelper;
-import com.example.taskmanager.config.ApiConfig;
-import com.example.taskmanager.config.DatabaseConfig;
-import com.example.taskmanager.security.EncryptionUtil;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.api.services.oauth2.model.Userinfo;
-
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -20,6 +12,13 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.prefs.Preferences;
+
+import com.example.taskmanager.auth.GoogleLoginHelper;
+import com.example.taskmanager.config.ApiConfig;
+import com.example.taskmanager.security.EncryptionUtil;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.api.services.oauth2.model.Userinfo;
 
 public class AuthService {
     private final HttpClient httpClient;
@@ -50,25 +49,6 @@ public class AuthService {
         loadTokenFromPreferences();
     }
     
-//    private void loadTokenFromPreferences() {
-//        String encryptedAccessToken = preferences.get(PREF_ACCESS_TOKEN, null);
-//        String encryptedRefreshToken = preferences.get(PREF_REFRESH_TOKEN, null);
-//        String expiryTimeStr = preferences.get(PREF_EXPIRY_TIME, null);
-//        
-//        if (encryptedAccessToken != null && encryptedRefreshToken != null && expiryTimeStr != null) {
-//            this.accessToken = EncryptionUtil.decrypt(encryptedAccessToken);
-//            this.refreshToken = EncryptionUtil.decrypt(encryptedRefreshToken);
-//            this.expiryTime = LocalDateTime.parse(expiryTimeStr);
-//        }
-//    }
-//    
-//    private void saveTokenToPreferences() {
-//        if (accessToken != null && refreshToken != null && expiryTime != null) {
-//            preferences.put(PREF_ACCESS_TOKEN, EncryptionUtil.encrypt(accessToken));
-//            preferences.put(PREF_REFRESH_TOKEN, EncryptionUtil.encrypt(refreshToken));
-//            preferences.put(PREF_EXPIRY_TIME, expiryTime.toString());
-//        }
-//    }
     private void loadTokenFromPreferences() {
         String encryptedAccessToken = preferences.get(PREF_ACCESS_TOKEN, null);
         String encryptedRefreshToken = preferences.get(PREF_REFRESH_TOKEN, null);
@@ -173,66 +153,6 @@ public class AuthService {
     public boolean isLoggedIn() {
         return (accessToken != null && expiryTime != null && LocalDateTime.now().isBefore(expiryTime));
     }
-
-//    public boolean loginWithGoogle(Userinfo userInfo) {
-//        try {
-//            System.out.println("Attempting Google login for user: " + (userInfo != null ? userInfo.getEmail() : "null"));
-//            if (userInfo == null || userInfo.getEmail() == null || userInfo.getId() == null) {
-//                System.out.println("Invalid Userinfo: " + (userInfo == null ? "null" : "email or ID missing"));
-//                return false;
-//            }
-//
-//            // Tạo CSRF token
-//            String csrfToken = generateCsrfToken();
-//            System.out.println("Generated CSRF Token: " + csrfToken);
-//
-//            String formData = "GoogleID=" + userInfo.getId() +
-//                    "&email=" + userInfo.getEmail() +
-//                    "&FullName=" + (userInfo.getName() != null ? userInfo.getName() : 
-//                        (userInfo.getGivenName() + " " + userInfo.getFamilyName())) +
-//                    "&access_token=google_" + System.currentTimeMillis() +
-//                    "&expires_at=" + LocalDateTime.now().plusHours(1).toString() +
-//                    "&csrf_token=" + csrfToken;
-//
-//            String fullUrl = apiConfig.getApiBaseUrl() + "/app_login";
-//            System.out.println("Sending POST request to: " + fullUrl);
-//            System.out.println("Request body: " + formData);
-//
-//            HttpRequest request = HttpRequest.newBuilder()
-//                    .uri(URI.create(fullUrl))
-//                    .header("Content-Type", "application/x-www-form-urlencoded")
-//                    .header("Cookie", "csrf_token=" + csrfToken) // Gửi CSRF token trong cookie
-//                    .POST(HttpRequest.BodyPublishers.ofString(formData))
-//                    .build();
-//
-//            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-//            System.out.println("Backend login response: " + response.body());
-//            this.lastLoginResponse = response.body(); // Lưu response
-//
-//            if (response.statusCode() == 200) {
-//                JsonNode jsonNode = objectMapper.readTree(response.body());
-//                if (jsonNode.has("token") || jsonNode.has("status")) {
-//                    this.accessToken = jsonNode.has("token") ? jsonNode.get("token").asText() : null;
-//                    this.refreshToken = this.accessToken;
-//                    this.expiryTime = LocalDateTime.now().plusHours(1);
-//                    // Giải mã token để lấy role
-//                    this.lastLoginRole = extractRoleFromToken(this.accessToken);
-//                    saveTokenToPreferences();
-//                    System.out.println("Google login successful for user: " + userInfo.getEmail());
-//                    return true;
-//                } else {
-//                    System.err.println("No token in response: " + response.body());
-//                }
-//            } else {
-//                System.err.println("Backend login failed: " + response.statusCode() + " - " + response.body());
-//            }
-//        } catch (Exception e) {
-//            System.err.println("Google login failed: " + e.getMessage());
-//            e.printStackTrace();
-//        }
-//        return false;
-//    }
-
     public boolean loginWithGoogle(Userinfo userInfo) {
         try {
             if (userInfo == null || userInfo.getEmail() == null || userInfo.getId() == null) {
@@ -259,7 +179,7 @@ public class AuthService {
                     .header("Cookie", "csrf_token=" + csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(formData))
                     .build();
-
+                    
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             this.lastLoginResponse = response.body();
 
