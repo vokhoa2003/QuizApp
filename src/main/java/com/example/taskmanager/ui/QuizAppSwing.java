@@ -17,6 +17,7 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -39,6 +40,8 @@ import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
+import com.example.taskmanager.service.ApiService;
+import com.example.taskmanager.service.AuthService;
 import com.formdev.flatlaf.FlatLightLaf;
 
 /**
@@ -53,9 +56,9 @@ public class QuizAppSwing extends JFrame {
     private Map<Integer, Integer> answers = new HashMap<>(); // lưu đáp án đã chọn
     private int currentPage = 1;
     private int perPage = 10;
-    private int totalQuestions = 30;
+    private int totalQuestions;
     private Timer timer;
-    private int duration = 15; // 15 phút
+    private int duration = 15*60; // 15 phút
   
     // Thêm: Class để lưu câu hỏi và đáp án
     private static class Question {
@@ -72,10 +75,14 @@ public class QuizAppSwing extends JFrame {
 
     // Thêm: Danh sách câu hỏi mẫu (mỗi câu có đáp án khác nhau)
     private List<Question> questions = new ArrayList<>();
+    private ApiService apiService;
+    private AuthService authService;
 
-    public QuizAppSwing() {
+    public QuizAppSwing(ApiService apiService, AuthService authService, MainWindow mainWindow) {
+        this.apiService = apiService;
+        this.authService = authService;
         // Khởi tạo dữ liệu câu hỏi mẫu (bạn có thể thay đổi hoặc load từ file)
-        initQuestions();
+        //initQuestions();
 
         setTitle("Bài kiểm tra trắc nghiệm");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -200,54 +207,25 @@ public class QuizAppSwing extends JFrame {
 
         // Bắt đầu đếm ngược
         startTimer();
-
+        loadQuestionsAndAnswersFromAPI();
         setVisible(true);
     }
 
     // Thêm: Phương thức khởi tạo dữ liệu câu hỏi mẫu
     private void initQuestions() {
-        // Dữ liệu mẫu cho 30 câu (mỗi câu có đáp án khác nhau - bạn chỉnh sửa theo ý)
-        for (int i = 1; i <= totalQuestions; i++) {
-            List<String> options = new ArrayList<>();
-            String qText = "Nội dung câu hỏi " + i + ": Bạn biết gì về chủ đề này?"; // Có thể thêm nội dung câu hỏi chính
-            switch (i % 5) { // Để đa dạng, lặp theo nhóm 5
-                case 1:
-                    options.add("Lựa chọn A cho câu " + i + ": Đúng nhất");
-                    options.add("Lựa chọn B cho câu " + i + ": Sai");
-                    options.add("Lựa chọn C cho câu " + i + ": Có thể");
-                    options.add("Lựa chọn D cho câu " + i + ": Không đúng");
-                    break;
-                case 2:
-                    options.add("Đáp án A: Toán học cơ bản");
-                    options.add("Đáp án B: Lịch sử Việt Nam");
-                    options.add("Đáp án C: Vật lý lượng tử");
-                    options.add("Đáp án D: Sinh học tế bào");
-                    break;
-                case 3:
-                    options.add("Option A: 2 + 2 = 4");
-                    options.add("Option B: Hà Nội là thủ đô");
-                    options.add("Option C: Trái đất quay quanh mặt trời");
-                    options.add("Option D: Nước sôi ở 100°C");
-                    break;
-                case 4:
-                    options.add("Câu trả lời A: Yes");
-                    options.add("Câu trả lời B: No");
-                    options.add("Câu trả lời C: Maybe");
-                    options.add("Câu trả lời D: Absolutely");
-                    break;
-                default:
-                    options.add("A: Khác biệt 1");
-                    options.add("B: Khác biệt 2");
-                    options.add("C: Khác biệt 3");
-                    options.add("D: Khác biệt 4");
-                    break;
-            }
-            questions.add(new Question(i, qText, options));
-        }
+        
     }
 
     private void renderQuestions() {
+        
         questionPanel.removeAll();
+        if (questions == null || questions.isEmpty()) {
+            questionPanel.removeAll();
+            questionPanel.add(new JLabel("Không có dữ liệu câu hỏi!"));
+            questionPanel.revalidate();
+            questionPanel.repaint();
+            return;
+        }
         int start = (currentPage - 1) * perPage + 1;
         int end = Math.min(start + perPage - 1, totalQuestions);
 
@@ -299,7 +277,7 @@ public class QuizAppSwing extends JFrame {
             prevBtn.setFont(new Font("Segoe UI", Font.BOLD, 14));
             prevBtn.setBackground(new Color(100, 150, 255));
             prevBtn.setForeground(Color.WHITE);
-            prevBtn.setFocusPainted(false);
+            prevBtn.setFocusPainted(false); 
             prevBtn.addActionListener(e -> { currentPage--; renderQuestions(); });
             navBtns.add(prevBtn);
         }
@@ -357,6 +335,201 @@ public class QuizAppSwing extends JFrame {
             }
         });
         timer.start();
+    }
+
+    // private void loadQuestionsAndAnswersFromAPI() {
+    //     Map<String, Object> params = new HashMap<>();
+    //     params.put("action", "get");
+    //     params.put("table", List.of("questions", "answers"));
+    //     params.put("columns", List.of("questions.id", "questions.Question", "answers.Answer"));
+    //     Map<String, Object> join = new HashMap<>();
+    //     join.put("type", "inner");
+    //     join.put("on", List.of("questions.id = answers.QuestionId"));
+    //     params.put("join", join);
+    //     //params.put("conditions", new HashMap<>());
+
+    //     // String accessToken = authService.getAccessToken();
+    //     // String csrfToken = authService.generateCsrfToken();
+
+    //     System.err.println("API DATA:" + params);
+    //     List<Map<String, Object>> apiData = apiService.postApiGetList("/autoGet", params);
+    //     System.err.println("API DATA:" + apiData);
+    //     for (Map<String, Object> item : apiData) {
+    //         System.err.println(item);
+    //     }
+    //     questions.clear();
+    //     for (Map<String, Object> item : apiData) {
+    //         int id = Integer.parseInt(item.get("questions.id").toString());
+    //         String questionText = item.get("questions.question").toString();
+    //         List<String> options = new ArrayList<>();
+    //         options.add(item.get("answers.optionA").toString());
+    //         options.add(item.get("answers.optionB").toString());
+    //         options.add(item.get("answers.optionC").toString());
+    //         options.add(item.get("answers.optionD").toString());
+    //         questions.add(new Question(id, questionText, options));
+    //     }
+    //     totalQuestions = questions.size();
+    //     renderQuestions();
+    // }
+    private void loadQuestionsAndAnswersFromAPI() {
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "get");
+        params.put("table", List.of("questions", "answers"));
+        params.put("columns", List.of("questions.id", "questions.Question", "answers.Answer", "answers.IsCorrect"));
+        Map<String, Object> join = new HashMap<>();
+        join.put("type", "inner");
+        join.put("on", List.of("questions.id = answers.QuestionId"));
+        params.put("join", join);
+
+        System.err.println("API REQ PARAMS: " + params);
+        List<Map<String, Object>> apiData = apiService.postApiGetList("/autoGet", params);
+        System.err.println("API RAW DATA: " + apiData);
+
+        if (apiData == null || apiData.isEmpty()) {
+            System.err.println("apiData is null or empty");
+            questions.clear();
+            totalQuestions = 0;
+            renderQuestions();
+            return;
+        }
+
+        // Giữ thứ tự câu hỏi theo lần xuất hiện
+        Map<Integer, String> questionTextMap = new LinkedHashMap<>();
+        Map<Integer, List<String>> optionsMap = new HashMap<>();
+        Map<Integer, Integer> correctIndexMap = new HashMap<>();
+
+        for (Map<String, Object> item : apiData) {
+            System.err.println("ROW: " + item);
+
+            Integer qId = getFirstInteger(item, "questions.id", "id", "QuestionId", "questions.QuestionId", "questionid");
+            if (qId == null) {
+                System.err.println("-> SKIP row because no question id found: " + item);
+                continue;
+            }
+
+            String qText = getFirstString(item, "questions.Question", "questions.question", "Question", "question");
+            if (qText == null) qText = "";
+
+            String answerText = getFirstString(item, "answers.Answer", "answers.answer", "Answer", "answer", "answers.Text", "AnswerText");
+            if (answerText == null) {
+                System.err.println("-> SKIP row because no answer text for questionId=" + qId + " : " + item);
+                continue;
+            }
+
+            String isCorrectStr = getFirstString(item, "answers.IsCorrect", "answers.isCorrect", "IsCorrect", "isCorrect", "correct");
+            boolean isCorrect = isCorrectStr != null && (isCorrectStr.equals("1") || isCorrectStr.equalsIgnoreCase("true") || isCorrectStr.equalsIgnoreCase("yes"));
+
+            // Lưu question text (giữ lần xuất hiện đầu làm nguồn)
+            questionTextMap.putIfAbsent(qId, qText);
+
+            // Thêm đáp án
+            List<String> opts = optionsMap.computeIfAbsent(qId, k -> new ArrayList<>());
+            opts.add(answerText);
+
+            // Nếu đáp án là đúng, lưu index (index hiện tại = size-1)
+            if (isCorrect) {
+                correctIndexMap.put(qId, opts.size() - 1);
+            }
+        }
+
+        // Chuyển sang list Question (vẫn dùng Constructor cũ)
+        questions.clear();
+        for (Map.Entry<Integer, String> e : questionTextMap.entrySet()) {
+            int id = e.getKey();
+            String qText = e.getValue();
+            List<String> opts = optionsMap.getOrDefault(id, new ArrayList<>());
+
+            // Nếu muốn đảm bảo đủ 4 option,có thể pad hoặc log:
+            if (opts.size() < 2) {
+                System.err.println("Warning: questionId=" + id + " has only " + opts.size() + " options");
+            }
+
+            questions.add(new Question(id, qText, opts));
+
+            // Nếu class Question của bạn có method để đánh dấu đáp án đúng, ở đây có thể set:
+            // Integer correctIdx = correctIndexMap.get(id);
+            // if (correctIdx != null) { questions.get(...).setCorrectIndex(correctIdx); }
+        }
+
+        totalQuestions = questions.size();
+
+        // rebuild navPanel sau khi có dữ liệu
+        navPanel.removeAll();
+        for (int i = 1; i <= totalQuestions; i++) {
+            final int questionId = i;
+            JButton btn = new JButton(String.valueOf(i));
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            btn.setPreferredSize(new Dimension(40, 40));
+            btn.setFocusPainted(false);
+            btn.setBackground(new Color(220, 220, 220));
+            btn.setForeground(Color.BLACK);
+            btn.addMouseListener(new MouseAdapter() {
+                @Override
+                public void mouseEntered(MouseEvent e) {
+                    if (!answers.containsKey(questionId)) {
+                        btn.setBackground(new Color(200, 220, 255));
+                    }
+                }
+                @Override
+                public void mouseExited(MouseEvent e) {
+                    if (!answers.containsKey(questionId)) {
+                        btn.setBackground(new Color(220, 220, 220));
+                    }
+                }
+            });
+            btn.addActionListener(e -> goToQuestion(questionId));
+            navPanel.add(btn);
+        }
+        navPanel.revalidate();
+        navPanel.repaint();
+
+        System.err.println("Loaded totalQuestions = " + totalQuestions);
+
+        renderQuestions();
+    }
+
+    // ---------- Helpers: thêm vào cùng class (private) ----------
+    private String getFirstString(Map<String, Object> map, String... keys) {
+        if (map == null) return null;
+        for (String k : keys) {
+            Object v = map.get(k);
+            if (v != null) return v.toString();
+        }
+        // thử case-insensitive search (nếu keys khác kiểu 'questions.Question' vs 'questions.question')
+        for (Map.Entry<String, Object> en : map.entrySet()) {
+            for (String k : keys) {
+                if (en.getKey().equalsIgnoreCase(k) && en.getValue() != null) {
+                    return en.getValue().toString();
+                }
+            }
+        }
+        return null;
+    }
+
+    private Integer getFirstInteger(Map<String, Object> map, String... keys) {
+        if (map == null) return null;
+        for (String k : keys) {
+            Object v = map.get(k);
+            if (v == null) continue;
+            if (v instanceof Number) return ((Number) v).intValue();
+            String s = v.toString();
+            try {
+                return Integer.parseInt(s);
+            } catch (NumberFormatException ignored) {}
+        }
+        // thử case-insensitive
+        for (Map.Entry<String, Object> en : map.entrySet()) {
+            for (String k : keys) {
+                if (en.getKey().equalsIgnoreCase(k) && en.getValue() != null) {
+                    Object v = en.getValue();
+                    if (v instanceof Number) return ((Number) v).intValue();
+                    try {
+                        return Integer.parseInt(v.toString());
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+        return null;
     }
 
     public static void main(String[] args) {

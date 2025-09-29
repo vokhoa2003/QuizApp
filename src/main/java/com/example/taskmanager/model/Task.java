@@ -2,7 +2,9 @@ package com.example.taskmanager.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Map;
 
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Task {
@@ -22,7 +24,23 @@ public class Task {
     private String answer;
     private String accountStatus;
 
-    // Getters và setters
+    // Dữ liệu động từ API
+    private Map<String, Object> extraFields;
+
+    @JsonAnySetter
+    public void setExtraField(String key, Object value) {
+        if (extraFields == null) {
+            // Khởi tạo nếu chưa có
+            extraFields = new java.util.HashMap<>();
+        }
+        extraFields.put(key, value);
+    }
+
+    public Map<String, Object> getExtraFields() {
+        return extraFields;
+    }
+
+    // Getters và setters cho các trường chính
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
     public String getEmail() { return email; }
@@ -64,4 +82,9 @@ public class Task {
     @JsonProperty("answer")
     public String getAnswer() { return answer; }
     public void setAnswer(String answer) { this.answer = answer; }
+
+    // Khóa lại những trường không dùng (comment lại)
+//    private String accountStatus;
+//    public String getAccountStatus() { return accountStatus; }
+//    public void setAccountStatus(String accountStatus) { this.accountStatus = accountStatus; }
 }

@@ -73,7 +73,7 @@ public class ApiService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             System.out.println("API Response: " + response.statusCode());
-            //System.out.println("Request body: " + requestBody);
+            System.out.println("Request body: " + requestBody);
 
             if (response.statusCode() == 200) {
                 JsonNode rootNode = objectMapper.readTree(response.body());
@@ -226,4 +226,80 @@ public class ApiService {
         return false;
     }
     //-------------------------------------------------------------------------------------------------------
+    public <T> List<T> postDataAndGetList(String endpoint, Map<String, Object> data, Class<T> clazz) {
+
+        try {
+            // Thêm CSRF token nếu có
+            data.put("csrf_token", csrfToken);
+            String requestBody = objectMapper.writeValueAsString(data);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiConfig.getApiBaseUrl() + endpoint))
+                    .header("Authorization", "Bearer " + authService.getAccessToken())
+                    .header("Content-Type", "application/json")
+                    .header("Cookie", "csrf_token=" + csrfToken)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            System.out.println("API Response: " + response.statusCode());
+
+            if (response.statusCode() == 200) {
+                // Parse JSON array into List<T>
+                return objectMapper.readValue(response.body(),
+                        objectMapper.getTypeFactory().constructCollectionType(List.class, clazz));
+            } else {
+                System.err.println("Error: " + response.statusCode() + " - " + response.body());
+            }
+        } catch (IOException | InterruptedException e) {
+            e.printStackTrace();
+        }
+        return Collections.emptyList();
+    }
+
+    // Thêm hàm này:
+    public List<Map<String, Object>> postApiGetList(
+            String endpoint,
+            Map<String, Object> data
+    ) {
+        try {
+            // Thêm CSRF token vào data nếu chưa có
+            data.put("csrf_token", csrfToken);
+            String requestBody = objectMapper.writeValueAsString(data);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(apiConfig.getApiBaseUrl() + endpoint))
+                    .header("Authorization", "Bearer " + authService.getAccessToken())
+                    .header("Content-Type", "application/json")
+                    .header("Cookie", "csrf_token=" + csrfToken)
+                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            System.out.println("API Response: " + response.statusCode());
+            System.out.println("Request body: " + requestBody);
+
+            // if (response.statusCode() == 200) {
+            //     // Parse JSON array to List<Map<String, Object>>
+            //     return objectMapper.readValue(response.body(),
+            //             new TypeReference<List<Map<String, Object>>>() {});
+            // } else {
+            //     System.err.println("API error: " + response.statusCode() + " - " + response.body());
+            // }
+            if (response.statusCode() == 200) {
+            // Parse response to Map, then get "data" field
+                Map<String, Object> respMap = objectMapper.readValue(response.body(), new TypeReference<Map<String, Object>>() {});
+                Object dataObj = respMap.get("data");
+            if (dataObj instanceof List) {
+                return objectMapper.convertValue(dataObj, new TypeReference<List<Map<String, Object>>>() {});
+            }
+            } else {
+                System.err.println("API error: " + response.statusCode() + " - " + response.body());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return Collections.emptyList();
+    }
 }

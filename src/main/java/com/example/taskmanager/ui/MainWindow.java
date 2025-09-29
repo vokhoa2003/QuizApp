@@ -136,6 +136,7 @@ public class MainWindow extends JFrame {
         
         // Tạo panel nhiệm vụ
         this.taskPanel = new TaskPanel(apiService, authService, this);
+
         
         // Thêm các panel vào CardLayout
         contentPanel.add(modernLoginPanel, LOGIN_PANEL);
@@ -465,7 +466,7 @@ public class MainWindow extends JFrame {
                             }
                             else if (userRole != null && userRole.equals("student") && userStatus != null && userStatus.equals("Active")) {
                                 // Mở cửa sổ QuizAppSwing
-                                QuizAppSwing quizWindow = new QuizAppSwing();
+                                QuizAppSwing quizWindow = new QuizAppSwing(apiService, authService, MainWindow.this);
                                 quizWindow.setVisible(true);
                                 // Nếu muốn đóng MainWindow sau khi mở quiz:
                                 MainWindow.this.dispose();
@@ -607,7 +608,6 @@ public class MainWindow extends JFrame {
         taskPanel.refreshUsers();
         taskPanel.updateFonts(scaleFactor);
     }
-    
     // Main method for testing
     public static void main(String[] args) {
         try {
