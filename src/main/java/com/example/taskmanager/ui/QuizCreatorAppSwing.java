@@ -27,6 +27,9 @@ import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
+import com.example.taskmanager.service.ApiService;
+import com.example.taskmanager.service.AuthService;
+
 public class QuizCreatorAppSwing extends JFrame {
     // Models
     public static class Question {
@@ -65,7 +68,7 @@ public class QuizCreatorAppSwing extends JFrame {
     private List<Question> questions;
     private int questionCounter = 1;
 
-    public QuizCreatorAppSwing() {
+    public QuizCreatorAppSwing(ApiService apiService, AuthService authService, MainWindow mainWindow) {
         setTitle("Tạo Đề Thi Trắc Nghiệm - SecureStudy");
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(900, 700);
@@ -225,27 +228,32 @@ public class QuizCreatorAppSwing extends JFrame {
         String[] labels = {"A","B","C","D"};
         JTextField[] answerFields = new JTextField[4];
         for (int i = 0; i < 4; i++) {
-            JPanel row = new JPanel(new BorderLayout(6,6));
-            row.setOpaque(false);
-            JRadioButton rb = new JRadioButton();
-            final int idx = i;
-            rb.addActionListener(e -> question.setCorrectAnswer(idx));
-            bg.add(rb);
-            row.add(rb, BorderLayout.WEST);
+        JPanel row = new JPanel(new BorderLayout(6,6));
+        row.setOpaque(false);
+        JRadioButton rb = new JRadioButton();
+        final int idx = i;
+        rb.addActionListener(e -> question.setCorrectAnswer(idx));
+        bg.add(rb);
+        row.add(rb, BorderLayout.WEST);
 
-            JLabel lbl = new JLabel(labels[i]);
-            lbl.setPreferredSize(new Dimension(20, 20));
-            row.add(lbl, BorderLayout.CENTER);
+        JLabel lbl = new JLabel(labels[i]);
+        lbl.setPreferredSize(new Dimension(20, 20));
+        row.add(lbl, BorderLayout.WEST); // hoặc thêm giữa nếu muốn căn chỉnh
 
-            JTextField af = new JTextField();
-            af.getDocument().addDocumentListener(
-                (SimpleDocumentListener) () -> question.getAnswers().set(idx, af.getText())
-            );
+        JTextField af = new JTextField();
+        af.setPreferredSize(new Dimension(300, 28));
+        af.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0xD1D5DB)),
+            BorderFactory.createEmptyBorder(4, 6, 4, 6)
+        ));
+        af.getDocument().addDocumentListener(
+            (SimpleDocumentListener) () -> question.getAnswers().set(idx, af.getText())
+        );
 
-            answerFields[i] = af;
-            row.add(af, BorderLayout.EAST);
+        answerFields[i] = af;
+        row.add(af, BorderLayout.CENTER); // ✅ Sửa lại chỗ này
 
-            answersPanel.add(row);
+        answersPanel.add(row);
         }
         // default select first
         ((JRadioButton) ((JPanel)answersPanel.getComponent(0)).getComponent(0)).setSelected(true);
@@ -382,8 +390,8 @@ public class QuizCreatorAppSwing extends JFrame {
             try {
                 UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
             } catch (Exception ignored) {}
-            QuizCreatorAppSwing app = new QuizCreatorAppSwing();
-            app.setVisible(true);
+            // QuizCreatorAppSwing app = new QuizCreatorAppSwing();
+            // app.setVisible(true);
         });
     }
 }

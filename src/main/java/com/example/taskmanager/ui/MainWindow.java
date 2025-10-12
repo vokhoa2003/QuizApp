@@ -478,6 +478,9 @@ public class MainWindow extends JFrame {
 
                                 // // Ẩn hoặc đóng MainWindow
                                 // MainWindow.this.dispose();
+                                QuizCreatorAppSwing creatorWindow = new QuizCreatorAppSwing(apiService, authService, MainWindow.this);
+                                creatorWindow.setVisible(true);
+                                dispose();
                             }
                             else {
                                 String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";
