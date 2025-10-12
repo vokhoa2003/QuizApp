@@ -471,6 +471,14 @@ public class MainWindow extends JFrame {
                                 // Nếu muốn đóng MainWindow sau khi mở quiz:
                                 MainWindow.this.dispose();
                             }
+                            else if (userRole != null && userRole.equals("teacher") && userStatus != null && userStatus.equals("Active")) {
+                                 // Mở giao diện tạo quiz cho giáo viên
+                                // QuizCreatorApp creatorWindow = new QuizCreatorApp(apiService, authService, MainWindow.this);
+                                // creatorWindow.setVisible(true);
+
+                                // // Ẩn hoặc đóng MainWindow
+                                // MainWindow.this.dispose();
+                            }
                             else {
                                 String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";
                                 if (userRole != null && userRole.equals("customer")) {

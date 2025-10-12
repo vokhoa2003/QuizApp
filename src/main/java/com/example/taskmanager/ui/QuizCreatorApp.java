@@ -1,20 +1,31 @@
 package com.example.taskmanager.ui;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import com.formdev.flatlaf.FlatLightLaf;
+
 import javafx.application.Application;
+import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.RadioButton;
+import javafx.scene.control.ScrollPane;
+import javafx.scene.control.TextArea;
+import javafx.scene.control.TextField;
+import javafx.scene.control.ToggleGroup;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import com.formdev.flatlaf.FlatLightLaf;
-
-import java.util.ArrayList;
-import java.util.List;
+import javafx.stage.Stage;
 
 public class QuizCreatorApp extends Application {
     
@@ -34,7 +45,6 @@ public class QuizCreatorApp extends Application {
             }
             this.correctAnswer = 0;
         }
-        
         // Getters and setters
         public String getQuestionText() { return questionText; }
         public void setQuestionText(String questionText) { this.questionText = questionText; }
