@@ -11,12 +11,16 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.*;
-
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -30,7 +34,6 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
-import javax.swing.SwingUtilities;
 import javax.swing.Timer;
 import javax.swing.UIManager;
 import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
@@ -513,10 +516,10 @@ public class QuizAppSwing extends JFrame {
             e.printStackTrace();
         }
         //SwingUtilities.invokeLater(QuizAppSwing::new);
-        ApiService apiService = new ApiService();
-        AuthService authService = new AuthService();
-        MainWindow mainWindow = new MainWindow(apiService, authService); // nếu có
+        // ApiService apiService = new ApiService();
+        // AuthService authService = new AuthService();
+        // MainWindow mainWindow = new MainWindow(apiService, authService); // nếu có
 
-        SwingUtilities.invokeLater(() -> new QuizAppSwing(apiService, authService, mainWindow));
+        // SwingUtilities.invokeLater(() -> new QuizAppSwing(apiService, authService, mainWindow));
     }
 }

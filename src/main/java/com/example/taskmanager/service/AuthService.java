@@ -211,6 +211,22 @@ public class AuthService {
     private boolean saveGoogleUserToDatabase(Userinfo userInfo) {
         return true;
     }
+    private int getUserIdFromToken(String token) {
+        try {
+            String[] tokenParts = token.split("\\.");
+            if (tokenParts.length != 3) {
+                return -1;
+            }
+            String payload = new String(Base64.getDecoder().decode(tokenParts[1]));
+            JsonNode payloadNode = objectMapper.readTree(payload);
+            JsonNode dataNode = payloadNode.get("data");
+            return dataNode != null ? dataNode.get("id").asInt(-1) : -1;
+        } catch (Exception e) {
+            System.err.println("Error extracting user ID from token: " + e.getMessage());
+            e.printStackTrace();
+            return -1;
+        }
+    }
     private String extractRoleFromToken(String token) {
         try {
             String[] tokenParts = token.split("\\.");
