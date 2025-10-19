@@ -528,16 +528,20 @@ public class QuizCreatorAppSwing extends JFrame {
     }
 
     public static void main(String[] args) {
-        // SwingUtilities.invokeLater(() -> {
-        //     try {
-        //         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        //     } catch (Exception ignored) {}
-        //     // tạo service test (nếu cần thay thế bằng đúng instance trong app)
-        //     //ApiService apiService = new ApiService();
-        //     //AuthService authService = new AuthService();
-        //     //QuizCreatorAppSwing app = new QuizCreatorAppSwing(apiService, authService, null);
-        //     app.setVisible(true);
-        // });
-        launch(args);
-    }
+    javax.swing.SwingUtilities.invokeLater(() -> {
+        try {
+            javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception ignored) {}
+        
+        // Tạo AuthService trước
+        AuthService authService = new AuthService();
+        // Rồi truyền vào ApiService
+        ApiService apiService = new ApiService(authService);
+        
+        QuizCreatorAppSwing app = new QuizCreatorAppSwing(apiService, authService, null);
+        app.setVisible(true);
+    });
+}
+
+
 }
