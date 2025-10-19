@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -27,12 +29,15 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
+import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
-
+import com.formdev.flatlaf.FlatLightLaf;
+import com.google.gson.Gson;
 
 public class QuizCreatorAppSwing extends JFrame {
     private ApiService apiService;
@@ -49,16 +54,38 @@ public class QuizCreatorAppSwing extends JFrame {
             this.questionNumber = questionNumber;
             this.questionText = "";
             this.answers = new ArrayList<>();
-            for (int i = 0; i < 4; i++) answers.add("");
+            for (int i = 0; i < 4; i++)
+                answers.add("");
             this.correctAnswer = 0;
         }
-        public String getQuestionText() { return questionText; }
-        public void setQuestionText(String questionText) { this.questionText = questionText; }
-        public List<String> getAnswers() { return answers; }
-        public int getCorrectAnswer() { return correctAnswer; }
-        public void setCorrectAnswer(int correctAnswer) { this.correctAnswer = correctAnswer; }
-        public int getQuestionNumber() { return questionNumber; }
-        public void setQuestionNumber(int n) { this.questionNumber = n; }
+
+        public String getQuestionText() {
+            return questionText;
+        }
+
+        public void setQuestionText(String questionText) {
+            this.questionText = questionText;
+        }
+
+        public List<String> getAnswers() {
+            return answers;
+        }
+
+        public int getCorrectAnswer() {
+            return correctAnswer;
+        }
+
+        public void setCorrectAnswer(int correctAnswer) {
+            this.correctAnswer = correctAnswer;
+        }
+
+        public int getQuestionNumber() {
+            return questionNumber;
+        }
+
+        public void setQuestionNumber(int n) {
+            this.questionNumber = n;
+        }
     }
 
     // UI Components
@@ -88,6 +115,40 @@ public class QuizCreatorAppSwing extends JFrame {
         setLocationRelativeTo(null);
         initData();
         initUI();
+        loadUserInfo(users -> {
+            // Xử lý danh sách người dùng sau khi tải xong (nếu cần)
+            System.out.println(new Gson().toJson(users.get(0).getFullName()));
+            // System.out.println("Loaded " + users.get(0));
+        });
+        loadInfoForData();
+        setVisible(true);
+
+    }
+
+    private void loadUserInfo(Consumer<List<Task>> Callback) {
+        SwingWorker<List<Task>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected List<Task> doInBackground() {
+                return apiService.getUsers();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    List<Task> users = get();
+                    Callback.accept(users);
+                    // for (Task user : users) {
+                    // System.out.println("User: " + user.getFullName());
+                    // }
+                    // System.out.println("Loaded users: " + users);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(QuizCreatorAppSwing.this, "Lỗi khi tải thông tin người dùng!", "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
     }
 
     private void initData() {
@@ -117,32 +178,38 @@ public class QuizCreatorAppSwing extends JFrame {
 
         add(main);
     }
-    private void loadUserIsLoggedIn(){
-        
-    }
-    private void loadInfoForData(){
+
+    private List<Map<String, Object>> loadInfoForData() {
 
         Map<String, Object> params = new HashMap<>();
         params.put("action", "get");
         params.put("method", "SELECT");
-        params.put("table", List.of("account", "classes", ""));
-        params.put("columns", List.of("questions.id", "questions.Question", "answers.Answer", "answers.id", "answers.IsCorrect"));
-        Map<String, Object> join = new HashMap<>();
-        join.put("type", "inner");
-        join.put("on", List.of("questions.id = answers.QuestionId"));
-        params.put("join", List.of(join));
+        params.put("table", List.of("questions", "answers", "classes"));
+        params.put("columns", List.of("questions.id", "questions.Question", "answers.Answer", "answers.id",
+                "answers.IsCorrect", "classes.Name"));
+        Map<String, Object> join1 = new HashMap<>();
+        join1.put("type", "inner");
+        join1.put("on", List.of("questions.id = answers.QuestionId"));
+
+        Map<String, Object> join2 = new HashMap<>();
+        join2.put("type", "inner");
+        join2.put("on", List.of("questions.ClassId = classes.id"));
+
+        params.put("join", List.of(join1, join2));
         System.out.println("Loading questions from API with params: " + params);
         List<Map<String, Object>> apiData = apiService.postApiGetList("/autoGet", params);
-        System.out.println(apiData);
+        // System.out.println(apiData);
+        return apiData;
+
     }
+
     private JPanel createExamInfoPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createEmptyBorder(0,0,0,10),
-                BorderFactory.createEmptyBorder(10,10,10,10)
-        ));
+                BorderFactory.createEmptyBorder(0, 0, 0, 10),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
 
         JLabel title = new JLabel("Thông tin đề thi");
         title.setFont(title.getFont().deriveFont(Font.BOLD, 16f));
@@ -158,20 +225,40 @@ public class QuizCreatorAppSwing extends JFrame {
         panel.add(Box.createVerticalStrut(10));
 
         // Grade
+        // List<Map<String, Object>> data = loadInfoForData();
+        // Set<String> classNames = new LinkedHashSet<>(); // tránh trùng tên lớp
+        // for (Map<String, Object> row : data) {
+        // Object nameObj = row.get("classes.Name");
+        // if (nameObj != null) {
+        // classNames.add(nameObj.toString());
+        // }
+        // }
+        // JLabel gradeLabel = new JLabel("👥 Lớp:");
+        // DefaultComboBoxModel<String> comboModel = new DefaultComboBoxModel<>(
+        // classNames.toArray(new String[0])
+        // );
+        // JComboBox<String> gradeComboBox = new JComboBox<>(comboModel);
+        List<Map<String, Object>> data = loadInfoForData();
+        String[] classNames = data.stream()
+                .map(m -> (String) m.get("Name"))
+                .filter(Objects::nonNull)
+                .distinct()
+                .toArray(String[]::new);
+
         JLabel gradeLabel = new JLabel("👥 Lớp:");
-        gradeComboBox = new JComboBox<>(new String[] {
-                "Lớp 6","Lớp 7","Lớp 8","Lớp 9","Lớp 10","Lớp 11","Lớp 12"
-        });
-        gradeComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
+        // Đừng tạo biến cục bộ, gán vào field để dùng sau
+        this.gradeComboBox = new JComboBox<>(classNames);
+        this.gradeComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         panel.add(gradeLabel);
-        panel.add(gradeComboBox);
+        panel.add(this.gradeComboBox);
         panel.add(Box.createVerticalStrut(10));
 
-        // Question count
+        // Thêm khu vực đếm số câu hỏi (khởi tạo label trước khi dùng)
         JLabel countLabel = new JLabel("📊 Tổng số câu hỏi:");
-        questionCountLabel = new JLabel("1 câu hỏi");
+        this.questionCountLabel = new JLabel(); // khởi tạo
+        updateQuestionCount(); // set giá trị ban đầu
         panel.add(countLabel);
-        panel.add(questionCountLabel);
+        panel.add(this.questionCountLabel);
         panel.add(Box.createVerticalStrut(10));
 
         // Description
@@ -191,7 +278,8 @@ public class QuizCreatorAppSwing extends JFrame {
         panel.add(publishLabel);
 
         // Start date/time spinner
-        javax.swing.SpinnerDateModel startModel = new javax.swing.SpinnerDateModel(new java.util.Date(), null, null, java.util.Calendar.MINUTE);
+        javax.swing.SpinnerDateModel startModel = new javax.swing.SpinnerDateModel(new java.util.Date(), null, null,
+                java.util.Calendar.MINUTE);
         publishDateSpinner = new javax.swing.JSpinner(startModel);
         publishDateSpinner.setEditor(new javax.swing.JSpinner.DateEditor(publishDateSpinner, "yyyy-MM-dd HH:mm:ss"));
         publishDateSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
@@ -205,7 +293,8 @@ public class QuizCreatorAppSwing extends JFrame {
         // End date/time spinner (default = start + 1 hour)
         java.util.Calendar cal = java.util.Calendar.getInstance();
         cal.add(java.util.Calendar.HOUR_OF_DAY, 1);
-        javax.swing.SpinnerDateModel endModel = new javax.swing.SpinnerDateModel(cal.getTime(), null, null, java.util.Calendar.MINUTE);
+        javax.swing.SpinnerDateModel endModel = new javax.swing.SpinnerDateModel(cal.getTime(), null, null,
+                java.util.Calendar.MINUTE);
         endDateSpinner = new javax.swing.JSpinner(endModel);
         endDateSpinner.setEditor(new javax.swing.JSpinner.DateEditor(endDateSpinner, "yyyy-MM-dd HH:mm:ss"));
         endDateSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
@@ -241,7 +330,7 @@ public class QuizCreatorAppSwing extends JFrame {
     }
 
     private JPanel createQuestionsSection() {
-        JPanel panel = new JPanel(new BorderLayout(10,10));
+        JPanel panel = new JPanel(new BorderLayout(10, 10));
         panel.setOpaque(false);
 
         JLabel title = new JLabel("Danh sách câu hỏi");
@@ -251,7 +340,7 @@ public class QuizCreatorAppSwing extends JFrame {
         questionsContainer = new JPanel();
         questionsContainer.setLayout(new BoxLayout(questionsContainer, BoxLayout.Y_AXIS));
         questionsContainer.setBackground(new Color(0xFFFFFF));
-        questionsContainer.setBorder(new EmptyBorder(10,10,10,10));
+        questionsContainer.setBorder(new EmptyBorder(10, 10, 10, 10));
 
         // initial question UI
         addQuestionUI(questions.get(0));
@@ -280,8 +369,7 @@ public class QuizCreatorAppSwing extends JFrame {
         questionBox.setLayout(new BoxLayout(questionBox, BoxLayout.Y_AXIS));
         questionBox.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(0xE5E7EB)),
-                new EmptyBorder(10,10,10,10)
-        ));
+                new EmptyBorder(10, 10, 10, 10)));
         questionBox.setBackground(Color.WHITE);
         questionBox.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -308,8 +396,7 @@ public class QuizCreatorAppSwing extends JFrame {
         qArea.setLineWrap(true);
         qArea.setWrapStyleWord(true);
         qArea.getDocument().addDocumentListener(
-            (SimpleDocumentListener) () -> question.setQuestionText(qArea.getText())
-        );
+                (SimpleDocumentListener) () -> question.setQuestionText(qArea.getText()));
         questionBox.add(qt);
         questionBox.add(new JScrollPane(qArea));
         questionBox.add(Box.createVerticalStrut(8));
@@ -325,9 +412,11 @@ public class QuizCreatorAppSwing extends JFrame {
         return questionBox;
     }
 
-    // Modified removeQuestion: update model then rebuild UI so numbering is contiguous
+    // Modified removeQuestion: update model then rebuild UI so numbering is
+    // contiguous
     private void removeQuestion(Question question) {
-        if (questions.size() <= 1) return;
+        if (questions.size() <= 1)
+            return;
         int idx = questions.indexOf(question);
         if (idx >= 0) {
             questions.remove(idx);
@@ -375,7 +464,8 @@ public class QuizCreatorAppSwing extends JFrame {
         Question q = new Question(questionCounter);
         questions.add(q);
         addQuestionUI(q);
-        SwingUtilities.invokeLater(() -> questionsScrollPane.getVerticalScrollBar().setValue(questionsScrollPane.getVerticalScrollBar().getMaximum()));
+        SwingUtilities.invokeLater(() -> questionsScrollPane.getVerticalScrollBar()
+                .setValue(questionsScrollPane.getVerticalScrollBar().getMaximum()));
     }
 
     private void renumberQuestions() {
@@ -387,7 +477,9 @@ public class QuizCreatorAppSwing extends JFrame {
     }
 
     private void updateQuestionCount() {
-        questionCountLabel.setText(questions.size() + " câu hỏi");
+        if (questionCountLabel != null) {
+            questionCountLabel.setText(questions.size() + " câu hỏi");
+        }
     }
 
     private void refreshUI() {
@@ -397,24 +489,28 @@ public class QuizCreatorAppSwing extends JFrame {
 
     private void saveExam() {
         if (examCodeField.getText().trim().isEmpty() ||
-            descriptionArea.getText().trim().isEmpty() ||
-            gradeComboBox.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin đề thi!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+                descriptionArea.getText().trim().isEmpty() ||
+                gradeComboBox.getSelectedItem() == null) {
+            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin đề thi!", "Lỗi",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
         for (Question q : questions) {
             if (q.getQuestionText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ nội dung câu hỏi!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ nội dung câu hỏi!", "Lỗi",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             // bắt buộc phải có đủ 4 đáp án cho mỗi câu hỏi
             if (q.getAnswers() == null || q.getAnswers().size() < 4) {
-                JOptionPane.showMessageDialog(this, "Mỗi câu hỏi phải có đủ 4 đáp án!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Mỗi câu hỏi phải có đủ 4 đáp án!", "Lỗi",
+                        JOptionPane.WARNING_MESSAGE);
                 return;
             }
             for (String a : q.getAnswers()) {
                 if (a == null || a.trim().isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ các đáp án!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+                    JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ các đáp án!", "Lỗi",
+                            JOptionPane.WARNING_MESSAGE);
                     return;
                 }
             }
@@ -424,12 +520,14 @@ public class QuizCreatorAppSwing extends JFrame {
         java.util.Date start = (java.util.Date) publishDateSpinner.getValue();
         java.util.Date end = (java.util.Date) endDateSpinner.getValue();
         if (end.before(start)) {
-            JOptionPane.showMessageDialog(this, "Thời gian kết thúc phải lớn hơn thời gian bắt đầu!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this, "Thời gian kết thúc phải lớn hơn thời gian bắt đầu!", "Lỗi",
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
 
         // TODO: prepare payload and call apiService.autoUpdate (autoUpdate endpoint)
-        // Example: build questions + answers payload, include PublishDate from getPublishDateTimeString() and EndDate
+        // Example: build questions + answers payload, include PublishDate from
+        // getPublishDateTimeString() and EndDate
         System.out.println("Saving exam:");
         System.out.println("Code: " + examCodeField.getText());
         System.out.println("Grade: " + gradeComboBox.getSelectedItem());
@@ -447,11 +545,11 @@ public class QuizCreatorAppSwing extends JFrame {
         JPanel answersPanel = new JPanel(new GridLayout(question.getAnswers().size(), 1, 6, 6));
         answersPanel.setOpaque(false);
 
-        String[] labels = {"A","B","C","D"};
+        String[] labels = { "A", "B", "C", "D" };
         List<String> answers = question.getAnswers();
         for (int i = 0; i < answers.size(); i++) {
             final int idx = i;
-            JPanel row = new JPanel(new BorderLayout(6,6));
+            JPanel row = new JPanel(new BorderLayout(6, 6));
             row.setOpaque(false);
 
             // left panel holds radio + label so radio is visible
@@ -467,7 +565,7 @@ public class QuizCreatorAppSwing extends JFrame {
             bg.add(rb);
             left.add(rb);
 
-            JLabel lbl = new JLabel(labels[Math.min(idx, labels.length-1)]);
+            JLabel lbl = new JLabel(labels[Math.min(idx, labels.length - 1)]);
             lbl.setPreferredSize(new Dimension(24, 20));
             left.add(lbl);
 
@@ -476,15 +574,14 @@ public class QuizCreatorAppSwing extends JFrame {
             JTextField af = new JTextField(answers.get(idx));
             af.setPreferredSize(new Dimension(300, 28));
             af.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(0xD1D5DB)),
-                BorderFactory.createEmptyBorder(4, 6, 4, 6)
-            ));
+                    BorderFactory.createLineBorder(new Color(0xD1D5DB)),
+                    BorderFactory.createEmptyBorder(4, 6, 4, 6)));
             af.getDocument().addDocumentListener(
-                (SimpleDocumentListener) () -> {
-                    while (question.getAnswers().size() <= idx) question.getAnswers().add("");
-                    question.getAnswers().set(idx, af.getText());
-                }
-            );
+                    (SimpleDocumentListener) () -> {
+                        while (question.getAnswers().size() <= idx)
+                            question.getAnswers().add("");
+                        question.getAnswers().set(idx, af.getText());
+                    });
             row.add(af, BorderLayout.CENTER);
 
             answersPanel.add(row);
@@ -518,26 +615,37 @@ public class QuizCreatorAppSwing extends JFrame {
         void update();
 
         @Override
-        default void insertUpdate(javax.swing.event.DocumentEvent e) { update(); }
+        default void insertUpdate(javax.swing.event.DocumentEvent e) {
+            update();
+        }
 
         @Override
-        default void removeUpdate(javax.swing.event.DocumentEvent e) { update(); }
+        default void removeUpdate(javax.swing.event.DocumentEvent e) {
+            update();
+        }
 
         @Override
-        default void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
+        default void changedUpdate(javax.swing.event.DocumentEvent e) {
+            update();
+        }
     }
 
     public static void main(String[] args) {
         // SwingUtilities.invokeLater(() -> {
-        //     try {
-        //         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        //     } catch (Exception ignored) {}
-        //     // tạo service test (nếu cần thay thế bằng đúng instance trong app)
-        //     //ApiService apiService = new ApiService();
-        //     //AuthService authService = new AuthService();
-        //     //QuizCreatorAppSwing app = new QuizCreatorAppSwing(apiService, authService, null);
-        //     app.setVisible(true);
+        // try {
+        // UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        // } catch (Exception ignored) {}
+        // // tạo service test (nếu cần thay thế bằng đúng instance trong app)
+        // //ApiService apiService = new ApiService();
+        // //AuthService authService = new AuthService();
+        // //QuizCreatorAppSwing app = new QuizCreatorAppSwing(apiService, authService,
+        // null);
+        // app.setVisible(true);
         // });
-        launch(args);
+        try {
+            UIManager.setLookAndFeel(new FlatLightLaf());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
