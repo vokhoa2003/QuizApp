@@ -44,6 +44,7 @@ import com.example.taskmanager.service.AuthService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.oauth2.model.Userinfo;
+import com.example.taskmanager.model.Task;
 
 public class MainWindow extends JFrame {
     
@@ -465,22 +466,30 @@ public class MainWindow extends JFrame {
                                 showTaskPanel();
                             }
                             else if (userRole != null && userRole.equals("student") && userStatus != null && userStatus.equals("Active")) {
-                                // Mở cửa sổ QuizAppSwing
-                                QuizAppSwing quizWindow = new QuizAppSwing(apiService, authService, MainWindow.this);
-                                quizWindow.setVisible(true);
-                                // Nếu muốn đóng MainWindow sau khi mở quiz:
+                                // Mở giao diện StudentDashboard cho học sinh
+                                // Tạo đối tượng Task từ userInfo
+                                Task studentTask = new Task();
+                                studentTask.setFullName(userInfo.getName());
+                                studentTask.setEmail(userInfo.getEmail());
+                                
+                                StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask);
+                                studentDashboard.setVisible(true);
+                                
+                                // Đóng MainWindow
                                 MainWindow.this.dispose();
                             }
                             else if (userRole != null && userRole.equals("teacher") && userStatus != null && userStatus.equals("Active")) {
-                                 // Mở giao diện tạo quiz cho giáo viên
-                                // QuizCreatorApp creatorWindow = new QuizCreatorApp(apiService, authService, MainWindow.this);
-                                // creatorWindow.setVisible(true);
-
-                                // // Ẩn hoặc đóng MainWindow
-                                // MainWindow.this.dispose();
-                                QuizCreatorAppSwing creatorWindow = new QuizCreatorAppSwing(apiService, authService, MainWindow.this);
-                                creatorWindow.setVisible(true);
-                                dispose();
+                                // Mở giao diện TeacherDashboard cho giáo viên
+                                // Tạo đối tượng Task từ userInfo
+                                Task teacherTask = new Task();
+                                teacherTask.setFullName(userInfo.getName());
+                                teacherTask.setEmail(userInfo.getEmail());
+                                
+                                TeacherDashboard teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask);
+                                teacherDashboard.setVisible(true);
+                                
+                                // Đóng MainWindow
+                                MainWindow.this.dispose();
                             }
                             else {
                                 String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";

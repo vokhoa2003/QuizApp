@@ -631,24 +631,6 @@ public class QuizCreatorAppSwing extends JFrame {
     }
 
     public static void main(String[] args) {
-<<<<<<< HEAD
-    javax.swing.SwingUtilities.invokeLater(() -> {
-        try {
-            javax.swing.UIManager.setLookAndFeel(javax.swing.UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception ignored) {}
-        
-        // Tạo AuthService trước
-        AuthService authService = new AuthService();
-        // Rồi truyền vào ApiService
-        ApiService apiService = new ApiService(authService);
-        
-        QuizCreatorAppSwing app = new QuizCreatorAppSwing(apiService, authService, null);
-        app.setVisible(true);
-    });
-}
-
-
-=======
         // SwingUtilities.invokeLater(() -> {
         // try {
         // UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
@@ -666,5 +648,4 @@ public class QuizCreatorAppSwing extends JFrame {
             e.printStackTrace();
         }
     }
->>>>>>> 755e899386b8bf6f67ccd0b48842bb5498cb1377
 }
