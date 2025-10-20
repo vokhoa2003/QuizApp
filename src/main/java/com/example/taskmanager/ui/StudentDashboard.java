@@ -9,6 +9,7 @@ import javax.swing.border.EmptyBorder;
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
+import com.example.taskmanager.service.StudentInfoService;
 import com.formdev.flatlaf.FlatLightLaf;
 
 public class StudentDashboard extends JFrame {
@@ -197,35 +198,32 @@ public class StudentDashboard extends JFrame {
     
     private void loadStudentClasses() {
         classesPanel.removeAll();
-        
+
         SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Map<String, Object>> doInBackground() {
-                // TODO: Call API to get student's classes
-                // For now using mock data
-                List<Map<String, Object>> classes = new ArrayList<>();
-                
-                Map<String, Object> class1 = new HashMap<>();
-                class1.put("ClassName", "Lớp 10A1 - Toán");
-                class1.put("TeacherName", "Nguyễn Văn A");
-                class1.put("StudentCount", 35);
-                classes.add(class1);
-                
-                Map<String, Object> class2 = new HashMap<>();
-                class2.put("ClassName", "Lớp 10A1 - Lý");
-                class2.put("TeacherName", "Trần Thị B");
-                class2.put("StudentCount", 33);
-                classes.add(class2);
-                
-                Map<String, Object> class3 = new HashMap<>();
-                class3.put("ClassName", "Lớp 10A1 - Hóa");
-                class3.put("TeacherName", "Lê Văn C");
-                class3.put("StudentCount", 32);
-                classes.add(class3);
-                
-                return classes;
+                try {
+                    StudentInfoService sis = new StudentInfoService(apiService);
+
+                    // Ưu tiên email từ currentStudent; fallback từ authService nếu có
+                    String email = currentStudent != null ? currentStudent.getEmail() : null;
+                    if ((email == null || email.isEmpty()) && authService != null) {
+                        try {
+                            email = (String) authService.getClass().getMethod("getUserEmail").invoke(authService);
+                        } catch (Exception ignored) {}
+                    }
+                    if (email == null || email.isEmpty()) {
+                        System.err.println("StudentDashboard: missing email to load classes");
+                        return Collections.emptyList();
+                    }
+
+                    return sis.fetchStudentClassesByEmail(email);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    return Collections.emptyList();
+                }
             }
-            
+
             @Override
             protected void done() {
                 try {
@@ -245,17 +243,33 @@ public class StudentDashboard extends JFrame {
     
     private void displayClasses(List<Map<String, Object>> classes) {
         classesPanel.removeAll();
-        
+
+        if (classes == null || classes.isEmpty()) {
+            JLabel emptyLabel = new JLabel("Không có lớp học nào");
+            emptyLabel.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+            emptyLabel.setForeground(new Color(0x9CA3AF));
+            emptyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            classesPanel.add(Box.createVerticalGlue());
+            classesPanel.add(emptyLabel);
+            classesPanel.add(Box.createVerticalGlue());
+            classesPanel.revalidate();
+            classesPanel.repaint();
+            return;
+        }
+
         for (Map<String, Object> classData : classes) {
-            String className = classData.get("ClassName").toString();
-            String teacherName = classData.get("TeacherName").toString();
-            int studentCount = (int) classData.get("StudentCount");
-            
+            String className = String.valueOf(
+                classData.getOrDefault("ClassName", classData.getOrDefault("classes.Name", "Lớp học"))
+            );
+            String teacherName = String.valueOf(classData.getOrDefault("TeacherName", "Đang cập nhật"));
+            Object sc = classData.getOrDefault("StudentCount", 0);
+            int studentCount = (sc instanceof Number) ? ((Number) sc).intValue() : 0;
+
             JPanel classCard = createClassCard(className, teacherName, studentCount);
             classesPanel.add(classCard);
             classesPanel.add(Box.createVerticalStrut(12));
         }
-        
+
         classesPanel.revalidate();
         classesPanel.repaint();
     }
@@ -324,6 +338,22 @@ public class StudentDashboard extends JFrame {
         });
         
         return card;
+    }
+    public List<Map<String, Object>> loadStudentExamData() {
+        // Sử dụng StudentInfoService để lấy dữ liệu account + student + classes theo email của currentStudent
+        try {
+            StudentInfoService sis = new StudentInfoService(apiService);
+            String email = currentStudent != null ? currentStudent.getEmail() : null;
+            List<Map<String, Object>> result = sis.fetchProfileByEmail(email);
+            System.out.println("✅ Data loaded from StudentInfoService: " + result);
+            return result;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this,
+                "Lỗi khi tải thông tin học sinh và bài kiểm tra!",
+                "Lỗi API", JOptionPane.ERROR_MESSAGE);
+            return Collections.emptyList();
+        }
     }
     
     private void selectClass(String className, JPanel selectedCard) {

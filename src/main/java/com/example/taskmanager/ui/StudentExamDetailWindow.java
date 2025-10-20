@@ -11,6 +11,7 @@ import javax.swing.table.JTableHeader;
 
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
+import com.example.taskmanager.service.StudentInfoService;
 
 public class StudentExamDetailWindow extends JFrame {
     private ApiService apiService;
@@ -269,50 +270,76 @@ public class StudentExamDetailWindow extends JFrame {
     }
     
     private void loadExamData() {
-        SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
+        SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
             @Override
-            protected List<Object[]> doInBackground() {
-                // TODO: Call API to get student's exams
-                // apiService.getStudentExams(studentId);
-                
-                // Mock data
-                List<Object[]> data = new ArrayList<>();
-                data.add(new Object[]{1, "DE001", "Toán Học", "2025-01-15 10:00", 8.5, "Đã chấm", "detail"});
-                data.add(new Object[]{2, "DE002", "Vật Lý", "2025-01-18 14:30", 7.8, "Đã chấm", "detail"});
-                data.add(new Object[]{3, "DE003", "Hóa Học", "2025-01-20 09:00", 9.2, "Đã chấm", "detail"});
-                data.add(new Object[]{4, "DE004", "Sinh Học", "2025-01-22 15:00", 6.5, "Đã chấm", "detail"});
-                data.add(new Object[]{5, "DE005", "Anh Văn", "2025-01-25 11:00", 8.9, "Đã chấm", "detail"});
-                
-                return data;
+            protected List<Map<String, Object>> doInBackground() {
+                try {
+                    StudentInfoService sis = new StudentInfoService(apiService);
+                    // Nếu có email từ authService thì dùng, nếu không cần sửa constructor để truyền email hoặc accountId
+                    String email = null;
+                    if (authService != null) {
+                        try {
+                            // Thử lấy email từ authService nếu phương thức tồn tại
+                            email = (String) authService.getClass().getMethod("getUserEmail").invoke(authService);
+                        } catch (Exception ignored) {}
+                    }
+                    if (email != null) {
+                        return sis.fetchProfileByEmail(email);
+                    }
+                    // fallback: trả về rỗng và log để developer sửa nơi gọi
+                    System.err.println("StudentExamDetailWindow: missing email/accountId to load profile");
+                    return Collections.emptyList();
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    return Collections.emptyList();
+                }
             }
-            
+
             @Override
             protected void done() {
                 try {
-                    List<Object[]> data = get();
+                    List<Map<String, Object>> data = get();
+                    System.out.println("✅ StudentExamDetailWindow profile: " + data);
+                    
+                    // Xóa dữ liệu cũ
                     tableModel.setRowCount(0);
                     
-                    double total = 0;
-                    double max = 0;
-                    double min = 10;
-                    
-                    for (Object[] row : data) {
-                        tableModel.addRow(row);
-                        double score = (Double) row[4];
-                        total += score;
-                        max = Math.max(max, score);
-                        min = Math.min(min, score);
+                    // TODO: Map data vào table - cần điều chỉnh theo cấu trúc API thực tế
+                    // Ví dụ mock để test UI:
+                    if (data != null && !data.isEmpty()) {
+                        // Giả sử API trả về list exam của student
+                        for (int i = 0; i < data.size(); i++) {
+                            Map<String, Object> row = data.get(i);
+                            tableModel.addRow(new Object[]{
+                                i + 1,
+                                row.getOrDefault("ExamCode", "N/A"),
+                                row.getOrDefault("Subject", "N/A"),
+                                row.getOrDefault("SubmittedDate", "N/A"),
+                                row.getOrDefault("Score", 0.0),
+                                row.getOrDefault("Status", "Chưa chấm"),
+                                null // button column
+                            });
+                        }
+                        
+                        // Cập nhật summary nếu có dữ liệu
+                        double total = data.size();
+                        double avg = data.stream()
+                            .mapToDouble(r -> ((Number)r.getOrDefault("Score", 0.0)).doubleValue())
+                            .average().orElse(0.0);
+                        double max = data.stream()
+                            .mapToDouble(r -> ((Number)r.getOrDefault("Score", 0.0)).doubleValue())
+                            .max().orElse(0.0);
+                        double min = data.stream()
+                            .mapToDouble(r -> ((Number)r.getOrDefault("Score", 0.0)).doubleValue())
+                            .min().orElse(0.0);
+                        
+                        updateSummaryStats((int)total, avg, max, min);
                     }
-                    
-                    // Update summary stats
-                    updateSummaryStats(data.size(), total / data.size(), max, min);
-                    
                 } catch (Exception e) {
                     e.printStackTrace();
                     JOptionPane.showMessageDialog(StudentExamDetailWindow.this,
                         "Lỗi khi tải dữ liệu bài thi!",
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
+                        "Lỗi", JOptionPane.ERROR_MESSAGE);
                 }
             }
         };

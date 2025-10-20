@@ -1,9 +1,28 @@
 package com.example.taskmanager.ui;
 
-import java.awt.*;
-import java.util.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.util.Collections;
 import java.util.List;
-import javax.swing.*;
+import java.util.Map;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.DefaultCellEditor;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
@@ -11,6 +30,7 @@ import javax.swing.table.JTableHeader;
 
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
+import com.example.taskmanager.service.StudentInfoService;
 
 public class StudentExamListWindow extends JFrame {
     private ApiService apiService;
@@ -233,67 +253,28 @@ public class StudentExamListWindow extends JFrame {
         SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Map<String, Object>> doInBackground() {
-                // Call API to get student's exams
-                Map<String, Object> params = new HashMap<>();
-                params.put("action", "get");
-                params.put("method", "SELECT");
-                params.put("table", List.of("exam_question", "exams"));
-                params.put("columns", List.of(
-                    "exam_question.id",
-                    "exam_question.ExamId",
-                    "exams.Name",
-                    "exams.PublishDate",
-                    "exam_question.Score"
-                ));
-                
-                Map<String, Object> join = new HashMap<>();
-                join.put("type", "inner");
-                join.put("on", List.of("exam_question.ExamId = exams.id"));
-                params.put("join", List.of(join));
-                
-                Map<String, Object> where = new HashMap<>();
-                where.put("exam_question.StudentId", studentId);
-                params.put("where", where);
-                
-                return apiService.postApiGetList("/autoGet", params);
+                try {
+                    StudentInfoService sis = new StudentInfoService(apiService);
+                    // studentId được truyền vào constructor của cửa sổ này
+                    List<Map<String, Object>> profile = sis.fetchProfileByAccountId(studentId);
+                    // Từ profile trích exams / classes tùy cấu trúc API của bạn
+                    // Ví dụ trả về list chứa account/student/classes; xử lý thêm để lấy danh sách bài kiểm tra
+                    return profile;
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    return Collections.emptyList();
+                }
             }
             
             @Override
             protected void done() {
                 try {
                     List<Map<String, Object>> data = get();
-                    tableModel.setRowCount(0);
-                    
-                    int index = 1;
-                    for (Map<String, Object> row : data) {
-                        Object examIdObj = row.get("exam_question.ExamId");
-                        Object nameObj = row.get("exams.Name");
-                        Object dateObj = row.get("exams.PublishDate");
-                        Object scoreObj = row.get("exam_question.Score");
-                        
-                        int examId = examIdObj != null ? (int) examIdObj : 0;
-                        String examName = nameObj != null ? nameObj.toString() : "N/A";
-                        String examDate = dateObj != null ? dateObj.toString() : "N/A";
-                        double score = scoreObj != null ? Double.parseDouble(scoreObj.toString()) : 0.0;
-                        
-                        tableModel.addRow(new Object[]{
-                            index++,
-                            examName,
-                            examDate,
-                            score,
-                            "Đã chấm",
-                            examId // Store examId for detail view
-                        });
-                    }
-                    
-                    totalExamsLabel.setText("Tổng số bài kiểm tra: " + data.size());
-                    
+                    // TODO: chuyển data -> model bảng (tùy cấu trúc API)
+                    System.out.println("✅ StudentExamListWindow profile: " + data);
+                    // hiện tại vẫn giữ bảng/renders hiện có; cần map fields tương ứng
                 } catch (Exception e) {
                     e.printStackTrace();
-                    JOptionPane.showMessageDialog(StudentExamListWindow.this,
-                        "Lỗi khi tải danh sách bài kiểm tra!\n" + e.getMessage(),
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
                 }
             }
         };

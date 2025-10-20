@@ -42,7 +42,10 @@ import javax.swing.border.LineBorder;
 
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
+import com.example.taskmanager.service.StudentInfoService;
 import com.formdev.flatlaf.FlatLightLaf;
+
+import com.example.taskmanager.ui.StudentDashboard;
 
 /**
  *
@@ -53,15 +56,16 @@ public class QuizAppSwing extends JFrame {
     private JPanel navPanel;
     private JLabel timerLabel;
     private JButton submitButton;
-    private Map<Integer, Integer> selectedAnswers = new HashMap<>(); // {questions.id -> answers.id}
+    private Map<Integer, Integer> selectedAnswers = new HashMap<>();
     private int currentPage = 1;
     private int perPage = 10;
     private int totalQuestions;
     private Timer timer;
-    private int duration = 15 * 60; // 15 phút
+    private int duration = 15 * 60;
     private List<Question> questions = new ArrayList<>();
     private ApiService apiService;
     private AuthService authService;
+    private StudentInfoService studentInfoService; // ✅ Thêm service
 
     // ------------------------- Question Class -------------------------
     private static class Question {
@@ -82,6 +86,7 @@ public class QuizAppSwing extends JFrame {
     public QuizAppSwing(ApiService apiService, AuthService authService, MainWindow mainWindow) {
         this.apiService = apiService;
         this.authService = authService;
+        this.studentInfoService = new StudentInfoService(apiService); // ✅ Khởi tạo
 
         setTitle("Bài kiểm tra trắc nghiệm");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -109,15 +114,25 @@ public class QuizAppSwing extends JFrame {
         infoPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         infoPanel.add(new JLabel("Thông tin người làm bài:", SwingConstants.CENTER));
         infoPanel.add(Box.createVerticalStrut(10));
-        List<Map<String, Object>> studentExamData = loadStudentExamData();
-        System.out.println("Loading student exam data..."+ studentExamData);
+        
+        // ✅ Lấy email từ authService (giả sử có method getUserEmail())
+        String userEmail = null;
+        try {
+            userEmail = (String) authService.getClass().getMethod("getUserEmail").invoke(authService);
+        } catch (Exception ignored) {
+            System.err.println("⚠️ Cannot get user email from authService");
+        }
+        
+        List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileByEmail(userEmail);
+        System.out.println("Loading student exam data..." + studentExamData);
+        
         infoPanel.add(new JLabel("Họ và tên: " + studentExamData.stream()
                 .map(m -> m.get("FullName"))
                 .filter(Objects::nonNull)
                 .map(Object::toString)
                 .findFirst().orElse("N/A")));
-        infoPanel.add(new JLabel("Lớp: "+ studentExamData.stream()
-                .map(m -> m.get("Name"))
+        infoPanel.add(new JLabel("Lớp: " + studentExamData.stream()
+                .map(m -> m.get("ClassName")) // ✅ Sửa key cho đúng với StudentInfoService
                 .filter(Objects::nonNull)
                 .map(Object::toString)
                 .findFirst().orElse("N/A")));
@@ -153,7 +168,8 @@ public class QuizAppSwing extends JFrame {
         timeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         timeLabel.setForeground(Color.BLUE);
         timerPanel.add(timeLabel);
-        timerLabel = new JLabel("15:00");
+        
+        timerLabel = new JLabel("15:00"); // ✅ Đã có khai báo ở trên, chỉ cần gán
         timerLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
         timerLabel.setForeground(Color.RED);
         timerPanel.add(timerLabel);
@@ -189,53 +205,53 @@ public class QuizAppSwing extends JFrame {
         setVisible(true);
     }
     //-------------------------- Lấy thông tin sinh viên------------
-    private List<Map<String, Object>> loadStudentExamData() {
-        try {
-            Map<String, Object> params = new HashMap<>();
-            params.put("action", "get");
-            //params.put("method", "SELECT");
+    // private List<Map<String, Object>> loadStudentExamData() {
+    //     try {
+    //         Map<String, Object> params = new HashMap<>();
+    //         params.put("action", "get");
+    //         //params.put("method", "SELECT");
 
-            // Liệt kê các bảng cần join
-            params.put("table", List.of("account", "student", "classes", "exams"));
+    //         // Liệt kê các bảng cần join
+    //         params.put("table", List.of("account", "student", "classes", "exams"));
 
-            // Thiết lập join theo thứ tự (INNER JOIN)
-            List<Map<String, Object>> joinList = new ArrayList<>();
+    //         // Thiết lập join theo thứ tự (INNER JOIN)
+    //         List<Map<String, Object>> joinList = new ArrayList<>();
 
-            Map<String, Object> join1 = new HashMap<>();
-            join1.put("type", "inner");
-            join1.put("on", List.of("account.id = student.IdAccount"));
-            joinList.add(join1);
+    //         Map<String, Object> join1 = new HashMap<>();
+    //         join1.put("type", "inner");
+    //         join1.put("on", List.of("account.id = student.IdAccount"));
+    //         joinList.add(join1);
 
-            Map<String, Object> join2 = new HashMap<>();
-            join2.put("type", "inner");
-            join2.put("on", List.of("student.ClassId = classes.id"));
-            joinList.add(join2);
+    //         Map<String, Object> join2 = new HashMap<>();
+    //         join2.put("type", "inner");
+    //         join2.put("on", List.of("student.ClassId = classes.id"));
+    //         joinList.add(join2);
 
-            Map<String, Object> join3 = new HashMap<>();
-            join3.put("type", "inner");
-            join3.put("on", List.of("classes.Id = exams.ClassId"));
-            joinList.add(join3);
+    //         Map<String, Object> join3 = new HashMap<>();
+    //         join3.put("type", "inner");
+    //         join3.put("on", List.of("classes.Id = exams.ClassId"));
+    //         joinList.add(join3);
 
-            params.put("join", joinList);
+    //         params.put("join", joinList);
 
-            // Cột muốn lấy (ở đây lấy toàn bộ)
-            params.put("columns", List.of("account.FullName", "classes.Name", "exams.ExamName"));
+    //         // Cột muốn lấy (ở đây lấy toàn bộ)
+    //         params.put("columns", List.of("account.FullName", "classes.Name", "exams.ExamName"));
 
-            // Gọi API
-            List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+    //         // Gọi API
+    //         List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
 
-            // Debug
-            System.out.println("✅ Data loaded from /autoGet: " + result);
-            return result;
+    //         // Debug
+    //         System.out.println("✅ Data loaded from /autoGet: " + result);
+    //         return result;
 
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                "Lỗi khi tải thông tin học sinh và bài kiểm tra!",
-                "Lỗi API", JOptionPane.ERROR_MESSAGE);
-            return Collections.emptyList();
-        }
-    }
+    //     } catch (Exception ex) {
+    //         ex.printStackTrace();
+    //         JOptionPane.showMessageDialog(this,
+    //             "Lỗi khi tải thông tin học sinh và bài kiểm tra!",
+    //             "Lỗi API", JOptionPane.ERROR_MESSAGE);
+    //         return Collections.emptyList();
+    //     }
+    // }
 
 
     // ------------------------- Render UI -------------------------

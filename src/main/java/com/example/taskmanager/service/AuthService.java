@@ -265,4 +265,9 @@ public class AuthService {
     public String getLastLoginResponse() {
         return lastLoginResponse;
     }
+    public String getUserEmail() {
+        // Lấy từ token đã decode hoặc session hiện tại
+        // Ví dụ:
+        return userEmail; // hoặc decode từ token
+    }
 }
