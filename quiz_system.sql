@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 20, 2025 lúc 11:43 AM
+-- Thời gian đã tạo: Th10 20, 2025 lúc 02:05 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -132,7 +132,7 @@ CREATE TABLE `exams` (
   `id` int(11) NOT NULL,
   `ClassId` int(10) UNSIGNED DEFAULT NULL,
   `ExamName` text NOT NULL,
-  `NumberQuestion` int(11) DEFAULT NULL,
+  `NumberQuestion` int(11) NOT NULL,
   `Description` text DEFAULT NULL,
   `CreateDate` datetime DEFAULT current_timestamp(),
   `UpdateDate` datetime DEFAULT NULL,
@@ -344,7 +344,8 @@ ALTER TABLE `customer`
 --
 ALTER TABLE `exams`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `ClassId` (`ClassId`);
+  ADD KEY `ClassId` (`ClassId`),
+  ADD KEY `TeacherId` (`TeacherId`);
 
 --
 -- Chỉ mục cho bảng `exam_answers`
@@ -371,7 +372,7 @@ ALTER TABLE `exam_questions`
 --
 ALTER TABLE `exam_results`
   ADD PRIMARY KEY (`id`),
-  ADD KEY `ExamId` (`ExamId`);
+  ADD UNIQUE KEY `ExamId` (`ExamId`,`StudentId`);
 
 --
 -- Chỉ mục cho bảng `grade`
@@ -576,6 +577,7 @@ ALTER TABLE `customer`
 -- Các ràng buộc cho bảng `exams`
 --
 ALTER TABLE `exams`
+  ADD CONSTRAINT `exams_ibfk_1` FOREIGN KEY (`TeacherId`) REFERENCES `teacher` (`Id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_exams_classid` FOREIGN KEY (`ClassId`) REFERENCES `classes` (`Id`) ON DELETE SET NULL ON UPDATE CASCADE;
 
 --

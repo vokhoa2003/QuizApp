@@ -5,17 +5,21 @@ import java.util.*;
 import java.util.List;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import java.text.SimpleDateFormat;
+import java.text.ParseException;
 
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.example.taskmanager.service.StudentInfoService;
+import com.example.taskmanager.service.ExamService;
 import com.formdev.flatlaf.FlatLightLaf;
 
 public class StudentDashboard extends JFrame {
     private ApiService apiService;
     private AuthService authService;
     private Task currentStudent;
+    private ExamService examService;
     
     private JLabel studentNameLabel;
     private JPanel classesPanel;
@@ -27,6 +31,7 @@ public class StudentDashboard extends JFrame {
         this.apiService = apiService;
         this.authService = authService;
         this.currentStudent = student;
+        this.examService = new ExamService(apiService); // Khởi tạo ExamService
         
         setTitle("Trang Chủ Học Sinh - SecureStudy");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -385,7 +390,7 @@ public class StudentDashboard extends JFrame {
     private void loadClassExams(String className) {
         examsTitle.setText("📝 Bài Kiểm Tra - " + className);
         examsPanel.removeAll();
-        
+
         // Loading indicator
         JLabel loadingLabel = new JLabel("Đang tải...");
         loadingLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
@@ -394,45 +399,20 @@ public class StudentDashboard extends JFrame {
         examsPanel.add(loadingLabel);
         examsPanel.revalidate();
         examsPanel.repaint();
-        
+
         SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Map<String, Object>> doInBackground() {
-                // TODO: Call API to get exams for this class
-                // For now using mock data
-                List<Map<String, Object>> exams = new ArrayList<>();
-                
-                Map<String, Object> exam1 = new HashMap<>();
-                exam1.put("ExamId", 1);
-                exam1.put("ExamName", "Kiểm tra giữa kỳ");
-                exam1.put("SubmittedDate", "2024-01-15");
-                exam1.put("Score", 8.5);
-                exam1.put("StudentId", 1);
-                exams.add(exam1);
-                
-                Map<String, Object> exam2 = new HashMap<>();
-                exam2.put("ExamId", 2);
-                exam2.put("ExamName", "Kiểm tra 15 phút - Chương 1");
-                exam2.put("SubmittedDate", "2024-01-10");
-                exam2.put("Score", 9.0);
-                exam2.put("StudentId", 1);
-                exams.add(exam2);
-                
-                Map<String, Object> exam3 = new HashMap<>();
-                exam3.put("ExamId", 3);
-                exam3.put("ExamName", "Kiểm tra cuối kỳ");
-                exam3.put("SubmittedDate", "2024-01-20");
-                exam3.put("Score", 7.5);
-                exam3.put("StudentId", 1);
-                exams.add(exam3);
-                
-                return exams;
+                List<Map<String, Object>> exams = examService.fetchExamsByClass(className);
+                List<Map<String, Object>> results = examService.fetchExamResults(currentStudent.getEmail());
+                return processExams(exams, results);
             }
-            
+
             @Override
             protected void done() {
                 try {
                     List<Map<String, Object>> exams = get();
+                    System.out.println("✅ Exams loaded: " + exams);
                     displayExams(exams);
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -449,6 +429,90 @@ public class StudentDashboard extends JFrame {
         };
         worker.execute();
     }
+
+    private List<Map<String, Object>> processExams(List<Map<String, Object>> exams, List<Map<String, Object>> results) {
+        List<Map<String, Object>> processedExams = new ArrayList<>();
+        
+        if (currentStudent == null) {
+            System.err.println("❌ currentStudent is null");
+            return processedExams;
+        }
+
+        String studentEmail = currentStudent.getEmail();
+        
+        for (Map<String, Object> exam : exams) {
+            try {
+                // Lấy PublicDate và ExpireDate
+                String publicDate = exam.get("PublicDate") != null ? exam.get("PublicDate").toString() : null;
+                String expireDate = exam.get("ExpireDate") != null ? exam.get("ExpireDate").toString() : null;
+                
+                // Lấy ExamId - an toàn
+                Object examIdObj = exam.get("ExamId");
+                if (examIdObj == null) {
+                    examIdObj = exam.get("exams.id");
+                }
+                if (examIdObj == null) {
+                    examIdObj = exam.get("id");
+                }
+                
+                Integer examId = null;
+                if (examIdObj instanceof Number) {
+                    examId = ((Number) examIdObj).intValue();
+                }
+                
+                if (examId == null) {
+                    System.err.println("⚠️ Skipping exam without valid ExamId: " + exam);
+                    continue;
+                }
+
+                // Kiểm tra điều kiện hiển thị theo thời gian
+                if (isExamVisible(publicDate, expireDate)) {
+                    Map<String, Object> processedExam = new HashMap<>(exam);
+                    
+                    // Kiểm tra xem học sinh đã làm bài chưa
+                    final Integer finalExamId = examId;
+                    boolean hasResult = results.stream().anyMatch(r -> {
+                        Object rExamId = r.get("ExamId");
+                        Object rStudentEmail = r.get("StudentEmail");
+                        
+                        boolean examMatch = false;
+                        if (rExamId instanceof Number) {
+                            examMatch = finalExamId.equals(((Number) rExamId).intValue());
+                        }
+                        
+                        boolean studentMatch = studentEmail != null && studentEmail.equals(rStudentEmail);
+                        
+                        return examMatch && studentMatch;
+                    });
+
+                    processedExam.put("Action", hasResult ? "Xem Chi Tiết" : "Làm Kiểm Tra");
+                    processedExams.add(processedExam);
+                }
+            } catch (Exception e) {
+                System.err.println("❌ Error processing exam: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+        
+        System.out.println("✅ Processed " + processedExams.size() + " exams");
+        return processedExams;
+    }
+
+    private boolean isExamVisible(String publicDate, String expireDate) {
+        // Kiểm tra thời gian hiện tại so với PublicDate và ExpireDate
+        Date now = new Date();
+        return (publicDate == null || now.after(parseDate(publicDate))) && (expireDate == null || now.before(parseDate(expireDate)));
+    }
+
+    private Date parseDate(String dateStr) {
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            return sdf.parse(dateStr);
+        } catch (ParseException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
     
     private void displayExams(List<Map<String, Object>> exams) {
         examsPanel.removeAll();
@@ -464,15 +528,49 @@ public class StudentDashboard extends JFrame {
             examsPanel.add(Box.createVerticalGlue());
         } else {
             for (Map<String, Object> exam : exams) {
-                int examId = (int) exam.get("ExamId");
-                int studentId = (int) exam.get("StudentId");
-                String examName = exam.get("ExamName").toString();
-                String submittedDate = exam.get("SubmittedDate").toString();
-                double score = Double.parseDouble(exam.get("Score").toString());
-                
-                JPanel examCard = createExamCard(examId, studentId, examName, submittedDate, score);
-                examsPanel.add(examCard);
-                examsPanel.add(Box.createVerticalStrut(12));
+                try {
+                    // Lấy ExamId
+                    Object examIdObj = exam.get("ExamId");
+                    if (examIdObj == null) examIdObj = exam.get("exams.id");
+                    if (examIdObj == null) examIdObj = exam.get("id");
+                    
+                    int examId = 0;
+                    if (examIdObj instanceof Number) {
+                        examId = ((Number) examIdObj).intValue();
+                    }
+                    
+                    // Lấy ExamName
+                    String examName = "Bài kiểm tra";
+                    Object examNameObj = exam.get("ExamName");
+                    if (examNameObj == null) examNameObj = exam.get("exams.ExamName");
+                    if (examNameObj != null) examName = examNameObj.toString();
+                    
+                    // Lấy PublishDate - format đẹp hơn
+                    String publishDate = "Chưa công bố";
+                    Object publishDateObj = exam.get("PublishDate");
+                    if (publishDateObj == null) publishDateObj = exam.get("exams.PublishDate");
+                    if (publishDateObj != null) {
+                        publishDate = formatDate(publishDateObj.toString());
+                    }
+                    
+                    // Lấy ExpireDate - format đẹp hơn
+                    String expireDate = "Không giới hạn";
+                    Object expireDateObj = exam.get("ExpireDate");
+                    if (expireDateObj == null) expireDateObj = exam.get("exams.ExpireDate");
+                    if (expireDateObj != null) {
+                        expireDate = formatDate(expireDateObj.toString());
+                    }
+                    
+                    // Lấy Action
+                    String action = exam.getOrDefault("Action", "Làm Kiểm Tra").toString();
+                    
+                    JPanel examCard = createExamCard(examId, examName, publishDate, expireDate, action);
+                    examsPanel.add(examCard);
+                    examsPanel.add(Box.createVerticalStrut(12));
+                } catch (Exception e) {
+                    System.err.println("❌ Error displaying exam: " + e.getMessage());
+                    e.printStackTrace();
+                }
             }
         }
         
@@ -480,15 +578,14 @@ public class StudentDashboard extends JFrame {
         examsPanel.repaint();
     }
     
-    private JPanel createExamCard(int examId, int studentId, String examName, 
-                                  String submittedDate, double score) {
+    private JPanel createExamCard(int examId, String examName, String publishDate, String expireDate, String action) {
         JPanel card = new JPanel(new BorderLayout(15, 0));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(0xE5E7EB), 1),
             new EmptyBorder(18, 20, 18, 20)
         ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 120));
         
         // Left - Exam info
         JPanel infoPanel = new JPanel();
@@ -500,73 +597,191 @@ public class StudentDashboard extends JFrame {
         nameLabel.setForeground(new Color(0x1F2937));
         nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        JLabel dateLabel = new JLabel("📅 Ngày nộp: " + submittedDate);
-        dateLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        dateLabel.setForeground(new Color(0x6B7280));
-        dateLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel publishLabel = new JLabel("📅 Công bố: " + publishDate);
+        publishLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        publishLabel.setForeground(new Color(0x6B7280));
+        publishLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        
+        JLabel expireLabel = new JLabel("⏰ Hết hạn: " + expireDate);
+        expireLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        expireLabel.setForeground(new Color(0x9CA3AF));
+        expireLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
         infoPanel.add(nameLabel);
         infoPanel.add(Box.createVerticalStrut(6));
-        infoPanel.add(dateLabel);
+        infoPanel.add(publishLabel);
+        infoPanel.add(Box.createVerticalStrut(4));
+        infoPanel.add(expireLabel);
         
         card.add(infoPanel, BorderLayout.WEST);
         
-        // Right - Score and button
+        // Right - Action button
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         rightPanel.setOpaque(false);
         
-        // Score
-        JLabel scoreLabel = new JLabel(String.format("%.1f", score));
-        scoreLabel.setFont(new Font("Segoe UI", Font.BOLD, 32));
-        scoreLabel.setForeground(getScoreColor(score));
-        rightPanel.add(scoreLabel);
+        JButton actionButton;
+        if ("Xem Chi Tiết".equals(action)) {
+            actionButton = new JButton("👁️ Xem Chi Tiết");
+            actionButton.setBackground(new Color(0x0EA5E9));
+        } else {
+            actionButton = new JButton("✏️ Làm Kiểm Tra");
+            actionButton.setBackground(new Color(0x10B981));
+        }
         
-        JLabel scoreMaxLabel = new JLabel("/10");
-        scoreMaxLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
-        scoreMaxLabel.setForeground(new Color(0x9CA3AF));
-        rightPanel.add(scoreMaxLabel);
+        actionButton.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        actionButton.setForeground(Color.WHITE);
+        actionButton.setBorderPainted(false);
+        actionButton.setFocusPainted(false);
+        actionButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        actionButton.setPreferredSize(new Dimension(150, 38));
         
-        // View detail button
-        JButton detailBtn = new JButton("👁️ Xem Chi Tiết");
-        detailBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        detailBtn.setForeground(Color.WHITE);
-        detailBtn.setBackground(new Color(0x0EA5E9));
-        detailBtn.setBorderPainted(false);
-        detailBtn.setFocusPainted(false);
-        detailBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        detailBtn.setPreferredSize(new Dimension(140, 38));
-        
-        detailBtn.addMouseListener(new java.awt.event.MouseAdapter() {
+        Color originalColor = actionButton.getBackground();
+        actionButton.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) {
-                detailBtn.setBackground(new Color(0x0284C7));
+                if ("Xem Chi Tiết".equals(action)) {
+                    actionButton.setBackground(new Color(0x0284C7));
+                } else {
+                    actionButton.setBackground(new Color(0x059669));
+                }
             }
             public void mouseExited(java.awt.event.MouseEvent evt) {
-                detailBtn.setBackground(new Color(0x0EA5E9));
+                actionButton.setBackground(originalColor);
             }
         });
         
-        detailBtn.addActionListener(e -> openExamDetail(
-            examId, studentId, currentStudent.getFullName(), examName, score
-        ));
+        actionButton.addActionListener(e -> {
+            if ("Xem Chi Tiết".equals(action)) {
+                // TODO: Mở cửa sổ xem chi tiết kết quả
+                JOptionPane.showMessageDialog(StudentDashboard.this,
+                    "Chức năng xem chi tiết đang phát triển!",
+                    "Thông báo",
+                    JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                // ✅ Kiểm tra thời gian trước khi vào thi
+                if (!isExamAvailable(publishDate, expireDate)) {
+                    JOptionPane.showMessageDialog(StudentDashboard.this,
+                        "Bài kiểm tra chưa được công bố hoặc đã hết hạn!",
+                        "Không thể làm bài",
+                        JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+                
+                // ✅ Chuyển đến QuizAppSwing với đầy đủ thông tin
+                startExamWithFullInfo(examId);
+            }
+        });
         
-        rightPanel.add(detailBtn);
+        rightPanel.add(actionButton);
         
         card.add(rightPanel, BorderLayout.EAST);
         
         return card;
     }
     
-    private Color getScoreColor(double score) {
-        if (score >= 9.0) return new Color(0x059669);
-        if (score >= 8.0) return new Color(0x0EA5E9);
-        if (score >= 6.5) return new Color(0xF59E0B);
-        return new Color(0xEF4444);
+    // ✅ Method mới: Kiểm tra thời gian hợp lệ
+    private boolean isExamAvailable(String publishDate, String expireDate) {
+        Date now = new Date();
+        
+        // Kiểm tra PublishDate
+        if (publishDate != null && !publishDate.isEmpty()) {
+            Date pubDate = parseDate(publishDate);
+            if (pubDate != null && now.before(pubDate)) {
+                System.out.println("❌ Exam not yet published");
+                return false;
+            }
+        }
+        
+        // Kiểm tra ExpireDate
+        if (expireDate != null && !expireDate.isEmpty()) {
+            Date expDate = parseDate(expireDate);
+            if (expDate != null && now.after(expDate)) {
+                System.out.println("❌ Exam expired");
+                return false;
+            }
+        }
+        
+        return true;
+    }
+
+    // ✅ Method mới: Bắt đầu thi với đầy đủ thông tin
+    private void startExamWithFullInfo(int examId) {
+        // Lấy thông tin exam đầy đủ từ API
+        SwingWorker<Map<String, Object>, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Map<String, Object> doInBackground() {
+                try {
+                    Map<String, Object> params = new HashMap<>();
+                    params.put("action", "get");
+                    params.put("method", "SELECT");
+                    params.put("table", List.of("exams"));
+                    params.put("columns", List.of("id", "ClassId", "NumberQuestion", "PublishDate", "ExpireDate"));
+                    
+                    Map<String, Object> where = new HashMap<>();
+                    where.put("id", examId);
+                    params.put("where", where);
+                    
+                    List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+                    
+                    if (result != null && !result.isEmpty()) {
+                        return result.get(0);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    Map<String, Object> examInfo = get();
+                    
+                    if (examInfo == null) {
+                        JOptionPane.showMessageDialog(StudentDashboard.this,
+                            "Không tìm thấy thông tin bài kiểm tra!",
+                            "Lỗi",
+                            JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                    
+                    // Lấy ClassId và NumberQuestion
+                    Object classIdObj = examInfo.get("ClassId");
+                    Object numberQuestionObj = examInfo.get("NumberQuestion");
+                    
+                    int classId = (classIdObj instanceof Number) ? ((Number) classIdObj).intValue() : 0;
+                    int numberQuestion = (numberQuestionObj instanceof Number) ? ((Number) numberQuestionObj).intValue() : 0;
+                    
+                    System.out.println("🎯 Starting exam:");
+                    System.out.println("   ExamId: " + examId);
+                    System.out.println("   ClassId: " + classId);
+                    System.out.println("   NumberQuestion: " + numberQuestion);
+                    
+                    // ✅ Mở QuizAppSwing với đầy đủ thông tin
+                    new QuizAppSwing(apiService, authService, examId, classId, numberQuestion);
+                    dispose(); // Đóng dashboard
+                    
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(StudentDashboard.this,
+                        "Lỗi khi tải thông tin bài kiểm tra!",
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        };
+        worker.execute();
     }
     
-    private void openExamDetail(int examId, int studentId, String studentName, 
-                                String examName, double score) {
-        new ExamDetailWindow(apiService, authService, examId, studentId, 
-                           studentName, examName, score);
+    private void openExamDetail(int examId, String studentName, String examName) {
+        new ExamDetailWindow(apiService, authService, examId, currentStudent.getEmail(), 
+                           studentName, examName, 0);
+    }
+    
+    private void startExam(int examId) {
+        // TODO: Implement start exam functionality
+        JOptionPane.showMessageDialog(this,
+            "Chức năng làm bài kiểm tra chưa được triển khai.",
+            "Thông báo", JOptionPane.INFORMATION_MESSAGE);
     }
     
     private void logout() {
@@ -597,5 +812,17 @@ public class StudentDashboard extends JFrame {
             
             new StudentDashboard(null, null, student);
         });
+    }
+
+    // ✅ Helper method: Format date đẹp hơn
+    private String formatDate(String dateStr) {
+        try {
+            SimpleDateFormat inputFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            SimpleDateFormat outputFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
+            Date date = inputFormat.parse(dateStr);
+            return outputFormat.format(date);
+        } catch (ParseException e) {
+            return dateStr;
+        }
     }
 }
