@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 21, 2025 lúc 09:44 AM
+-- Thời gian đã tạo: Th10 21, 2025 lúc 10:47 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -371,10 +371,10 @@ ALTER TABLE `exams`
 ALTER TABLE `exam_answers`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `unique_user_question` (`StudentId`,`QuestionId`),
+  ADD UNIQUE KEY `unique_attempt_question` (`AttemptId`,`QuestionId`),
   ADD KEY `AnswerId` (`AnswerId`),
   ADD KEY `StudentId` (`StudentId`),
   ADD KEY `exam_questions_id` (`exam_questions_id`),
-  ADD KEY `AttemptId` (`AttemptId`),
   ADD KEY `idx_examanswers_student_attempt` (`StudentId`,`AttemptId`),
   ADD KEY `idx_examanswers_question_attempt` (`QuestionId`,`AttemptId`);
 

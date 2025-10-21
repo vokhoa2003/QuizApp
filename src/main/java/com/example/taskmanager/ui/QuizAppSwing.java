@@ -69,6 +69,7 @@ public class QuizAppSwing extends JFrame {
     private int studentId = -1; // ✅ Thêm field để lưu StudentId
     private String studentEmail = null; // ✅ Thêm field để lưu email
     private Integer attemptId = null; // ✅ Attempt hiện tại
+    private Timer autoSubmitTimer = null; // Timer để tự nộp theo EndTime
 
     // ------------------------- Question Class -------------------------
     private static class Question {
@@ -678,7 +679,7 @@ public class QuizAppSwing extends JFrame {
         }
     }
 
-    // Tạo/FIND attempt và prefill exam_answers (AnswerId = null) cho mọi câu
+    // Tạo/FIND attempt và prefill exam_answers (đã có)
     private synchronized void ensureAttemptAndPrefill() {
         if (studentId <= 0 || examId <= 0) {
             System.err.println("❌ Missing studentId/examId for attempt creation");
@@ -699,6 +700,9 @@ public class QuizAppSwing extends JFrame {
         }
 
         prefillExamAnswersForAttempt();
+
+        // Sau khi có attemptId: schedule auto-submit nếu backend có EndTime
+        scheduleAutoSubmit();
     }
 
     // Tìm attempt có thể resume: tìm các attempt gần nhất rồi kiểm tra EndTime/Status
@@ -1009,5 +1013,83 @@ public class QuizAppSwing extends JFrame {
             }
         });
         timer.start();
+    }
+
+    // ------------------------- Schedule auto submit theo EndTime của attempt -------------------------
+    private void scheduleAutoSubmit() {
+        // clear cũ nếu có
+        if (autoSubmitTimer != null) {
+            autoSubmitTimer.stop();
+            autoSubmitTimer = null;
+        }
+        if (attemptId == null) return;
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", "exam_attempts");
+            params.put("columns", List.of("EndTime", "Status"));
+            Map<String, Object> where = new HashMap<>();
+            where.put("id", attemptId);
+            params.put("where", where);
+
+            List<Map<String, Object>> rs = apiService.postApiGetList("/autoGet", params);
+            if (rs == null || rs.isEmpty()) return;
+            String status = getFirstString(rs.get(0), "Status");
+            String endTimeStr = getFirstString(rs.get(0), "EndTime");
+            if ("submitted".equalsIgnoreCase(status)) {
+                System.out.println("ℹ️ Attempt already submitted: " + attemptId);
+                return;
+            }
+            if (endTimeStr == null || endTimeStr.isEmpty() || "null".equalsIgnoreCase(endTimeStr)) {
+                System.out.println("ℹ️ No EndTime set for attempt " + attemptId + ", auto-submit not scheduled");
+                return;
+            }
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date endTime = sdf.parse(endTimeStr);
+            long delayMs = endTime.getTime() - System.currentTimeMillis();
+            if (delayMs <= 0) {
+                System.out.println("⌛ EndTime passed — submitting now for attempt " + attemptId);
+                submitExam();
+                return;
+            }
+
+            // Swing Timer dùng int ms (<= Integer.MAX_VALUE). Nếu quá lớn, schedule periodic check
+            final int safeDelay = (delayMs > Integer.MAX_VALUE) ? Integer.MAX_VALUE : (int) delayMs;
+            autoSubmitTimer = new Timer(safeDelay, ev -> {
+                try {
+                    // khi timeout: kiểm tra lại EndTime/Status trước khi nộp
+                    Map<String, Object> check = new HashMap<>();
+                    check.put("action", "get");
+                    check.put("method", "SELECT");
+                    check.put("table", "exam_attempts");
+                    check.put("columns", List.of("EndTime", "Status"));
+                    Map<String, Object> w = new HashMap<>();
+                    w.put("id", attemptId);
+                    check.put("where", w);
+                    List<Map<String, Object>> r2 = apiService.postApiGetList("/autoGet", check);
+                    if (r2 != null && !r2.isEmpty()) {
+                        String s2 = getFirstString(r2.get(0), "Status");
+                        String e2 = getFirstString(r2.get(0), "EndTime");
+                        if (!"submitted".equalsIgnoreCase(s2)) {
+                            System.out.println("⌛ Auto-submitting attempt " + attemptId + " due to EndTime=" + e2);
+                            submitExam();
+                        } else {
+                            System.out.println("ℹ️ Attempt already submitted by other process: " + attemptId);
+                        }
+                    }
+                } catch (Exception ex) {
+                    System.err.println("⚠️ Error during autoSubmitTimer action: " + ex.getMessage());
+                } finally {
+                    Timer t = (Timer) ev.getSource();
+                    t.stop();
+                }
+            });
+            autoSubmitTimer.setRepeats(false);
+            autoSubmitTimer.start();
+            System.out.println("⏱️ Auto-submit scheduled in " + (delayMs / 1000) + "s for attempt " + attemptId);
+        } catch (Exception e) {
+            System.err.println("⚠️ scheduleAutoSubmit error: " + e.getMessage());
+        }
     }
 }

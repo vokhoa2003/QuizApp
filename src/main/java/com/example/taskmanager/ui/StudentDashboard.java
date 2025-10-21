@@ -442,8 +442,8 @@ public class StudentDashboard extends JFrame {
         
         for (Map<String, Object> exam : exams) {
             try {
-                // Lấy PublicDate và ExpireDate
-                String publicDate = exam.get("PublicDate") != null ? exam.get("PublicDate").toString() : null;
+                // Lấy PublishDate và ExpireDate
+                String publishDate = exam.get("PublicDate") != null ? exam.get("PublicDate").toString() : null;
                 String expireDate = exam.get("ExpireDate") != null ? exam.get("ExpireDate").toString() : null;
                 
                 // Lấy ExamId - an toàn
@@ -466,7 +466,7 @@ public class StudentDashboard extends JFrame {
                 }
 
                 // Kiểm tra điều kiện hiển thị theo thời gian
-                if (isExamVisible(publicDate, expireDate)) {
+                if (isExamVisible(publishDate, expireDate)) {
                     Map<String, Object> processedExam = new HashMap<>(exam);
                     
                     // Kiểm tra xem học sinh đã làm bài chưa
@@ -485,7 +485,10 @@ public class StudentDashboard extends JFrame {
                         return examMatch && studentMatch;
                     });
 
-                    processedExam.put("Action", hasResult ? "Xem Chi Tiết" : "Làm Kiểm Tra");
+                    // Xác định action: nếu đã có kết quả => "Xem Chi Tiết"
+                    // nếu chưa làm và đã quá hạn => "Hết hạn", nếu chưa làm và còn hạn => "Làm Kiểm Tra"
+                    String action = computeExamAction(publishDate, expireDate, hasResult);
+                    processedExam.put("Action", action);
                     processedExams.add(processedExam);
                 }
             } catch (Exception e) {
@@ -497,7 +500,21 @@ public class StudentDashboard extends JFrame {
         System.out.println("✅ Processed " + processedExams.size() + " exams");
         return processedExams;
     }
-
+    
+    // Trả về Action cho exam: nếu hasResult -> Xem Chi Tiết
+    // nếu chưa làm and expireDate đã qua -> Hết hạn, ngược lại -> Làm Kiểm Tra
+    private String computeExamAction(String publishDate, String expireDate, boolean hasResult) {
+        if (hasResult) return "Xem Chi Tiết";
+        if (expireDate != null && !expireDate.isEmpty()) {
+            Date now = new Date();
+            Date exp = parseDate(expireDate);
+            if (exp != null && now.after(exp)) {
+                return "Hết hạn";
+            }
+        }
+        return "Làm Kiểm Tra";
+    }
+    
     private boolean isExamVisible(String publicDate, String expireDate) {
         // Kiểm tra thời gian hiện tại so với PublicDate và ExpireDate
         Date now = new Date();
@@ -651,11 +668,8 @@ public class StudentDashboard extends JFrame {
         
         actionButton.addActionListener(e -> {
             if ("Xem Chi Tiết".equals(action)) {
-                // TODO: Mở cửa sổ xem chi tiết kết quả
-                JOptionPane.showMessageDialog(StudentDashboard.this,
-                    "Chức năng xem chi tiết đang phát triển!",
-                    "Thông báo",
-                    JOptionPane.INFORMATION_MESSAGE);
+                // Mở cửa sổ xem chi tiết: lấy studentId và score, rồi mở ExamDetailWindow
+                openExamDetailForStudent(examId);
             } else {
                 // ✅ Kiểm tra thời gian trước khi vào thi
                 if (!isExamAvailable(publishDate, expireDate)) {
@@ -824,5 +838,80 @@ public class StudentDashboard extends JFrame {
         } catch (ParseException e) {
             return dateStr;
         }
+    }
+
+    // Mở cửa sổ xem chi tiết: lấy studentId và score, rồi mở ExamDetailWindow
+    private void openExamDetailForStudent(int examId) {
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            private Integer studentId = null;
+            private Double score = 0.0;
+            private String examName = "Bài kiểm tra";
+
+            @Override
+            protected Void doInBackground() {
+                try {
+                    StudentInfoService sis = new StudentInfoService(apiService);
+                    String email = currentStudent != null ? currentStudent.getEmail() : null;
+                    if (email == null || email.isEmpty()) return null;
+
+                    // Lấy student profile -> tìm Student.Id
+                    List<Map<String, Object>> profile = sis.fetchProfileByEmail(email);
+                    if (profile != null && !profile.isEmpty()) {
+                        Object sid = profile.get(0).getOrDefault("StudentId", profile.get(0).get("Id"));
+                        if (sid instanceof Number) studentId = ((Number) sid).intValue();
+                        else if (sid != null) studentId = Integer.parseInt(sid.toString());
+                    }
+
+                    // Lấy exam name & score (nếu có) từ exam_results
+                    Map<String, Object> p = new HashMap<>();
+                    p.put("action", "get");
+                    p.put("method", "SELECT");
+                    p.put("table", "exams");
+                    p.put("columns", List.of("ExamName"));
+                    Map<String, Object> w = new HashMap<>();
+                    w.put("id", examId);
+                    p.put("where", w);
+                    List<Map<String, Object>> er = apiService.postApiGetList("/autoGet", p);
+                    if (er != null && !er.isEmpty()) {
+                        Object en = er.get(0).get("ExamName");
+                        if (en != null) examName = en.toString();
+                    }
+
+                    if (studentId != null) {
+                        Map<String, Object> q = new HashMap<>();
+                        q.put("action", "get");
+                        q.put("method", "SELECT");
+                        q.put("table", "exam_results");
+                        q.put("columns", List.of("Score"));
+                        Map<String, Object> wh = new HashMap<>();
+                        wh.put("ExamId", examId);
+                        wh.put("StudentId", studentId);
+                        q.put("where", wh);
+                        List<Map<String, Object>> res = apiService.postApiGetList("/autoGet", q);
+                        if (res != null && !res.isEmpty()) {
+                            Object sc = res.get(0).get("Score");
+                            if (sc instanceof Number) score = ((Number) sc).doubleValue();
+                            else if (sc != null) score = Double.parseDouble(sc.toString());
+                        }
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                if (studentId == null) {
+                    JOptionPane.showMessageDialog(StudentDashboard.this,
+                        "Không xác định được StudentId để xem chi tiết.",
+                        "Lỗi", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+                // Mở cửa sổ chi tiết bài thi (ExamDetailWindow expects studentId and score)
+                new ExamDetailWindow(apiService, authService, examId, studentId, currentStudent.getFullName(), examName, score);
+            }
+        };
+        worker.execute();
     }
 }
