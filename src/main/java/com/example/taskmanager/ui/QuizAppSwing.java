@@ -13,14 +13,15 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Random;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -35,7 +36,6 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.Timer;
-import javax.swing.UIManager;
 import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -43,12 +43,6 @@ import javax.swing.border.LineBorder;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.example.taskmanager.service.StudentInfoService;
-import com.formdev.flatlaf.FlatLightLaf;
-import java.text.SimpleDateFormat;
-import java.text.ParseException;
-import java.util.Date;
-
-import com.example.taskmanager.ui.StudentDashboard;
 
 /**
  *
@@ -74,6 +68,7 @@ public class QuizAppSwing extends JFrame {
     private int numberQuestion = 0;
     private int studentId = -1; // ✅ Thêm field để lưu StudentId
     private String studentEmail = null; // ✅ Thêm field để lưu email
+    private Integer attemptId = null; // ✅ Attempt hiện tại
 
     // ------------------------- Question Class -------------------------
     private static class Question {
@@ -91,7 +86,8 @@ public class QuizAppSwing extends JFrame {
     }
 
     // ------------------------- Constructor -------------------------
-    public QuizAppSwing(ApiService apiService, AuthService authService, MainWindow mainWindow) {
+    // Nếu bạn cần constructor không truyền exam/class/number: sử dụng overload này
+    public QuizAppSwing(ApiService apiService, AuthService authService) {
         this(apiService, authService, -1, -1, 0);
     }
 
@@ -161,6 +157,7 @@ public class QuizAppSwing extends JFrame {
         // ✅ Sử dụng studentEmail đã lấy ở trên
         List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileByEmail(studentEmail);
         System.out.println("Loading student exam data..." + studentExamData);
+        if (studentExamData == null) studentExamData = List.of(new HashMap<>());
         
         infoPanel.add(new JLabel("Họ và tên: " + studentExamData.stream()
                 .map(m -> m.get("FullName"))
@@ -254,6 +251,7 @@ public class QuizAppSwing extends JFrame {
 
         for (int i = start; i < end; i++) {
             Question q = questions.get(i);
+            final int qId = q.id;
             JPanel qBox = new JPanel();
             qBox.setLayout(new BoxLayout(qBox, BoxLayout.Y_AXIS));
             qBox.setBackground(Color.WHITE);
@@ -273,16 +271,18 @@ public class QuizAppSwing extends JFrame {
             for (int j = 0; j < q.options.size(); j++) {
                 String optText = q.options.get(j);
                 int answerId = q.answerIds.get(j);
+                final int aid = answerId;
+                final int qid = qId;
                 JRadioButton option = new JRadioButton(optText);
                 option.setFont(new Font("Segoe UI", Font.PLAIN, 13));
                 option.setBackground(Color.WHITE);
-                if (selectedAnswers.get(q.id) != null && selectedAnswers.get(q.id) == answerId) {
+                if (Objects.equals(selectedAnswers.get(qid), aid)) {
                     option.setSelected(true);
                 }
                 option.addActionListener(e -> {
-                    selectedAnswers.put(q.id, answerId);
+                    selectedAnswers.put(qid, aid);
                     refreshNavPanel();
-                    saveAnswerToApi(q.id, answerId);
+                    saveAnswerToApi(qid, aid);
                 });
                 group.add(option);
                 qBox.add(option);
@@ -314,150 +314,6 @@ public class QuizAppSwing extends JFrame {
             }
         }
         navPanel.repaint();
-    }
-
-    // ------------------------- Lưu đáp án mỗi khi chọn -------------------------
-    private void saveAnswerToApi(int questionId, int answerId) {
-        // ✅ Kiểm tra StudentId hợp lệ
-        if (studentId <= 0) {
-            System.err.println("❌ Cannot save answer: Invalid StudentId = " + studentId);
-            return;
-        }
-        
-        if (examId <= 0) {
-            System.err.println("❌ Cannot save answer: Invalid ExamId = " + examId);
-            return;
-        }
-
-        System.out.println("💾 Saving answer: ExamId=" + examId + ", StudentId=" + studentId + 
-                          ", QuestionId=" + questionId + ", AnswerId=" + answerId);
-
-        try {
-            // ✅ Lấy IsCorrect từ bảng answers
-            Integer isCorrect = getIsCorrectFromAnswer(questionId, answerId);
-            
-            Map<String, Object> record = new HashMap<>();
-            record.put("StudentId", studentId);
-            record.put("QuestionId", questionId);
-            record.put("AnswerId", answerId);
-            record.put("IsCorrect", isCorrect != null ? isCorrect : 0); // ✅ Thêm IsCorrect
-
-            Map<String, Object> params = new HashMap<>();
-            params.put("action", "update");
-            params.put("method", "UPSERT");
-            params.put("table", "exam_answers");
-            params.put("data", List.of(record));
-
-            System.out.println("📤 API Request: " + params);
-
-            // Gọi API trong thread riêng
-            new Thread(() -> {
-                try {
-                    List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
-                    System.out.println("✅ Saved successfully! IsCorrect=" + isCorrect + ", Response: " + response);
-                } catch (Exception ex) {
-                    System.err.println("❌ API Error: " + ex.getMessage());
-                    ex.printStackTrace();
-                }
-            }).start();
-
-        } catch (Exception ex) {
-            System.err.println("❌ Error preparing data: " + ex.getMessage());
-            ex.printStackTrace();
-        }
-    }
-
-    // ------------------------- Nộp bài -------------------------
-    private void submitExam() {
-        // ✅ Kiểm tra StudentId hợp lệ
-        if (studentId <= 0) {
-            JOptionPane.showMessageDialog(this,
-                "❌ Không tìm thấy thông tin học sinh!\nVui lòng đăng nhập lại.",
-                "Lỗi",
-                JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        
-        if (examId <= 0) {
-            JOptionPane.showMessageDialog(this,
-                "❌ Thông tin bài thi không hợp lệ!",
-                "Lỗi",
-                JOptionPane.ERROR_MESSAGE);
-            return;
-        }
-        
-        System.out.println("📝 Submitting exam for StudentId=" + studentId + ", ExamId=" + examId);
-        
-        List<Map<String, Object>> submitData = new ArrayList<>();
-
-        // Duyệt toàn bộ câu hỏi
-        for (Question q : questions) {
-            Integer ansId = selectedAnswers.get(q.id);
-            
-            // ✅ Lấy IsCorrect từ bảng answers
-            Integer isCorrect = 0;
-            if (ansId != null) {
-                isCorrect = getIsCorrectFromAnswer(q.id, ansId);
-            }
-
-            Map<String, Object> record = new HashMap<>();
-            record.put("StudentId", studentId);
-            record.put("QuestionId", q.id);
-            record.put("AnswerId", ansId != null ? ansId : null);
-            record.put("IsCorrect", isCorrect != null ? isCorrect : 0); // ✅ Thêm IsCorrect
-
-            submitData.add(record);
-        }
-
-        // Gói dữ liệu JSON
-        Map<String, Object> params = new HashMap<>();
-        params.put("action", "update");
-        params.put("method", "UPSERT");
-        params.put("table", "exam_answers");
-        params.put("data", submitData);
-
-        System.out.println("📤 Submitting data: " + submitData);
-
-        // Gửi request đến API
-        try {
-            List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
-            
-            System.out.println("📥 API Response: " + response);
-            
-            // ✅ Tính điểm và lưu vào exam_results
-            saveExamResult();
-            
-            JOptionPane.showMessageDialog(this,
-                "✅ Bạn đã nộp bài thành công!\nDữ liệu đã gửi đến server.",
-                "Nộp bài thành công",
-                JOptionPane.INFORMATION_MESSAGE);
-            
-            // Đóng cửa sổ
-            timer.stop();
-            dispose();
-            
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                "❌ Lỗi khi nộp bài: " + ex.getMessage(),
-                "Lỗi",
-                JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void startTimer() {
-        timer = new Timer(1000, e -> {
-            int minutes = duration / 60;
-            int seconds = duration % 60;
-            timerLabel.setText(String.format("%02d:%02d", minutes, seconds));
-            duration--;
-            if (duration < 0) {
-                timer.stop();
-                JOptionPane.showMessageDialog(this, "⏰ Hết giờ, tự động nộp bài!", "Hết thời gian", JOptionPane.WARNING_MESSAGE);
-                submitExam();
-            }
-        });
-        timer.start();
     }
 
     // ------------------------- Load API -------------------------
@@ -554,9 +410,14 @@ public class QuizAppSwing extends JFrame {
         }
 
         totalQuestions = questions.size();
-        
         System.out.println("✅ Final: Loaded " + totalQuestions + " questions");
-        
+
+        // ✅ Đảm bảo có Attempt và prefill exam_answers trước khi render
+        ensureAttemptAndPrefill();
+
+        // ✅ Khôi phục các lựa chọn đã lưu theo AttemptId
+        loadPreviousSelections();
+
         navPanel.removeAll();
         for (int i = 1; i <= totalQuestions; i++) {
             final int index = i;
@@ -634,96 +495,125 @@ public class QuizAppSwing extends JFrame {
             return -1;
         }
     }
-    // ...existing code...
 
-// ✅ Method mới: Lấy IsCorrect từ bảng answers (GIỮ NGUYÊN - đúng rồi)
-private Integer getIsCorrectFromAnswer(int questionId, int answerId) {
-    try {
-        Map<String, Object> params = new HashMap<>();
-        params.put("action", "get");
-        params.put("method", "SELECT");
-        params.put("table", "answers");
-        params.put("columns", List.of("IsCorrect"));
-        
-        Map<String, Object> where = new HashMap<>();
-        where.put("QuestionId", questionId);
-        where.put("id", answerId);
-        params.put("where", where);
-        
-        System.out.println("🔍 Checking IsCorrect for Q" + questionId + ", A" + answerId);
-        
-        List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-        
-        if (result != null && !result.isEmpty()) {
-            Object isCorrectObj = result.get(0).get("IsCorrect");
+    // ✅ Method mới: Lấy IsCorrect từ bảng answers (GIỮ NGUYÊN - đúng rồi)
+    private Integer getIsCorrectFromAnswer(int questionId, int answerId) {
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", "answers");
+            params.put("columns", List.of("IsCorrect"));
             
-            System.out.println("   Raw IsCorrect value: " + isCorrectObj + " (type: " + (isCorrectObj != null ? isCorrectObj.getClass().getName() : "null") + ")");
+            Map<String, Object> where = new HashMap<>();
+            where.put("QuestionId", questionId);
+            where.put("id", answerId);
+            params.put("where", where);
             
-            if (isCorrectObj instanceof Number) {
-                int value = ((Number) isCorrectObj).intValue();
-                System.out.println("   ✅ IsCorrect = " + value);
-                return value;
-            } else if (isCorrectObj instanceof Boolean) {
-                int value = ((Boolean) isCorrectObj) ? 1 : 0;
-                System.out.println("   ✅ IsCorrect = " + value);
-                return value;
-            } else if (isCorrectObj instanceof String) {
-                int value = ("1".equals(isCorrectObj) || "true".equalsIgnoreCase((String) isCorrectObj)) ? 1 : 0;
-                System.out.println("   ✅ IsCorrect = " + value);
-                return value;
+            System.out.println("🔍 Checking IsCorrect for Q" + questionId + ", A" + answerId);
+            
+            List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+            
+            if (result != null && !result.isEmpty()) {
+                Object isCorrectObj = result.get(0).get("IsCorrect");
+                
+                System.out.println("   Raw IsCorrect value: " + isCorrectObj + " (type: " + (isCorrectObj != null ? isCorrectObj.getClass().getName() : "null") + ")");
+                
+                if (isCorrectObj instanceof Number) {
+                    int value = ((Number) isCorrectObj).intValue();
+                    System.out.println("   ✅ IsCorrect = " + value);
+                    return value;
+                } else if (isCorrectObj instanceof Boolean) {
+                    int value = ((Boolean) isCorrectObj) ? 1 : 0;
+                    System.out.println("   ✅ IsCorrect = " + value);
+                    return value;
+                } else if (isCorrectObj instanceof String) {
+                    int value = ("1".equals(isCorrectObj) || "true".equalsIgnoreCase((String) isCorrectObj)) ? 1 : 0;
+                    System.out.println("   ✅ IsCorrect = " + value);
+                    return value;
+                }
             }
+            
+            System.err.println("   ⚠️ IsCorrect not found, defaulting to 0");
+            return 0;
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error getting IsCorrect for Q" + questionId + " A" + answerId + ": " + e.getMessage());
+            e.printStackTrace();
+            return 0;
         }
-        
-        System.err.println("   ⚠️ IsCorrect not found, defaulting to 0");
-        return 0;
-        
-    } catch (Exception e) {
-        System.err.println("❌ Error getting IsCorrect for Q" + questionId + " A" + answerId + ": " + e.getMessage());
-        e.printStackTrace();
-        return 0;
     }
-}
 
 
     // ✅ Method mới: Tính điểm và lưu vào exam_results
     private void saveExamResult() {
         try {
-            int correctCount = 0;
-            
-            for (Question q : questions) {
-                Integer selectedAnswerId = selectedAnswers.get(q.id);
-                if (selectedAnswerId != null) {
-                    if (isCorrectAnswer(q.id, selectedAnswerId)) {
-                        correctCount++;
-                    }
-                }
-            }
-            
-            double score = (double) correctCount / totalQuestions * 10;
-            score = Math.round(score * 100.0) / 100.0;
-            
+            int correctCount = countCorrectAnswersByAttempt(attemptId);
+            double score = totalQuestions > 0 ? Math.round((correctCount * 10.0 / totalQuestions) * 100.0) / 100.0 : 0.0;
+
             System.out.println("📊 Score: " + correctCount + "/" + totalQuestions + " = " + score + " điểm");
-            
+
             Map<String, Object> resultRecord = new HashMap<>();
             resultRecord.put("ExamId", examId);
             resultRecord.put("StudentId", studentId);
+            resultRecord.put("AttemptId", attemptId);
             resultRecord.put("Score", score);
             resultRecord.put("SubmittedDate", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-            
+
             Map<String, Object> params = new HashMap<>();
             params.put("action", "update");
             params.put("method", "UPSERT");
             params.put("table", "exam_results");
             params.put("data", List.of(resultRecord));
-            
+
             List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
             System.out.println("✅ Saved exam result: " + response);
-            
         } catch (Exception e) {
             System.err.println("❌ Error saving exam result: " + e.getMessage());
             e.printStackTrace();
         }
     }
+
+    // Đếm số câu đúng theo AttemptId bằng cách JOIN answers.IsCorrect
+    private int countCorrectAnswersByAttempt(Integer attemptId) {
+        if (attemptId == null) return 0;
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", List.of("exam_answers", "answers"));
+            params.put("columns", List.of("answers.IsCorrect"));
+
+            Map<String, Object> join = new HashMap<>();
+            join.put("type", "inner");
+            join.put("on", List.of("exam_answers.AnswerId = answers.id"));
+            params.put("join", List.of(join));
+
+            Map<String, Object> where = new HashMap<>();
+            where.put("exam_answers.AttemptId", attemptId);
+            params.put("where", where);
+
+            List<Map<String, Object>> rs = apiService.postApiGetList("/autoGet", params);
+            if (rs == null) return 0;
+
+            int cnt = 0;
+            for (Map<String, Object> row : rs) {
+                Object v = row.get("IsCorrect");
+                if (v instanceof Number) {
+                    if (((Number) v).intValue() == 1) cnt++;
+                } else if (v instanceof Boolean) {
+                    if ((Boolean) v) cnt++;
+                } else if (v instanceof String) {
+                    if ("1".equals(v) || "true".equalsIgnoreCase((String) v)) cnt++;
+                }
+            }
+            return cnt;
+        } catch (Exception e) {
+            System.err.println("⚠️ countCorrectAnswersByAttempt error: " + e.getMessage());
+            return 0;
+        }
+    }
+
 
     // ✅ Method kiểm tra đáp án đúng
     private boolean isCorrectAnswer(int questionId, int answerId) {
@@ -788,11 +678,336 @@ private Integer getIsCorrectFromAnswer(int questionId, int answerId) {
         }
     }
 
-    public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(new FlatLightLaf());
-        } catch (Exception e) {
-            e.printStackTrace();
+    // Tạo/FIND attempt và prefill exam_answers (AnswerId = null) cho mọi câu
+    private synchronized void ensureAttemptAndPrefill() {
+        if (studentId <= 0 || examId <= 0) {
+            System.err.println("❌ Missing studentId/examId for attempt creation");
+            return;
         }
+        if (attemptId != null) {
+            System.out.println("ℹ️ Attempt already initialized: " + attemptId);
+            return;
+        }
+
+        Integer existing = findExistingAttemptId(examId, studentId);
+        if (existing != null) {
+            attemptId = existing;
+            System.out.println("🔁 Reusing existing attemptId=" + attemptId);
+        } else {
+            attemptId = createAttempt(examId, studentId);
+            System.out.println("🆕 Created attemptId=" + attemptId);
+        }
+
+        prefillExamAnswersForAttempt();
+    }
+
+    // Tìm attempt có thể resume: tìm các attempt gần nhất rồi kiểm tra EndTime/Status
+    private Integer findExistingAttemptId(int examId, int studentId) {
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", "exam_attempts");
+            params.put("columns", List.of("id", "Status", "EndTime", "StartTime", "SubmitTime"));
+            Map<String, Object> where = new HashMap<>();
+            where.put("ExamId", examId);
+            where.put("StudentId", studentId);
+            params.put("where", where);
+            params.put("order", "id DESC");
+            params.put("limit", 10); // lấy vài bản ghi gần nhất để kiểm tra
+
+            List<Map<String, Object>> rs = apiService.postApiGetList("/autoGet", params);
+            if (rs == null || rs.isEmpty()) return null;
+
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            Date now = new Date();
+
+            for (Map<String, Object> row : rs) {
+                Object idObj = row.get("id");
+                if (!(idObj instanceof Number)) continue;
+                int id = ((Number) idObj).intValue();
+
+                String status = getFirstString(row, "Status");
+                String endTimeStr = getFirstString(row, "EndTime");
+
+                // Nếu đang in_progress thì resume
+                if ("in_progress".equalsIgnoreCase(status)) {
+                    System.out.println("🔁 Found in_progress attempt: " + id);
+                    return id;
+                }
+
+                // Nếu chưa submit và EndTime null or in future => resume
+                boolean submitFlag = "submitted".equalsIgnoreCase(status);
+                if (!submitFlag) {
+                    if (endTimeStr == null || endTimeStr.isEmpty() || "null".equalsIgnoreCase(endTimeStr)) {
+                        System.out.println("🔁 Found resumable attempt (no EndTime): " + id + " status=" + status);
+                        return id;
+                    }
+                    try {
+                        Date endTime = sdf.parse(endTimeStr);
+                        if (endTime.after(now)) {
+                            System.out.println("🔁 Found resumable attempt (EndTime in future): " + id + " EndTime=" + endTimeStr);
+                            return id;
+                        }
+                    } catch (Exception pe) {
+                        System.err.println("⚠️ Cannot parse EndTime for attempt " + id + ": " + endTimeStr);
+                        // nếu parse lỗi, để tiếp tục kiểm tra bản ghi khác
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ findExistingAttemptId error: " + e.getMessage());
+        }
+        return null;
+    }
+
+    // Tạo attempt mới (Status=in_progress)
+    private Integer createAttempt(int examId, int studentId) {
+        try {
+            Map<String, Object> record = new HashMap<>();
+            record.put("ExamId", examId);
+            record.put("StudentId", studentId);
+            record.put("Status", "in_progress");
+            record.put("StartTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "update");
+            params.put("method", "INSERT");
+            params.put("table", "exam_attempts");
+            params.put("data", List.of(record));
+
+            List<Map<String, Object>> resp = apiService.postApiGetList("/autoUpdate", params);
+            System.out.println("🆕 createAttempt resp: " + resp);
+
+            Integer id = null;
+            if (resp != null && !resp.isEmpty()) {
+                Object idObj = resp.get(0).get("id");
+                if (idObj instanceof Number) id = ((Number) idObj).intValue();
+            }
+            if (id == null) {
+                id = findExistingAttemptId(examId, studentId);
+            }
+            return id;
+        } catch (Exception e) {
+            System.err.println("❌ createAttempt error: " + e.getMessage());
+            return null;
+        }
+    }
+
+    // Prefill exam_answers cho toàn bộ câu hỏi của Attempt - CHỈ CHÈN các câu còn thiếu
+    private void prefillExamAnswersForAttempt() {
+        if (attemptId == null) {
+            System.err.println("❌ Cannot prefill answers: attemptId is null");
+            return;
+        }
+        try {
+            // 1) Lấy danh sách QuestionId đã có trong exam_answers cho attempt này
+            Map<String, Object> qparams = new HashMap<>();
+            qparams.put("action", "get");
+            qparams.put("method", "SELECT");
+            qparams.put("table", "exam_answers");
+            qparams.put("columns", List.of("QuestionId"));
+            Map<String, Object> where = new HashMap<>();
+            where.put("AttemptId", attemptId);
+            qparams.put("where", where);
+
+            List<Map<String, Object>> existing = apiService.postApiGetList("/autoGet", qparams);
+            java.util.Set<Integer> existingQ = new java.util.HashSet<>();
+            if (existing != null) {
+                for (Map<String, Object> r : existing) {
+                    Integer qid = getFirstInteger(r, "QuestionId");
+                    if (qid != null) existingQ.add(qid);
+                }
+            }
+
+            // 2) Chuẩn bị danh sách chèn cho các question chưa có
+            List<Map<String, Object>> toInsert = new ArrayList<>();
+            for (Question q : questions) {
+                if (!existingQ.contains(q.id)) {
+                    Map<String, Object> rec = new HashMap<>();
+                    rec.put("AttemptId", attemptId);
+                    rec.put("StudentId", studentId);
+                    rec.put("QuestionId", q.id);
+                    rec.put("AnswerId", null);   // chưa chọn
+                    toInsert.add(rec);
+                }
+            }
+
+            if (toInsert.isEmpty()) {
+                System.out.println("ℹ️ No missing exam_answers to prefill for attemptId=" + attemptId);
+                return;
+            }
+
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "update");
+            params.put("method", "INSERT"); // INSERT only: không override các hàng đã có
+            params.put("table", "exam_answers");
+            params.put("data", toInsert);
+
+            System.out.println("🧩 Inserting missing exam_answers for attemptId=" + attemptId + " count=" + toInsert.size());
+            List<Map<String, Object>> resp = apiService.postApiGetList("/autoUpdate", params);
+            System.out.println("✅ Prefill insert resp: " + resp);
+        } catch (Exception e) {
+            System.err.println("❌ prefillExamAnswersForAttempt error: " + e.getMessage());
+        }
+    }
+
+    // Khôi phục các lựa chọn đã lưu theo AttemptId
+    private void loadPreviousSelections() {
+        if (attemptId == null) return;
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", "exam_answers");
+            params.put("columns", List.of("QuestionId", "AnswerId"));
+            Map<String, Object> where = new HashMap<>();
+            where.put("AttemptId", attemptId);
+            where.put("StudentId", studentId);
+            params.put("where", where);
+
+            List<Map<String, Object>> rs = apiService.postApiGetList("/autoGet", params);
+            if (rs != null) {
+                for (Map<String, Object> row : rs) {
+                    Integer qid = getFirstInteger(row, "QuestionId");
+                    Integer aid = getFirstInteger(row, "AnswerId");
+                    if (qid != null && aid != null) {
+                        selectedAnswers.put(qid, aid);
+                    }
+                }
+                System.out.println("🔄 Restored " + selectedAnswers.size() + " selections from DB");
+                refreshNavPanel();
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ loadPreviousSelections error: " + e.getMessage());
+        }
+    }
+
+    // Lưu đáp án mỗi khi chọn (onclick)
+    private void saveAnswerToApi(int questionId, int answerId) {
+        if (studentId <= 0 || examId <= 0) {
+            System.err.println("❌ Cannot save: invalid studentId/examId");
+            return;
+        }
+        if (attemptId == null) {
+            System.out.println("ℹ️ Attempt not ready. Initializing...");
+            ensureAttemptAndPrefill();
+            if (attemptId == null) {
+                System.err.println("❌ Cannot save: attemptId is null");
+                return;
+            }
+        }
+
+        System.out.println("💾 Saving answer: AttemptId=" + attemptId + ", StudentId=" + studentId +
+                ", QuestionId=" + questionId + ", AnswerId=" + answerId);
+
+        try {
+            Map<String, Object> record = new HashMap<>();
+            record.put("AttemptId", attemptId);
+            record.put("StudentId", studentId);
+            record.put("QuestionId", questionId);
+            record.put("AnswerId", answerId);
+
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "update");
+            params.put("method", "UPSERT"); // UNIQUE (AttemptId, QuestionId)
+            params.put("table", "exam_answers");
+            params.put("data", List.of(record));
+
+            List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
+            System.out.println("✅ Saved: " + response);
+        } catch (Exception ex) {
+            System.err.println("❌ Error saving: " + ex.getMessage());
+        }
+    }
+
+    // Nộp bài: lưu tất cả đáp án + đánh dấu attempt + tính điểm
+    private void submitExam() {
+        if (studentId <= 0 || examId <= 0) {
+            JOptionPane.showMessageDialog(this, "Thiếu thông tin học sinh/bài thi", "Lỗi", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+        if (attemptId == null) {
+            ensureAttemptAndPrefill();
+            if (attemptId == null) {
+                JOptionPane.showMessageDialog(this, "Không khởi tạo được Attempt!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+        }
+
+        System.out.println("📝 Submitting exam for StudentId=" + studentId + ", ExamId=" + examId + ", AttemptId=" + attemptId);
+
+        List<Map<String, Object>> submitData = new ArrayList<>();
+        for (Question q : questions) {
+            Integer ansId = selectedAnswers.get(q.id);
+
+            Map<String, Object> record = new HashMap<>();
+            record.put("AttemptId", attemptId);
+            record.put("StudentId", studentId);
+            record.put("QuestionId", q.id);
+            record.put("AnswerId", ansId != null ? ansId : null);
+
+            submitData.add(record);
+        }
+
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "update");
+        params.put("method", "UPSERT");
+        params.put("table", "exam_answers");
+        params.put("data", submitData);
+
+        try {
+            List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
+            System.out.println("📥 Save-all answers response: " + response);
+
+            markAttemptSubmitted();
+            saveExamResult();
+
+            JOptionPane.showMessageDialog(this, "✅ Nộp bài thành công!", "OK", JOptionPane.INFORMATION_MESSAGE);
+            if (timer != null) timer.stop();
+            dispose();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            JOptionPane.showMessageDialog(this, "❌ Lỗi khi nộp bài: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    // Cập nhật trạng thái attempt -> submitted
+    private void markAttemptSubmitted() {
+        if (attemptId == null) return;
+        try {
+            Map<String, Object> rec = new HashMap<>();
+            rec.put("id", attemptId);
+            rec.put("Status", "submitted");
+            rec.put("SubmitTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            rec.put("EndTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "update");
+            params.put("method", "UPDATE");
+            params.put("table", "exam_attempts");
+            params.put("data", List.of(rec));
+
+            List<Map<String, Object>> resp = apiService.postApiGetList("/autoUpdate", params);
+            System.out.println("🧾 markAttemptSubmitted resp: " + resp);
+        } catch (Exception e) {
+            System.err.println("⚠️ markAttemptSubmitted error: " + e.getMessage());
+        }
+    }
+
+    // Nếu thiếu method này trong file của bạn, thêm vào:
+    private void startTimer() {
+        timer = new Timer(1000, e -> {
+            int minutes = duration / 60;
+            int seconds = duration % 60;
+            timerLabel.setText(String.format("%02d:%02d", minutes, seconds));
+            duration--;
+            if (duration < 0) {
+                timer.stop();
+                JOptionPane.showMessageDialog(this, "⏰ Hết giờ, tự động nộp bài!", "Hết thời gian", JOptionPane.WARNING_MESSAGE);
+                submitExam();
+            }
+        });
+        timer.start();
     }
 }
