@@ -8,16 +8,18 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Consumer;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFrame;
@@ -37,7 +39,6 @@ import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.formdev.flatlaf.FlatLightLaf;
-import com.google.gson.Gson;
 
 public class QuizCreatorAppSwing extends JFrame {
     private ApiService apiService;
@@ -91,7 +92,7 @@ public class QuizCreatorAppSwing extends JFrame {
     // UI Components
     private JTextField examCodeField;
     private JTextArea descriptionArea;
-    private JComboBox<String> gradeComboBox;
+    private JComboBox<ClassItem> gradeComboBox;
     private JPanel questionsContainer;
     private JScrollPane questionsScrollPane;
     private JLabel questionCountLabel;
@@ -117,7 +118,9 @@ public class QuizCreatorAppSwing extends JFrame {
         initUI();
         loadUserInfo(users -> {
             // Xử lý danh sách người dùng sau khi tải xong (nếu cần)
-            System.out.println(new Gson().toJson(users.get(0).getFullName()));
+            if (users != null && !users.isEmpty() && users.get(0) != null) {
+                System.out.println("Loaded user fullName = " + users.get(0).getFullName());
+            }
             // System.out.println("Loaded " + users.get(0));
         });
         loadInfoForData();
@@ -238,16 +241,70 @@ public class QuizCreatorAppSwing extends JFrame {
         // classNames.toArray(new String[0])
         // );
         // JComboBox<String> gradeComboBox = new JComboBox<>(comboModel);
-        List<Map<String, Object>> data = loadInfoForData();
-        String[] classNames = data.stream()
-                .map(m -> (String) m.get("Name"))
-                .filter(Objects::nonNull)
-                .distinct()
-                .toArray(String[]::new);
+        // Lấy danh sách class từ API (robust: thử nhiều key để tránh mismatch)
+        // List<Map<String, Object>> data = loadInfoForData();
+        //
+        // // DEBUG: in toàn bộ dữ liệu trả về để map key chính xác
+        // System.out.println("DEBUG: loadInfoForData raw =>");
+        // if (data == null || data.isEmpty()) {
+        // System.out.println("DEBUG: loadInfoForData returned empty or null");
+        // } else {
+        // for (int i = 0; i < data.size(); i++) {
+        // Map<String, Object> row = data.get(i);
+        // System.out.println("DEBUG: row[" + i + "] keys=" + row.keySet() + " values=" + row);
+        // }
+        // }
+        //
+        // // extract class names using multiple possible keys, keep order and distinct
+        // LinkedHashSet<String> classNamesSet = new LinkedHashSet<>();
+        // if (data != null) {
+        // for (Map<String, Object> m : data) {
+        // Object v = null;
+        // if (m.containsKey("ClassName")) v = m.get("ClassName");
+        // if (v == null && m.containsKey("classes.Name")) v = m.get("classes.Name");
+        // if (v == null && m.containsKey("classes.name")) v = m.get("classes.name");
+        // if (v == null && m.containsKey("Name")) v = m.get("Name");
+        // if (v == null && m.containsKey("name")) v = m.get("name");
+        // if (v == null && m.containsKey("class_name")) v = m.get("class_name");
+        // if (v == null) {
+        // // last resort: try to read first String-like value
+        // for (Object val : m.values()) {
+        // if (val instanceof String && ((String) val).trim().length() > 0) { v = val; break; }
+        // }
+        // }
+        // if (v != null) classNamesSet.add(v.toString());
+        // }
+        // }
+        // String[] classNames = classNamesSet.isEmpty() ? new String[] { "Chưa có lớp" } : classNamesSet.toArray(new String[0]);
+        // Lấy danh sách lớp giáo viên quản lý (đúng mục đích tạo đề)
+        List<ClassItem> teacherClasses = loadTeacherClassesForCombo();
+        DefaultComboBoxModel<ClassItem> comboModel = new DefaultComboBoxModel<>();
+        if (teacherClasses != null && !teacherClasses.isEmpty()) {
+            for (ClassItem ci : teacherClasses) comboModel.addElement(ci);
+        } else {
+            // fallback: try extract names from question data
+            List<Map<String, Object>> data = loadInfoForData();
+            LinkedHashSet<String> classNamesSet = new LinkedHashSet<>();
+            if (data != null) {
+                for (Map<String, Object> m : data) {
+                    Object v = null;
+                    if (m.containsKey("ClassName")) v = m.get("ClassName");
+                    if (v == null && m.containsKey("classes.Name")) v = m.get("classes.Name");
+                    if (v == null && m.containsKey("Name")) v = m.get("Name");
+                    if (v == null) {
+                        for (Object val : m.values()) {
+                            if (val instanceof String && ((String) val).trim().length() > 0) { v = val; break; }
+                        }
+                    }
+                    if (v != null) classNamesSet.add(v.toString());
+                }
+            }
+            if (classNamesSet.isEmpty()) comboModel.addElement(new ClassItem(null, "Chưa có lớp"));
+            else for (String n : classNamesSet) comboModel.addElement(new ClassItem(null, n));
+        }
 
         JLabel gradeLabel = new JLabel("👥 Lớp:");
-        // Đừng tạo biến cục bộ, gán vào field để dùng sau
-        this.gradeComboBox = new JComboBox<>(classNames);
+        this.gradeComboBox = new JComboBox<>(comboModel);
         this.gradeComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         panel.add(gradeLabel);
         panel.add(this.gradeComboBox);
@@ -395,8 +452,20 @@ public class QuizCreatorAppSwing extends JFrame {
         JTextArea qArea = new JTextArea(3, 40);
         qArea.setLineWrap(true);
         qArea.setWrapStyleWord(true);
-        qArea.getDocument().addDocumentListener(
-                (SimpleDocumentListener) () -> question.setQuestionText(qArea.getText()));
+        qArea.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                question.setQuestionText(qArea.getText());
+            }
+            @Override
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                question.setQuestionText(qArea.getText());
+            }
+            @Override
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                question.setQuestionText(qArea.getText());
+            }
+        });
         questionBox.add(qt);
         questionBox.add(new JScrollPane(qArea));
         questionBox.add(Box.createVerticalStrut(8));
@@ -501,7 +570,6 @@ public class QuizCreatorAppSwing extends JFrame {
                         JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            // bắt buộc phải có đủ 4 đáp án cho mỗi câu hỏi
             if (q.getAnswers() == null || q.getAnswers().size() < 4) {
                 JOptionPane.showMessageDialog(this, "Mỗi câu hỏi phải có đủ 4 đáp án!", "Lỗi",
                         JOptionPane.WARNING_MESSAGE);
@@ -516,7 +584,6 @@ public class QuizCreatorAppSwing extends JFrame {
             }
         }
 
-        // Validate publish time range
         java.util.Date start = (java.util.Date) publishDateSpinner.getValue();
         java.util.Date end = (java.util.Date) endDateSpinner.getValue();
         if (end.before(start)) {
@@ -525,109 +592,100 @@ public class QuizCreatorAppSwing extends JFrame {
             return;
         }
 
-        // TODO: prepare payload and call apiService.autoUpdate (autoUpdate endpoint)
-        // Example: build questions + answers payload, include PublishDate from
-        // getPublishDateTimeString() and EndDate
+        // ready to insert: resolve teacherId and classId, then call insert flow
+        ClassItem selectedClass = null;
+        try { selectedClass = (ClassItem) gradeComboBox.getSelectedItem(); } catch (Exception ignored) {}
+        String className = selectedClass == null ? String.valueOf(gradeComboBox.getSelectedItem()) : selectedClass.getName();
         System.out.println("Saving exam:");
         System.out.println("Code: " + examCodeField.getText());
-        System.out.println("Grade: " + gradeComboBox.getSelectedItem());
+        System.out.println("Grade: " + className);
         System.out.println("Description: " + descriptionArea.getText());
         System.out.println("Questions count: " + questions.size());
         System.out.println("Publish start: " + getPublishDateTimeString());
         System.out.println("Publish end: " + getEndPublishDateTimeString());
 
-        JOptionPane.showMessageDialog(this, "Lưu đề thi thành công!", "Thành công", JOptionPane.INFORMATION_MESSAGE);
-    }
+        // resolve teacher id from authService
+        Integer teacherId = getTeacherIdFromAuth();
+        System.out.println("DEBUG: resolved teacherId = " + teacherId);
 
-    // build answers panel for a question (with radio buttons, no delete per answer)
-    private JPanel buildAnswersPanel(Question question, JPanel questionBox) {
-        ButtonGroup bg = new ButtonGroup();
-        JPanel answersPanel = new JPanel(new GridLayout(question.getAnswers().size(), 1, 6, 6));
-        answersPanel.setOpaque(false);
+        // use id from combo if available
+        Integer classId = selectedClass == null ? resolveClassIdByName(className, teacherId) : selectedClass.getId();
+        System.out.println("DEBUG: resolved classId = " + classId + " for className=" + className);
 
-        String[] labels = { "A", "B", "C", "D" };
-        List<String> answers = question.getAnswers();
-        for (int i = 0; i < answers.size(); i++) {
-            final int idx = i;
-            JPanel row = new JPanel(new BorderLayout(6, 6));
-            row.setOpaque(false);
-
-            // left panel holds radio + label so radio is visible
-            JPanel left = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
-            left.setOpaque(false);
-
-            // radio button to select correct answer
-            JRadioButton rb = new JRadioButton();
-            rb.setSelected(idx == question.getCorrectAnswer());
-            rb.addActionListener(e -> {
-                question.setCorrectAnswer(idx);
-            });
-            bg.add(rb);
-            left.add(rb);
-
-            JLabel lbl = new JLabel(labels[Math.min(idx, labels.length - 1)]);
-            lbl.setPreferredSize(new Dimension(24, 20));
-            left.add(lbl);
-
-            row.add(left, BorderLayout.WEST);
-
-            JTextField af = new JTextField(answers.get(idx));
-            af.setPreferredSize(new Dimension(300, 28));
-            af.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(0xD1D5DB)),
-                    BorderFactory.createEmptyBorder(4, 6, 4, 6)));
-            af.getDocument().addDocumentListener(
-                    (SimpleDocumentListener) () -> {
-                        while (question.getAnswers().size() <= idx)
-                            question.getAnswers().add("");
-                        question.getAnswers().set(idx, af.getText());
-                    });
-            row.add(af, BorderLayout.CENTER);
-
-            answersPanel.add(row);
+        // if unresolved, warn and stop
+        if (classId == null) {
+            int ok = JOptionPane.showConfirmDialog(this, "Không tìm thấy lớp '" + className + "' trên server. Tiếp tục lưu không kèm ClassId?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+            if (ok != JOptionPane.YES_OPTION) return;
         }
 
-        return answersPanel;
+        // call insert flow
+        insertExamWithQuestionsAndAnswers(teacherId == null ? 0L : teacherId.longValue(), classId == null ? -1 : classId, examCodeField.getText());
     }
 
-    // helper to get selected publish date as formatted string
-    private String getPublishDateTimeString() {
-        Object val = (publishDateSpinner == null) ? null : publishDateSpinner.getValue();
-        if (val instanceof java.util.Date) {
-            java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            return fmt.format((java.util.Date) val);
+    // Try resolve teacher id from authService -> account->teacher
+    private Integer getTeacherIdFromAuth() {
+        try {
+            String email = null;
+            try { email = (String) authService.getClass().getMethod("getUserEmail").invoke(authService); } catch (Exception ignore) {}
+            if (email == null) {
+                try { email = (String) authService.getClass().getMethod("getEmail").invoke(authService); } catch (Exception ignore) {}
+            }
+            if (email == null || email.isEmpty()) return null;
+
+            Map<String,Object> p = new HashMap<>();
+            p.put("action", "get");
+            p.put("method", "SELECT");
+            p.put("table", List.of("account", "teacher"));
+            p.put("columns", List.of("teacher.Id as TeacherId"));
+            p.put("where", Map.of("account.email", email));
+            p.put("limit", 1);
+            Map<String,Object> j = new HashMap<>();
+            j.put("type", "inner");
+            j.put("on", List.of("account.id = teacher.IdAccount"));
+            p.put("join", List.of(j));
+
+            System.out.println("DEBUG: getTeacherIdFromAuth payload=" + p);
+            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
+            System.out.println("DEBUG: getTeacherIdFromAuth resp=" + resp);
+            if (resp != null && !resp.isEmpty()) {
+                Object v = resp.get(0).get("TeacherId");
+                if (v == null) v = resp.get(0).get("teacher.Id");
+                if (v == null) v = resp.get(0).get("Id");
+                if (v instanceof Number) return ((Number)v).intValue();
+                if (v != null) return Integer.parseInt(v.toString());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
         return null;
     }
 
-    // helper to get selected end publish date as formatted string
-    private String getEndPublishDateTimeString() {
-        Object val = (endDateSpinner == null) ? null : endDateSpinner.getValue();
-        if (val instanceof java.util.Date) {
-            java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            return fmt.format((java.util.Date) val);
+    // Resolve class id by class name and optional teacherId
+    private Integer resolveClassIdByName(String className, Integer teacherId) {
+        if (className == null) return null;
+        try {
+            Map<String,Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", "classes");
+            params.put("columns", List.of("id as ClassId", "Name as ClassName"));
+            Map<String,Object> where = new HashMap<>();
+            where.put("Name", className);
+            if (teacherId != null) where.put("TeacherId", teacherId);
+            params.put("where", where);
+            System.out.println("DEBUG: resolveClassIdByName payload=" + params);
+            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", params);
+            System.out.println("DEBUG: resolveClassIdByName resp=" + resp);
+            if (resp != null && !resp.isEmpty()) {
+                Object v = resp.get(0).get("ClassId");
+                if (v == null) v = resp.get(0).get("id");
+                if (v instanceof Number) return ((Number)v).intValue();
+                if (v != null) return Integer.parseInt(v.toString());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
         }
         return null;
-    }
-
-    @FunctionalInterface
-    private interface SimpleDocumentListener extends javax.swing.event.DocumentListener {
-        void update();
-
-        @Override
-        default void insertUpdate(javax.swing.event.DocumentEvent e) {
-            update();
-        }
-
-        @Override
-        default void removeUpdate(javax.swing.event.DocumentEvent e) {
-            update();
-        }
-
-        @Override
-        default void changedUpdate(javax.swing.event.DocumentEvent e) {
-            update();
-        }
     }
 
     public static void main(String[] args) {
@@ -647,5 +705,283 @@ public class QuizCreatorAppSwing extends JFrame {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    // Fetch classes for the logged-in teacher and return distinct class names (preserve order)
+    private List<ClassItem> loadTeacherClassesForCombo() {
+        List<ClassItem> out = new ArrayList<>();
+        try {
+            // get teacher email from authService (try common method names)
+            String email = null;
+            try { email = (String) authService.getClass().getMethod("getUserEmail").invoke(authService); } catch (Exception ignore) {}
+            if (email == null) {
+                try { email = (String) authService.getClass().getMethod("getEmail").invoke(authService); } catch (Exception ignore) {}
+            }
+            System.out.println("DEBUG: teacher email for classes lookup = " + email);
+            if (email == null || email.isEmpty()) return out;
+
+            Map<String,Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            // join account -> teacher -> classes to find classes owned by this teacher
+            params.put("table", List.of("account", "teacher", "classes"));
+            params.put("columns", List.of("classes.id as ClassId", "classes.Name as ClassName"));
+            Map<String,Object> where = new HashMap<>();
+            where.put("account.email", email);
+            params.put("where", where);
+            Map<String,Object> j1 = new HashMap<>();
+            j1.put("type", "inner");
+            j1.put("on", List.of("account.id = teacher.IdAccount"));
+            Map<String,Object> j2 = new HashMap<>();
+            j2.put("type", "inner");
+            // adapt join condition if your schema uses TeacherId in classes
+            // Schema hiện tại: teacher.ClassId -> classes.Id
+            j2.put("on", List.of("teacher.ClassId = classes.Id"));
+            params.put("join", List.of(j1, j2));
+
+            System.out.println("DEBUG: fetching teacher classes with params=" + params);
+            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", params);
+            System.out.println("DEBUG: teacher classes raw => " + resp);
+
+            LinkedHashSet<ClassItem> set = new LinkedHashSet<>();
+            if (resp != null) {
+                for (Map<String,Object> row : resp) {
+                    Object nameObj = null;
+                    if (row.containsKey("ClassName")) nameObj = row.get("ClassName");
+                    if (nameObj == null && row.containsKey("classes.Name")) nameObj = row.get("classes.Name");
+                    if (nameObj == null && row.containsKey("Name")) nameObj = row.get("Name");
+                    Integer id = null;
+                    Object idObj = row.get("ClassId");
+                    if (idObj == null) idObj = row.get("Id");
+                    if (idObj instanceof Number) id = ((Number) idObj).intValue();
+                    else if (idObj != null) {
+                        try { id = Integer.parseInt(idObj.toString()); } catch (Exception ignored) {}
+                    }
+                    String name = nameObj == null ? null : nameObj.toString();
+                    if (name == null || name.isEmpty()) continue;
+                    set.add(new ClassItem(id, name));
+                }
+            }
+            out.addAll(set);
+         } catch (Exception ex) {
+             ex.printStackTrace();
+         }
+         return out;
+     }
+
+    // Format date helper
+    private String formatDate(java.util.Date d) {
+        if (d == null) return null;
+        java.text.SimpleDateFormat fmt = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        return fmt.format(d);
+    }
+
+    private String getPublishDateTimeString() {
+        try {
+            return formatDate((java.util.Date) publishDateSpinner.getValue());
+        } catch (Exception e) {
+            return formatDate(new java.util.Date());
+        }
+    }
+
+    private String getEndPublishDateTimeString() {
+        try {
+            return formatDate((java.util.Date) endDateSpinner.getValue());
+        } catch (Exception e) {
+            java.util.Calendar c = java.util.Calendar.getInstance();
+            c.add(java.util.Calendar.HOUR_OF_DAY, 1);
+            return formatDate(c.getTime());
+        }
+    }
+
+    // Call server multiInsert: operations = [{table, rows: [ {...}, ... ]}, ...]
+    private List<Map<String,Object>> callMultiInsert(List<Map<String,Object>> operations) {
+        try {
+            Map<String,Object> payload = new HashMap<>();
+            payload.put("operations", operations);
+
+            // DEBUG: log full payload before sending
+            System.out.println("DEBUG: callMultiInsert -> POST /multiInsert payload = " + payload);
+
+            // try /multiInsert first
+            List<Map<String,Object>> resp = null;
+            try {
+                resp = apiService.postApiGetList("/multiInsert", payload);
+            } catch (Exception ex) {
+                System.err.println("WARN: /multiInsert call failed: " + ex.getMessage());
+            }
+
+            System.out.println("DEBUG: callMultiInsert -> response = " + resp);
+            return resp;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+
+    // Orchestrator: insert exam -> insert questions -> insert answers (uses callMultiInsert)
+    private void insertExamWithQuestionsAndAnswers(long teacherId, int classId, String examName) {
+        SwingWorker<Void, Void> worker = new SwingWorker<>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                try {
+                    // 1) exam row
+                    Map<String,Object> examRow = new HashMap<>();
+                    if (classId > 0) examRow.put("ClassId", classId);
+                    examRow.put("ExamName", examName);
+                    examRow.put("NumberQuestion", questions.size());
+                    examRow.put("Description", descriptionArea.getText());
+                    examRow.put("PublishDate", getPublishDateTimeString());
+                    examRow.put("ExpireDate", getEndPublishDateTimeString());
+                    examRow.put("TeacherId", teacherId);
+
+                    Map<String,Object> opExam = new HashMap<>();
+                    opExam.put("table", "exams");
+                    opExam.put("rows", List.of(examRow));
+
+                    System.out.println("DEBUG: will insert exam op = " + opExam);
+                    List<Map<String,Object>> resExam = callMultiInsert(List.of(opExam));
+                    System.out.println("DEBUG: resExam = " + resExam);
+
+                    Integer examId = null;
+                    // try to parse insert_ids from response (robust)
+                    if (resExam != null && !resExam.isEmpty()) {
+                        Object maybe = resExam.get(0).get("insert_ids");
+                        if (maybe instanceof List) {
+                            List<?> ids = (List<?>) maybe;
+                            if (!ids.isEmpty() && ids.get(0) instanceof Number) examId = ((Number) ids.get(0)).intValue();
+                        } else {
+                            // sometimes API returns row with last_insert_id
+                            Object lid = resExam.get(0).get("last_insert_id");
+                            if (lid instanceof Number) examId = ((Number)lid).intValue();
+                        }
+                    }
+
+                    System.out.println("DEBUG: examId parsed = " + examId);
+
+                    // 2) insert questions (batch)
+                    List<Map<String,Object>> questionRows = new ArrayList<>();
+                    for (Question q : questions) {
+                        Map<String,Object> qr = new HashMap<>();
+                        qr.put("TestNumber", q.getQuestionNumber());
+                        if (classId > 0) qr.put("ClassId", classId);
+                        qr.put("Question", q.getQuestionText());
+                        qr.put("PublishDate", getPublishDateTimeString());
+                        qr.put("ExpireDate", getEndPublishDateTimeString());
+                        qr.put("TeacherId", teacherId);
+                        if (examId != null) qr.put("ExamId", examId);
+                        questionRows.add(qr);
+                    }
+
+                    if (!questionRows.isEmpty()) {
+                        Map<String,Object> opQuestions = new HashMap<>();
+                        opQuestions.put("table", "questions");
+                        opQuestions.put("rows", questionRows);
+                        System.out.println("DEBUG: will insert questions op = (rows=" + questionRows.size() + ")");
+                        List<Map<String,Object>> resQuestions = callMultiInsert(List.of(opQuestions));
+                        System.out.println("DEBUG: resQuestions = " + resQuestions);
+
+                        // parse inserted question ids (in order)
+                        List<Integer> questionIds = new ArrayList<>();
+                        if (resQuestions != null && !resQuestions.isEmpty()) {
+                            Object maybe = resQuestions.get(0).get("insert_ids");
+                            if (maybe instanceof List) {
+                                for (Object o : (List<?>) maybe) {
+                                    if (o instanceof Number) questionIds.add(((Number)o).intValue());
+                                }
+                            } else {
+                                // fallback: if API returned single id
+                                Object lid = resQuestions.get(0).get("last_insert_id");
+                                if (lid instanceof Number) questionIds.add(((Number)lid).intValue());
+                            }
+                        }
+
+                        System.out.println("DEBUG: parsed questionIds count = " + questionIds.size());
+
+                        // 3) insert answers, map answers to created question ids if available
+                        List<Map<String,Object>> answerRows = new ArrayList<>();
+                        int qIndex = 0;
+                        for (Question q : questions) {
+                            Integer qId = (qIndex < questionIds.size()) ? questionIds.get(qIndex) : null;
+                            for (int ai = 0; ai < q.getAnswers().size(); ai++) {
+                                Map<String,Object> ar = new HashMap<>();
+                                if (qId != null) ar.put("QuestionId", qId);
+                                // if QuestionId not available, we'll rely on server-side mapping or require client to set later
+                                ar.put("Answer", q.getAnswers().get(ai));
+                                ar.put("IsCorrect", (ai == q.getCorrectAnswer()) ? 1 : 0);
+                                answerRows.add(ar);
+                            }
+                            qIndex++;
+                        }
+
+                        if (!answerRows.isEmpty()) {
+                            Map<String,Object> opAnswers = new HashMap<>();
+                            opAnswers.put("table", "answers");
+                            opAnswers.put("rows", answerRows);
+                            System.out.println("DEBUG: will insert answers op (rows=" + answerRows.size() + ")");
+                            List<Map<String,Object>> resAnswers = callMultiInsert(List.of(opAnswers));
+                            System.out.println("DEBUG: resAnswers = " + resAnswers);
+                        }
+                    }
+
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(QuizCreatorAppSwing.this, "Đã lưu đề và câu trả lời (gửi lên server).", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                    });
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(QuizCreatorAppSwing.this, "Lỗi khi lưu đề: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE));
+                }
+                return null;
+            }
+        };
+        worker.execute();
+    }
+
+    // Build answers UI for a question (4 answers + radio group)
+    private JPanel buildAnswersPanel(Question question, JPanel container) {
+        JPanel panel = new JPanel(new GridLayout(4, 1, 6, 6));
+        ButtonGroup bg = new ButtonGroup();
+        for (int i = 0; i < 4; i++) {
+            int idx = i;
+            JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+            row.setOpaque(false);
+            JRadioButton rb = new JRadioButton();
+            rb.setSelected(question.getCorrectAnswer() == idx);
+            rb.addActionListener(e -> question.setCorrectAnswer(idx));
+            bg.add(rb);
+            JTextField tf = new JTextField();
+            tf.setColumns(40);
+            String existing = "";
+            try {
+                existing = question.getAnswers().get(idx);
+            } catch (Exception ignored) {}
+            tf.setText(existing == null ? "" : existing);
+            tf.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                private void update() {
+                    String t = tf.getText();
+                    // ensure list size
+                    while (question.getAnswers().size() <= idx) question.getAnswers().add("");
+                    question.getAnswers().set(idx, t);
+                }
+                @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { update(); }
+                @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { update(); }
+                @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
+            });
+
+            row.add(rb);
+            row.add(tf);
+            panel.add(row);
+        }
+        return panel;
+    }
+
+    // add this small holder class (inside QuizCreatorAppSwing)
+    public static class ClassItem {
+        private final Integer id;
+        private final String name;
+        public ClassItem(Integer id, String name) { this.id = id; this.name = name; }
+        public Integer getId() { return id; }
+        public String getName() { return name; }
+        @Override public String toString() { return name == null ? "" : name; } // displayed in JComboBox
     }
 }

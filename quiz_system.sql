@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 21, 2025 lúc 10:47 AM
+-- Thời gian đã tạo: Th10 21, 2025 lúc 03:11 PM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -42,6 +42,11 @@ CREATE TABLE `account` (
   `BirthDate` date DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Đang đổ dữ liệu cho bảng `account`
+--
+
+
 -- --------------------------------------------------------
 
 --
@@ -54,6 +59,13 @@ CREATE TABLE `admin` (
   `CreateDate` datetime DEFAULT NULL,
   `UpdateDate` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `admin`
+--
+
+INSERT INTO `admin` (`Id`, `IdAccount`, `CreateDate`, `UpdateDate`) VALUES
+(1, 2, '2025-10-14 14:11:59', '2025-10-14 14:11:59');
 
 -- --------------------------------------------------------
 
@@ -80,7 +92,11 @@ CREATE TABLE `answers` (
   `IsCorrect` tinyint(1) DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
--- --------------------------------------------------------
+--
+-- Đang đổ dữ liệu cho bảng `answers`
+--
+
+
 
 --
 -- Cấu trúc bảng cho bảng `api_token`
@@ -108,6 +124,8 @@ CREATE TABLE `classes` (
   `CreateDate` datetime NOT NULL DEFAULT current_timestamp(),
   `UpdateDate` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
 
 -- --------------------------------------------------------
 
@@ -141,6 +159,7 @@ CREATE TABLE `exams` (
   `TeacherId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
 -- --------------------------------------------------------
 
 --
@@ -155,6 +174,7 @@ CREATE TABLE `exam_answers` (
   `AnswerId` int(11) DEFAULT NULL,
   `AttemptId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 -- --------------------------------------------------------
 
@@ -171,6 +191,13 @@ CREATE TABLE `exam_attempts` (
   `SubmitTime` datetime DEFAULT NULL,
   `Status` enum('in_progress','submitted','expired') DEFAULT 'in_progress'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `exam_attempts`
+--
+
+INSERT INTO `exam_attempts` (`id`, `ExamId`, `StudentId`, `StartTime`, `EndTime`, `SubmitTime`, `Status`) VALUES
+(2, 3, 46, '2025-10-21 12:02:10', NULL, NULL, 'in_progress');
 
 -- --------------------------------------------------------
 
@@ -199,6 +226,13 @@ CREATE TABLE `exam_results` (
   `SubmittedDate` datetime DEFAULT current_timestamp(),
   `AttemptId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Đang đổ dữ liệu cho bảng `exam_results`
+--
+
+INSERT INTO `exam_results` (`id`, `ExamId`, `StudentId`, `Score`, `SubmittedDate`, `AttemptId`) VALUES
+(6, 3, 46, 2.00, '2025-10-21 12:13:11', 2);
 
 -- --------------------------------------------------------
 
@@ -245,6 +279,7 @@ CREATE TABLE `questions` (
   `TeacherId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
 -- --------------------------------------------------------
 
 --
@@ -259,6 +294,7 @@ CREATE TABLE `student` (
   `CreateDate` datetime DEFAULT NULL,
   `UpdateDate` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 
 -- --------------------------------------------------------
 
@@ -302,6 +338,9 @@ CREATE TABLE `user_tokens` (
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Đang đổ dữ liệu cho bảng `user_tokens`
+--
 --
 -- Chỉ mục cho các bảng đã đổ
 --
@@ -463,13 +502,13 @@ ALTER TABLE `user_tokens`
 -- AUTO_INCREMENT cho bảng `account`
 --
 ALTER TABLE `account`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT cho bảng `admin`
 --
 ALTER TABLE `admin`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT cho bảng `adminpermission`
@@ -481,7 +520,7 @@ ALTER TABLE `adminpermission`
 -- AUTO_INCREMENT cho bảng `answers`
 --
 ALTER TABLE `answers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=401;
 
 --
 -- AUTO_INCREMENT cho bảng `api_token`
@@ -493,7 +532,7 @@ ALTER TABLE `api_token`
 -- AUTO_INCREMENT cho bảng `classes`
 --
 ALTER TABLE `classes`
-  MODIFY `Id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `Id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT cho bảng `customer`
@@ -505,31 +544,31 @@ ALTER TABLE `customer`
 -- AUTO_INCREMENT cho bảng `exams`
 --
 ALTER TABLE `exams`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT cho bảng `exam_answers`
 --
 ALTER TABLE `exam_answers`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=349;
 
 --
 -- AUTO_INCREMENT cho bảng `exam_attempts`
 --
 ALTER TABLE `exam_attempts`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT cho bảng `exam_questions`
 --
 ALTER TABLE `exam_questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT cho bảng `exam_results`
 --
 ALTER TABLE `exam_results`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
 
 --
 -- AUTO_INCREMENT cho bảng `grade`
@@ -547,19 +586,19 @@ ALTER TABLE `permission`
 -- AUTO_INCREMENT cho bảng `questions`
 --
 ALTER TABLE `questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=141;
 
 --
 -- AUTO_INCREMENT cho bảng `student`
 --
 ALTER TABLE `student`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- AUTO_INCREMENT cho bảng `teacher`
 --
 ALTER TABLE `teacher`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=45;
 
 --
 -- AUTO_INCREMENT cho bảng `teacher_student`
@@ -571,7 +610,7 @@ ALTER TABLE `teacher_student`
 -- AUTO_INCREMENT cho bảng `user_tokens`
 --
 ALTER TABLE `user_tokens`
-  MODIFY `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(11) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=281;
 
 --
 -- Các ràng buộc cho các bảng đã đổ
@@ -669,7 +708,8 @@ ALTER TABLE `student`
 -- Các ràng buộc cho bảng `teacher`
 --
 ALTER TABLE `teacher`
-  ADD CONSTRAINT `teacher_ibfk_1` FOREIGN KEY (`ClassId`) REFERENCES `classes` (`Id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `teacher_ibfk_1` FOREIGN KEY (`ClassId`) REFERENCES `classes` (`Id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `teacher_ibfk_2` FOREIGN KEY (`IdAccount`) REFERENCES `account` (`id`) ON DELETE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `teacher_student`
