@@ -15,3 +15,5 @@ tokens/
 *.log
 .idea/
 *.iml
+
+quiz_system.sql
