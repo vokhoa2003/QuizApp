@@ -5,15 +5,17 @@ import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
-import java.util.UUID;
 import java.util.Vector;
+import java.util.stream.Collectors;
 
 public class TaskPanel extends JPanel {
     private final ApiService apiService;
@@ -27,6 +29,9 @@ public class TaskPanel extends JPanel {
     private final JButton editButton;
     private final JButton deleteButton;
     private final JButton logoutButton;
+    private final JButton searchButton;
+    private final JComboBox<String> roleFilterComboBox;
+    private List<Task> allUsers; // Store all users for filtering
     
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final int BASE_FONT_SIZE = 12;
@@ -48,11 +53,42 @@ public class TaskPanel extends JPanel {
             }
         };
         
-        userTable = new JTable(tableModel);
+        userTable = new JTable(tableModel) {
+            @Override
+            public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+                Component c = super.prepareRenderer(renderer, row, column);
+                if (getRowCount() == 0) {
+                    c.setFont(new Font("Segoe UI", Font.ITALIC, (int) (BASE_FONT_SIZE * scaleFactor)));
+                    c.setForeground(Color.GRAY);
+                }
+                return c;
+            }
+        };
         userTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         userTable.getTableHeader().setReorderingAllowed(false);
         userTable.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
         userTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
+        
+        // Add Role filter combobox to the Role column header
+        roleFilterComboBox = new JComboBox<>(new String[]{"All", "Quản trị viên", "Giáo viên", "Học sinh"});
+        roleFilterComboBox.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        roleFilterComboBox.setMaximumSize(new Dimension(150, 25));
+        roleFilterComboBox.addActionListener(e -> filterUsersByRole());
+        
+        // Custom header renderer for Role column
+        userTable.getTableHeader().getColumnModel().getColumn(3).setHeaderRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                JPanel panel = new JPanel(new BorderLayout());
+                JLabel label = new JLabel("Role");
+                label.setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
+                label.setHorizontalAlignment(SwingConstants.CENTER);
+                panel.add(label, BorderLayout.NORTH);
+                panel.add(roleFilterComboBox, BorderLayout.CENTER);
+                panel.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
+                return panel;
+            }
+        });
         
         JScrollPane scrollPane = new JScrollPane(userTable);
         
@@ -70,7 +106,7 @@ public class TaskPanel extends JPanel {
         editButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
         editButton.addActionListener(e -> {
             int selectedRow = userTable.getSelectedRow();
-            if (selectedRow >= 0) {
+            if (selectedRow >= 0 && tableModel.getRowCount() > 0 && !tableModel.getValueAt(0, 0).equals("Không có dữ liệu")) {
                 showEditUserDialog(getUserFromSelectedRow());
             } else {
                 JOptionPane.showMessageDialog(this, 
@@ -84,7 +120,7 @@ public class TaskPanel extends JPanel {
         deleteButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
         deleteButton.addActionListener(e -> {
             int selectedRow = userTable.getSelectedRow();
-            if (selectedRow >= 0) {
+            if (selectedRow >= 0 && tableModel.getRowCount() > 0 && !tableModel.getValueAt(0, 0).equals("Không có dữ liệu")) {
                 confirmAndDeleteUser();
             } else {
                 JOptionPane.showMessageDialog(this, 
@@ -101,11 +137,17 @@ public class TaskPanel extends JPanel {
             mainWindow.showLoginPanel();
         });
         
+        searchButton = new JButton("Search");
+        searchButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        searchButton.addActionListener(e -> showSearchDialog());
+        
         buttonPanel.add(refreshButton);
         buttonPanel.add(addButton);
         buttonPanel.add(editButton);
         buttonPanel.add(deleteButton);
         buttonPanel.add(logoutButton);
+        buttonPanel.add(Box.createHorizontalGlue());
+        buttonPanel.add(searchButton);
         
         add(buttonPanel, BorderLayout.NORTH);
         add(scrollPane, BorderLayout.CENTER);
@@ -128,11 +170,14 @@ public class TaskPanel extends JPanel {
         editButton.setFont(scaledFont);
         deleteButton.setFont(scaledFont);
         logoutButton.setFont(scaledFont);
+        searchButton.setFont(scaledFont);
+        roleFilterComboBox.setFont(scaledFont);
     }
 
     public void refreshUsers() {
         refreshButton.setEnabled(false);
         refreshButton.setText("Loading...");
+        String currentFilter = (String) roleFilterComboBox.getSelectedItem();
 
         SwingWorker<List<Task>, Void> worker = new SwingWorker<>() {
             @Override
@@ -144,8 +189,11 @@ public class TaskPanel extends JPanel {
             protected void done() {
                 try {
                     List<Task> users = get();
-                    System.out.println("User fetched: " + (users != null ? users.size() : 0) + " users");
-                    updateUserTable(users != null ? users : Collections.emptyList());
+                    allUsers = users != null ? users : Collections.emptyList();
+                    System.out.println("User fetched: " + allUsers.size() + " users");
+                    // Reapply the current filter after refresh
+                    roleFilterComboBox.setSelectedItem(currentFilter);
+                    filterUsersByRole();
                     refreshButton.setEnabled(true);
                     refreshButton.setText("Refresh");
                 } catch (Exception e) {
@@ -163,24 +211,48 @@ public class TaskPanel extends JPanel {
         worker.execute();
     }
 
+    private void filterUsersByRole() {
+        String selectedRole = (String) roleFilterComboBox.getSelectedItem();
+        List<Task> filteredUsers;
+        
+        if (selectedRole == null || selectedRole.equals("All")) {
+            filteredUsers = allUsers;
+        } else {
+            filteredUsers = allUsers.stream()
+                .filter(user -> user.getRole() != null && user.getRole().equalsIgnoreCase(selectedRole))
+                .collect(Collectors.toList());
+        }
+        
+        updateUserTable(filteredUsers);
+    }
+
     private void updateUserTable(List<Task> users) {
         tableModel.setRowCount(0);
         System.out.println("Updating table with " + users.size() + " users");
 
-        for (Task user : users) {
+        if (users.isEmpty()) {
             Vector<Object> row = new Vector<>();
-            row.add(user.getId() != null ? user.getId() : "");
-            row.add(user.getEmail() != null ? user.getEmail() : "");
-            row.add(user.getFullName() != null ? user.getFullName() : "");
-            row.add(user.getRole() != null ? user.getRole() : "");
-            row.add(user.getStatus() != null ? user.getStatus() : "");
-            row.add(formatDateTime(user.getCreateDate()));
-            row.add(formatDateTime(user.getUpdateDate()));
-            row.add(user.getPhone() != null ? user.getPhone() : "");
-            row.add(user.getAddress() != null ? user.getAddress() : "");
-            row.add(formatDateTime(user.getBirthDate()));
-            row.add(user.getIdentityNumber() != null ? user.getIdentityNumber() : "");
+            row.add("Không có dữ liệu");
+            for (int i = 1; i < tableModel.getColumnCount(); i++) {
+                row.add("");
+            }
             tableModel.addRow(row);
+        } else {
+            for (Task user : users) {
+                Vector<Object> row = new Vector<>();
+                row.add(user.getId() != null ? user.getId() : "");
+                row.add(user.getEmail() != null ? user.getEmail() : "");
+                row.add(user.getFullName() != null ? user.getFullName() : "");
+                row.add(user.getRole() != null ? user.getRole() : "");
+                row.add(user.getStatus() != null ? user.getStatus() : "");
+                row.add(formatDateTime(user.getCreateDate()));
+                row.add(formatDateTime(user.getUpdateDate()));
+                row.add(user.getPhone() != null ? user.getPhone() : "");
+                row.add(user.getAddress() != null ? user.getAddress() : "");
+                row.add(formatDateTime(user.getBirthDate()));
+                row.add(user.getIdentityNumber() != null ? user.getIdentityNumber() : "");
+                tableModel.addRow(row);
+            }
         }
 
         userTable.repaint();
@@ -199,7 +271,7 @@ public class TaskPanel extends JPanel {
     
     private Task getUserFromSelectedRow() {
         int selectedRow = userTable.getSelectedRow();
-        if (selectedRow < 0) {
+        if (selectedRow < 0 || tableModel.getValueAt(selectedRow, 0).equals("Không có dữ liệu")) {
             return null;
         }
 
@@ -239,7 +311,11 @@ public class TaskPanel extends JPanel {
         try {
             return LocalDateTime.parse(dateTimeStr, DATE_FORMATTER);
         } catch (Exception e) {
-            return LocalDate.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            try {
+                return LocalDate.parse(dateTimeStr, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            } catch (Exception ex) {
+                return null;
+            }
         }
     }
 
@@ -284,7 +360,7 @@ public class TaskPanel extends JPanel {
 
         JLabel roleLabel = new JLabel("Role:");
         roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"admin"});
+        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"Quản trị viên", "Giáo viên", "Học sinh"});
         roleComboBox.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
             BorderFactory.createEmptyBorder(2, 2, 2, 2)
@@ -471,8 +547,6 @@ public class TaskPanel extends JPanel {
             newUser.setIdentityNumber(identityNumber);
             newUser.setCreateDate(LocalDateTime.now());
             newUser.setUpdateDate(LocalDateTime.now());
-//            // Tạo GoogleID ngẫu nhiên
-//            newUser.setGoogleId(UUID.randomUUID().toString().replaceAll("-", ""));
 
             createUser(newUser);
             dialog.dispose();
@@ -534,8 +608,8 @@ public class TaskPanel extends JPanel {
 
         JLabel roleLabel = new JLabel("Role:");
         roleLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"admin", "customer"});
-        roleComboBox.setSelectedItem(user.getRole() != null ? user.getRole() : "admin");
+        JComboBox<String> roleComboBox = new JComboBox<>(new String[]{"Quản trị viên", "Giáo viên", "Học sinh"});
+        roleComboBox.setSelectedItem(user.getRole() != null ? user.getRole() : "Quản trị viên");
         roleComboBox.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
             BorderFactory.createEmptyBorder(2, 2, 2, 2)
@@ -736,6 +810,157 @@ public class TaskPanel extends JPanel {
 
         dialog.setFocusable(true);
         emailField.requestFocusInWindow();
+        dialog.setVisible(true);
+    }
+
+    private void showSearchDialog() {
+        JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(this), "Search Users", Dialog.ModalityType.APPLICATION_MODAL);
+        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setSize((int) (550 * scaleFactor), (int) (250 * scaleFactor));
+        dialog.getContentPane().setBackground(new Color(240, 248, 255));
+        dialog.setLocationRelativeTo(this);
+
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        formPanel.setBackground(new Color(245, 245, 245));
+
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+
+        JLabel fullNameLabel = new JLabel("Full Name:");
+        fullNameLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        JTextField fullNameField = new JTextField(20);
+        fullNameField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
+            BorderFactory.createEmptyBorder(2, 2, 2, 2)
+        ));
+        fullNameField.setBackground(Color.WHITE);
+        fullNameField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        fullNameField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+
+        JLabel identityNumberLabel = new JLabel("Identity Number:");
+        identityNumberLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        JTextField identityNumberField = new JTextField(20);
+        identityNumberField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
+            BorderFactory.createEmptyBorder(2, 2, 2, 2)
+        ));
+        identityNumberField.setBackground(Color.WHITE);
+        identityNumberField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        identityNumberField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+
+        JLabel classLabel = new JLabel("Class:");
+        classLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        JTextField classField = new JTextField(20);
+        classField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
+            BorderFactory.createEmptyBorder(2, 2, 2, 2)
+        ));
+        classField.setBackground(Color.WHITE);
+        classField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        classField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+
+        JLabel subjectLabel = new JLabel("Subject:");
+        subjectLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+        JTextField subjectField = new JTextField(20);
+        subjectField.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(173, 216, 230), 1),
+            BorderFactory.createEmptyBorder(2, 2, 2, 2)
+        ));
+        subjectField.setBackground(Color.WHITE);
+        subjectField.setPreferredSize(new Dimension((int) (250 * scaleFactor), (int) (30 * scaleFactor)));
+        subjectField.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+
+        gbc.weightx = 0.3;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        formPanel.add(fullNameLabel, gbc);
+        gbc.weightx = 0.7;
+        gbc.gridx = 1;
+        formPanel.add(fullNameField, gbc);
+
+        gbc.weightx = 0.3;
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        formPanel.add(identityNumberLabel, gbc);
+        gbc.weightx = 0.7;
+        gbc.gridx = 1;
+        formPanel.add(identityNumberField, gbc);
+
+        gbc.weightx = 0.3;
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        formPanel.add(classLabel, gbc);
+        gbc.weightx = 0.7;
+        gbc.gridx = 1;
+        formPanel.add(classField, gbc);
+
+        gbc.weightx = 0.3;
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        formPanel.add(subjectLabel, gbc);
+        gbc.weightx = 0.7;
+        gbc.gridx = 1;
+        formPanel.add(subjectField, gbc);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttonPanel.setBorder(BorderFactory.createEmptyBorder(10, 0, 0, 0));
+
+        JButton searchButton = new JButton("Search");
+        searchButton.setBackground(new Color(46, 139, 87));
+        searchButton.setForeground(Color.BLACK);
+        searchButton.setFocusPainted(false);
+        searchButton.setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
+        searchButton.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(34, 139, 34), 1),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+
+        JButton cancelButton = new JButton("Cancel");
+        cancelButton.setBackground(new Color(255, 99, 71));
+        cancelButton.setForeground(Color.BLACK);
+        cancelButton.setFocusPainted(false);
+        cancelButton.setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
+        cancelButton.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(255, 69, 0), 1),
+            BorderFactory.createEmptyBorder(5, 10, 5, 10)
+        ));
+
+        searchButton.addActionListener(e -> {
+            String fullName = fullNameField.getText().trim();
+            String identityNumber = identityNumberField.getText().trim();
+            String className = classField.getText().trim();
+            String subject = subjectField.getText().trim();
+
+            List<Task> filteredUsers = allUsers.stream()
+                .filter(user -> {
+                    boolean matches = true;
+                    if (!fullName.isEmpty() && (user.getFullName() == null || !user.getFullName().toLowerCase().contains(fullName.toLowerCase()))) {
+                        matches = false;
+                    }
+                    if (!identityNumber.isEmpty() && (user.getIdentityNumber() == null || !user.getIdentityNumber().contains(identityNumber))) {
+                        matches = false;
+                    }
+                    // Note: Class and Subject are not part of the Task model, so filtering for these would require additional fields
+                    return matches;
+                })
+                .collect(Collectors.toList());
+
+            updateUserTable(filteredUsers);
+            dialog.dispose();
+        });
+
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        buttonPanel.add(searchButton);
+        buttonPanel.add(cancelButton);
+
+        dialog.add(formPanel, BorderLayout.CENTER);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        dialog.setFocusable(true);
+        fullNameField.requestFocusInWindow();
         dialog.setVisible(true);
     }
 
