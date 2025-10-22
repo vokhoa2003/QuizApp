@@ -1,9 +1,34 @@
 package com.example.taskmanager.ui;
 
-import java.awt.*;
-import java.util.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import javax.swing.*;
+import java.util.Map; // add import
+import java.util.Objects;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.DefaultCellEditor;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
@@ -12,7 +37,7 @@ import javax.swing.table.JTableHeader;
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
-import com.example.taskmanager.service.TeacherService; // add import
+import com.example.taskmanager.service.TeacherService;
 import com.formdev.flatlaf.FlatLightLaf;
 
 public class TeacherDashboard extends JFrame {
@@ -20,16 +45,23 @@ public class TeacherDashboard extends JFrame {
     private AuthService authService;
     private Task currentTeacher;
     private TeacherService teacherService; // new
+    private MainWindow mainWindow;  // Thêm reference đến MainWindow
     
     private JLabel teacherNameLabel;
     private JTable classTable;
     private DefaultTableModel tableModel;
     
     public TeacherDashboard(ApiService apiService, AuthService authService, Task teacher) {
+        this(apiService, authService, teacher, null);
+    }
+
+    //constructor mới với MainWindow
+    public TeacherDashboard(ApiService apiService, AuthService authService, Task teacher, MainWindow mainWindow) {
         this.apiService = apiService;
         this.authService = authService;
         this.currentTeacher = teacher;
         this.teacherService = new TeacherService(apiService); // init service
+        this.mainWindow = mainWindow;
         
         setTitle("Trang Chủ Giáo Viên - SecureStudy");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -406,9 +438,13 @@ public class TeacherDashboard extends JFrame {
             JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
-            // TODO: Call logout API
+            // Gọi logout API
+            authService.logout();
+            // Đóng TeacherDashboard
             dispose();
             // Open login window
+            mainWindow.setVisible(true);
+            mainWindow.showLoginPanel();
         }
     }
     
@@ -462,7 +498,7 @@ public class TeacherDashboard extends JFrame {
         
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
-            setText("👁️ Xem Chi Tiết");
+            setText("Xem Chi Tiết");
             return this;
         }
     }
@@ -502,7 +538,7 @@ public class TeacherDashboard extends JFrame {
         public Component getTableCellEditorComponent(JTable table, Object value,
                 boolean isSelected, int row, int column) {
             this.row = row;
-            label = "👁️ Xem Chi Tiết";
+            label = "Xem Chi Tiết";
             button.setText(label);
             clicked = true;
             return button;
@@ -534,7 +570,7 @@ public class TeacherDashboard extends JFrame {
             Task teacher = new Task();
             teacher.setFullName("Nguyễn Văn A");
             
-            new TeacherDashboard(null, null, teacher);
+            new TeacherDashboard(null, null, teacher, null);
         });
     }
 }
