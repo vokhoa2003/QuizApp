@@ -20,7 +20,6 @@ public class StudentDashboard extends JFrame {
     private AuthService authService;
     private Task currentStudent;
     private ExamService examService;
-    private MainWindow mainWindow;  // Thêm reference đến MainWindow
     
     private JLabel studentNameLabel;
     private JPanel classesPanel;
@@ -28,17 +27,10 @@ public class StudentDashboard extends JFrame {
     private JLabel examsTitle;
     private String selectedClassName = null;
     
-
-    public StudentDashboard(ApiService apiService, AuthService authService, Task teacher) {
-        this(apiService, authService, teacher, null);
-    }
-
-    //constructor mới với MainWindow
-    public StudentDashboard(ApiService apiService, AuthService authService, Task student, MainWindow mainWindow) {
+    public StudentDashboard(ApiService apiService, AuthService authService, Task student) {
         this.apiService = apiService;
         this.authService = authService;
         this.currentStudent = student;
-        this.mainWindow = mainWindow;
         this.examService = new ExamService(apiService); // Khởi tạo ExamService
         
         setTitle("Trang Chủ Học Sinh - SecureStudy");
@@ -813,13 +805,9 @@ public class StudentDashboard extends JFrame {
             JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
-            // Gọi logout API
             authService.logout();
-            // Đóng TeacherDashboard
             dispose();
-            // Open login window
-            mainWindow.setVisible(true);
-            mainWindow.showLoginPanel();
+            // TODO: Open login window
         }
     }
     
@@ -836,7 +824,7 @@ public class StudentDashboard extends JFrame {
             student.setFullName("Nguyễn Văn B");
             student.setEmail("student@example.com");
             
-            new StudentDashboard(null, null, student, null);
+            new StudentDashboard(null, null, student);
         });
     }
 
