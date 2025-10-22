@@ -18,15 +18,22 @@ public class TeacherDashboard extends JFrame {
     private ApiService apiService;
     private AuthService authService;
     private Task currentTeacher;
+    private MainWindow mainWindow;  // Thêm reference đến MainWindow
     
     private JLabel teacherNameLabel;
     private JTable classTable;
     private DefaultTableModel tableModel;
     
     public TeacherDashboard(ApiService apiService, AuthService authService, Task teacher) {
+        this(apiService, authService, teacher, null);
+    }
+
+    //constructor mới với MainWindow
+    public TeacherDashboard(ApiService apiService, AuthService authService, Task teacher, MainWindow mainWindow) {
         this.apiService = apiService;
         this.authService = authService;
         this.currentTeacher = teacher;
+        this.mainWindow = mainWindow;
         
         setTitle("Trang Chủ Giáo Viên - SecureStudy");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -336,9 +343,13 @@ public class TeacherDashboard extends JFrame {
             JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
-            // TODO: Call logout API
+            // Gọi logout API
+            authService.logout();
+            // Đóng TeacherDashboard
             dispose();
             // Open login window
+            mainWindow.setVisible(true);
+            mainWindow.showLoginPanel();
         }
     }
     
@@ -356,7 +367,7 @@ public class TeacherDashboard extends JFrame {
         
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
-            setText("👁️ Xem Chi Tiết");
+            setText("Xem Chi Tiết");
             return this;
         }
     }
@@ -396,7 +407,7 @@ public class TeacherDashboard extends JFrame {
         public Component getTableCellEditorComponent(JTable table, Object value,
                 boolean isSelected, int row, int column) {
             this.row = row;
-            label = "👁️ Xem Chi Tiết";
+            label = "Xem Chi Tiết";
             button.setText(label);
             clicked = true;
             return button;
@@ -428,7 +439,7 @@ public class TeacherDashboard extends JFrame {
             Task teacher = new Task();
             teacher.setFullName("Nguyễn Văn A");
             
-            new TeacherDashboard(null, null, teacher);
+            new TeacherDashboard(null, null, teacher, null);
         });
     }
 }
