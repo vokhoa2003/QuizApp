@@ -12,12 +12,14 @@ import javax.swing.table.JTableHeader;
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
+import com.example.taskmanager.service.TeacherService; // add import
 import com.formdev.flatlaf.FlatLightLaf;
 
 public class TeacherDashboard extends JFrame {
     private ApiService apiService;
     private AuthService authService;
     private Task currentTeacher;
+    private TeacherService teacherService; // new
     
     private JLabel teacherNameLabel;
     private JTable classTable;
@@ -27,6 +29,7 @@ public class TeacherDashboard extends JFrame {
         this.apiService = apiService;
         this.authService = authService;
         this.currentTeacher = teacher;
+        this.teacherService = new TeacherService(apiService); // init service
         
         setTitle("Trang Chủ Giáo Viên - SecureStudy");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -279,25 +282,92 @@ public class TeacherDashboard extends JFrame {
         return btn;
     }
     
+    // Replace previous mock implementation with real API calls + fallback to resolve teacherId by email
     private void loadTeacherClasses() {
-        // Mock data - replace with actual API call
         tableModel.setRowCount(0);
-        
+
         SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
             @Override
-            protected List<Object[]> doInBackground() {
-                // TODO: Call API to get teacher's classes
-                // apiService.getTeacherClasses(currentTeacher.getId());
-                
-                // Mock data for demonstration
-                List<Object[]> data = new ArrayList<>();
-                data.add(new Object[]{currentTeacher.getFullName(), "Lớp 10A1", "35", "detail"});
-                data.add(new Object[]{currentTeacher.getFullName(), "Lớp 10A2", "32", "detail"});
-                data.add(new Object[]{currentTeacher.getFullName(), "Lớp 11B1", "30", "detail"});
-                
-                return data;
+            protected List<Object[]> doInBackground() throws Exception {
+                List<Object[]> rows = new ArrayList<>();
+                try {
+                    int teacherId = 0;
+                    if (currentTeacher != null) {
+                        Long idLong = null;
+                        try {
+                            idLong = currentTeacher.getId();
+                        } catch (Throwable t) {
+                            // ignore
+                        }
+                        if (idLong != null) {
+                            teacherId = idLong.intValue();
+                        }
+                    }
+
+                    // Fallback: nếu không có teacherId, thử lấy từ authService (email -> lookup)
+                    if (teacherId <= 0 && authService != null) {
+                        try {
+                            String email = null;
+                            try {
+                                email = (String) authService.getClass().getMethod("getUserEmail").invoke(authService);
+                            } catch (NoSuchMethodException nm) {
+                                // possibly different API - try getEmail
+                                try { email = (String) authService.getClass().getMethod("getEmail").invoke(authService); } catch (Exception ignore) {}
+                            }
+                            if (email != null && !email.isEmpty()) {
+                                // Query account + teacher join to find teacher.Id
+                                Map<String, Object> p = new HashMap<>();
+                                p.put("action", "get");
+                                p.put("method", "SELECT");
+                                p.put("table", List.of("account", "teacher"));
+                                p.put("columns", List.of("teacher.Id as TeacherId"));
+                                Map<String, Object> where = new HashMap<>();
+                                where.put("account.email", email);
+                                p.put("where", where);
+                                Map<String, Object> join = new HashMap<>();
+                                join.put("type", "inner");
+                                join.put("on", List.of("account.id = teacher.IdAccount"));
+                                p.put("join", List.of(join));
+                                p.put("limit", 1);
+
+                                Object resp = apiService.postApiGetList("/autoGet", p);
+                                List<Map<String, Object>> list = normalizeApiList(resp);
+                                if (list != null && !list.isEmpty()) {
+                                    Object tid = firstNonNull(list.get(0), "TeacherId", "teacher.Id", "Id");
+                                    if (tid instanceof Number) teacherId = ((Number) tid).intValue();
+                                    else if (tid != null) {
+                                        try { teacherId = Integer.parseInt(tid.toString()); } catch (Exception ignored) {}
+                                    }
+                                    System.out.println("DEBUG: resolved teacherId by email=" + email + " -> " + teacherId);
+                                } else {
+                                    System.out.println("DEBUG: no teacher record found for email=" + email);
+                                }
+                            }
+                        } catch (Exception e) {
+                            System.err.println("WARN: fallback resolve teacherId error: " + e.getMessage());
+                        }
+                    }
+
+                    if (teacherId <= 0) {
+                        System.out.println("INFO: No teacherId available - cannot load classes");
+                        return rows;
+                    }
+
+                    List<Map<String,Object>> classes = teacherService.getClassesForTeacher(teacherId);
+                    for (Map<String,Object> c : classes) {
+                        Object className = c.getOrDefault("ClassName", c.get("Name"));
+                        Object studentCount = c.getOrDefault("StudentCount", 0);
+                        rows.add(new Object[]{ currentTeacher != null ? currentTeacher.getFullName() : "Giáo viên",
+                                               String.valueOf(className),
+                                               String.valueOf(studentCount),
+                                               "detail" });
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+                return rows;
             }
-            
+
             @Override
             protected void done() {
                 try {
@@ -340,6 +410,42 @@ public class TeacherDashboard extends JFrame {
             dispose();
             // Open login window
         }
+    }
+    
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> normalizeApiList(Object resp) {
+        if (resp == null) return Collections.emptyList();
+        if (resp instanceof List) {
+            return (List<Map<String, Object>>) resp;
+        }
+        if (resp instanceof Map) {
+            Map<?,?> m = (Map<?,?>) resp;
+            Object data = m.get("data");
+            if (data instanceof List) return (List<Map<String, Object>>) data;
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (Object key : m.keySet()) {
+                if (key == null) continue;
+                String ks = key.toString();
+                if (ks.matches("\\d+")) {
+                    Object val = m.get(key);
+                    if (val instanceof Map) list.add((Map<String, Object>) val);
+                }
+            }
+            if (!list.isEmpty()) return list;
+        }
+        System.out.println("WARN: cannot normalize API response, resp=" + Objects.toString(resp));
+        return Collections.emptyList();
+    }
+
+    private Object firstNonNull(Map<String, Object> row, String... keys) {
+        if (row == null) return null;
+        for (String k : keys) {
+            if (k == null) continue;
+            Object v = row.get(k);
+            if (v == null) v = row.get(k.toLowerCase());
+            if (v != null) return v;
+        }
+        return null;
     }
     
     // Button Renderer for table
