@@ -46,11 +46,6 @@ CREATE TABLE `account` (
 -- Đang đổ dữ liệu cho bảng `account`
 --
 
-INSERT INTO `account` (`id`, `email`, `role`, `Status`, `GoogleID`, `CreateDate`, `UpdateDate`, `FullName`, `Phone`, `Address`, `IdentityNumber`, `BirthDate`) VALUES
-(2, 'akiyoshimeo@gmail.com', 'admin', 'Active', '106924843908906768657', '2025-09-10 17:13:00', '2025-10-14 14:14:58', 'Khoa Võ', '0935912495', NULL, NULL, NULL),
-(4, 'ryosukekawakoshi@gmail.com', 'teacher', 'Active', '112137929294811663800', '2025-09-21 13:21:23', '2025-09-21 13:21:23', 'Đăng Khoa Võ Phạm', NULL, NULL, NULL, NULL),
-(6, 'vophamdangkhoa.010103@gmail.com', 'student', 'Active', '111186508142808754018', '2025-10-19 13:39:58', '2025-10-19 13:39:58', 'Đăng Khoa Võ Phạm', NULL, NULL, NULL, NULL),
-(9, 'camtunguyen.alexia@gmail.com', 'student', '', '108932244388986679360', '2025-10-19 16:09:00', '2025-10-19 16:09:30', NULL, NULL, NULL, NULL, NULL);
 
 -- --------------------------------------------------------
 
