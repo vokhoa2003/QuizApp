@@ -93,134 +93,6 @@ CREATE TABLE `answers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
--- Đang đổ dữ liệu cho bảng `answers`
---
-
-INSERT INTO `answers` (`id`, `QuestionId`, `Answer`, `IsCorrect`) VALUES
-(281, 111, 'Paris', 1),
-(282, 111, 'London', 0),
-(283, 111, 'Rome', 0),
-(284, 111, 'Berlin', 0),
-(285, 112, '4', 1),
-(286, 112, '3', 0),
-(287, 112, '5', 0),
-(288, 112, '22', 0),
-(289, 113, 'Thomas Edison', 1),
-(290, 113, 'Albert Einstein', 0),
-(291, 113, 'Isaac Newton', 0),
-(292, 113, 'Nikola Tesla', 0),
-(293, 114, 'H2O', 1),
-(294, 114, 'CO2', 0),
-(295, 114, 'NaCl', 0),
-(296, 114, 'O2', 0),
-(297, 115, '300000 km/s', 1),
-(298, 115, '150000 km/s', 0),
-(299, 115, '100000 km/s', 0),
-(300, 115, '250000 km/s', 0),
-(301, 116, '366', 1),
-(302, 116, '365', 0),
-(303, 116, '360', 0),
-(304, 116, '364', 0),
-(305, 117, 'Mặt Trời', 1),
-(306, 117, 'Mặt Trăng', 0),
-(307, 117, 'Sao Hỏa', 0),
-(308, 117, 'Sao Kim', 0),
-(309, 118, 'Châu Á', 1),
-(310, 118, 'Châu Âu', 0),
-(311, 118, 'Châu Phi', 0),
-(312, 118, 'Châu Mỹ', 0),
-(313, 119, 'Sông Nile', 1),
-(314, 119, 'Sông Amazon', 0),
-(315, 119, 'Sông Hồng', 0),
-(316, 119, 'Sông Mekong', 0),
-(317, 120, '1000', 1),
-(318, 120, '100', 0),
-(319, 120, '10000', 0),
-(320, 120, '10', 0),
-(321, 121, 'Nguyễn Du', 1),
-(322, 121, 'Nguyễn Trãi', 0),
-(323, 121, 'Hồ Xuân Hương', 0),
-(324, 121, 'Ngô Tất Tố', 0),
-(325, 122, 'Java', 1),
-(326, 122, 'Python', 0),
-(327, 122, 'C#', 0),
-(328, 122, 'Swift', 0),
-(329, 123, 'HyperText Markup Language', 1),
-(330, 123, 'HighText Markdown Language', 0),
-(331, 123, 'HyperText Making Logic', 0),
-(332, 123, 'Hyper Transfer Markup Language', 0),
-(333, 124, 'Định dạng giao diện web', 1),
-(334, 124, 'Lưu dữ liệu', 0),
-(335, 124, 'Kết nối server', 0),
-(336, 124, 'Chạy logic', 0),
-(337, 125, 'Bộ xử lý trung tâm', 1),
-(338, 125, 'Thẻ nhớ', 0),
-(339, 125, 'Ổ cứng', 0),
-(340, 125, 'Màn hình', 0),
-(341, 126, 'Lưu trữ tạm thời', 1),
-(342, 126, 'Lưu trữ vĩnh viễn', 0),
-(343, 126, 'Xử lý đồ họa', 0),
-(344, 126, 'Kết nối mạng', 0),
-(345, 127, 'JavaScript', 1),
-(346, 127, 'JavaSystem', 0),
-(347, 127, 'JustScript', 0),
-(348, 127, 'JsonScript', 0),
-(349, 128, 'Giao tiếp giữa các hệ thống', 1),
-(350, 128, 'Lưu dữ liệu', 0),
-(351, 128, 'Thiết kế giao diện', 0),
-(352, 128, 'Nén ảnh', 0),
-(353, 129, 'HyperText Transfer Protocol', 1),
-(354, 129, 'HighText Transfer Platform', 0),
-(355, 129, 'Hyper Transfer Text Protocol', 0),
-(356, 129, 'Host Transfer Type Protocol', 0),
-(357, 130, 'Ngôn ngữ truy vấn cơ sở dữ liệu', 1),
-(358, 130, 'Hệ điều hành', 0),
-(359, 130, 'Trình duyệt', 0),
-(360, 130, 'Công cụ đồ họa', 0),
-(361, 131, 'Phần mềm truy cập Internet', 1),
-(362, 131, 'Hệ điều hành', 0),
-(363, 131, 'Phần mềm đồ họa', 0),
-(364, 131, 'Trình phát nhạc', 0),
-(365, 132, 'Chọn phần tử HTML để áp dụng style', 1),
-(366, 132, 'Công cụ gỡ lỗi', 0),
-(367, 132, 'Thư viện JavaScript', 0),
-(368, 132, 'Thẻ HTML', 0),
-(369, 133, 'Có mã hóa bảo mật SSL/TLS', 1),
-(370, 133, 'Nhanh hơn', 0),
-(371, 133, 'Chạy offline', 0),
-(372, 133, 'Không cần Internet', 0),
-(373, 134, 'Trao đổi dữ liệu giữa client và server', 1),
-(374, 134, 'Tạo bảng', 0),
-(375, 134, 'Vẽ đồ họa', 0),
-(376, 134, 'Quản lý bộ nhớ', 0),
-(377, 135, 'Hệ thống quản lý phiên bản mã nguồn', 1),
-(378, 135, 'Ngôn ngữ lập trình', 0),
-(379, 135, 'CSDL', 0),
-(380, 135, 'Framework', 0),
-(381, 136, 'Môi trường phát triển tích hợp', 1),
-(382, 136, 'Trình duyệt web', 0),
-(383, 136, 'Hệ điều hành', 0),
-(384, 136, 'Plugin CSS', 0),
-(385, 137, 'Khung làm việc hỗ trợ lập trình', 1),
-(386, 137, 'Trình phát nhạc', 0),
-(387, 137, 'Công cụ nén file', 0),
-(388, 137, 'Công cụ test', 0),
-(389, 138, 'Tìm và sửa lỗi chương trình', 1),
-(390, 138, 'Viết tài liệu', 0),
-(391, 138, 'Thiết kế UI', 0),
-(392, 138, 'Cài đặt hệ điều hành', 0),
-(393, 139, 'Địa chỉ của tài nguyên trên Internet', 1),
-(394, 139, 'Công cụ tìm kiếm', 0),
-(395, 139, 'Ngôn ngữ lập trình', 0),
-(396, 139, 'Định dạng ảnh', 0),
-(397, 140, 'Xử lý logic và dữ liệu', 1),
-(398, 140, 'Thiết kế giao diện', 0),
-(399, 140, 'Quảng cáo', 0),
-(400, 140, 'Bảo trì phần cứng', 0);
-
--- --------------------------------------------------------
-
---
 -- Cấu trúc bảng cho bảng `api_token`
 --
 
@@ -247,17 +119,6 @@ CREATE TABLE `classes` (
   `UpdateDate` datetime NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Đang đổ dữ liệu cho bảng `classes`
---
-
-INSERT INTO `classes` (`Id`, `Name`, `Description`, `CreateDate`, `UpdateDate`) VALUES
-(3, 'Lớp A', NULL, '2025-10-06 16:57:20', '2025-10-06 16:57:20'),
-(4, 'Lớp B', NULL, '2025-10-06 16:57:20', '2025-10-06 16:57:20'),
-(5, 'Lớp C', NULL, '2025-10-20 10:38:39', '2025-10-20 10:38:39'),
-(6, 'Lớp D', NULL, '2025-10-20 10:38:39', '2025-10-20 10:38:39'),
-(7, 'Lớp E', NULL, '2025-10-20 10:38:54', '2025-10-20 10:38:54'),
-(8, 'Lớp F', NULL, '2025-10-20 10:38:54', '2025-10-20 10:38:54');
 
 -- --------------------------------------------------------
 
@@ -291,13 +152,6 @@ CREATE TABLE `exams` (
   `TeacherId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Đang đổ dữ liệu cho bảng `exams`
---
-
-INSERT INTO `exams` (`id`, `ClassId`, `ExamName`, `NumberQuestion`, `Description`, `CreateDate`, `UpdateDate`, `PublishDate`, `ExpireDate`, `TeacherId`) VALUES
-(3, 3, 'A Test', 20, 'Đề thi của lớp A', '2025-10-20 13:59:38', '2025-10-20 15:03:59', '2025-10-20 13:43:57', '2025-10-24 13:43:57', 1);
-
 -- --------------------------------------------------------
 
 --
@@ -313,35 +167,6 @@ CREATE TABLE `exam_answers` (
   `AttemptId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Đang đổ dữ liệu cho bảng `exam_answers`
---
-
-INSERT INTO `exam_answers` (`id`, `StudentId`, `exam_questions_id`, `QuestionId`, `AnswerId`, `AttemptId`) VALUES
-(304, 46, NULL, 111, 281, 2),
-(305, 46, NULL, 112, 285, 2),
-(306, 46, NULL, 113, 289, 2),
-(307, 46, NULL, 114, 293, 2),
-(308, 46, NULL, 115, NULL, 2),
-(309, 46, NULL, 116, NULL, 2),
-(310, 46, NULL, 117, NULL, 2),
-(311, 46, NULL, 118, NULL, 2),
-(312, 46, NULL, 119, NULL, 2),
-(313, 46, NULL, 120, NULL, 2),
-(314, 46, NULL, 121, NULL, 2),
-(315, 46, NULL, 122, NULL, 2),
-(316, 46, NULL, 123, NULL, 2),
-(317, 46, NULL, 124, NULL, 2),
-(318, 46, NULL, 125, NULL, 2),
-(319, 46, NULL, 126, NULL, 2),
-(320, 46, NULL, 127, NULL, 2),
-(321, 46, NULL, 128, NULL, 2),
-(322, 46, NULL, 129, NULL, 2),
-(323, 46, NULL, 130, NULL, 2);
-
--- --------------------------------------------------------
-
---
 -- Cấu trúc bảng cho bảng `exam_attempts`
 --
 
@@ -354,13 +179,6 @@ CREATE TABLE `exam_attempts` (
   `SubmitTime` datetime DEFAULT NULL,
   `Status` enum('in_progress','submitted','expired') DEFAULT 'in_progress'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Đang đổ dữ liệu cho bảng `exam_attempts`
---
-
-INSERT INTO `exam_attempts` (`id`, `ExamId`, `StudentId`, `StartTime`, `EndTime`, `SubmitTime`, `Status`) VALUES
-(2, 3, 46, '2025-10-21 12:02:10', NULL, NULL, 'in_progress');
 
 -- --------------------------------------------------------
 
@@ -389,13 +207,6 @@ CREATE TABLE `exam_results` (
   `SubmittedDate` datetime DEFAULT current_timestamp(),
   `AttemptId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Đang đổ dữ liệu cho bảng `exam_results`
---
-
-INSERT INTO `exam_results` (`id`, `ExamId`, `StudentId`, `Score`, `SubmittedDate`, `AttemptId`) VALUES
-(6, 3, 46, 2.00, '2025-10-21 12:13:11', 2);
 
 -- --------------------------------------------------------
 
@@ -446,39 +257,6 @@ CREATE TABLE `questions` (
 -- Đang đổ dữ liệu cho bảng `questions`
 --
 
-INSERT INTO `questions` (`id`, `TestNumber`, `ClassId`, `Question`, `CreateDate`, `UpdateDate`, `PublishDate`, `ExpireDate`, `TeacherId`) VALUES
-(111, 4, 3, 'Thủ đô của Pháp là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(112, 2, 3, '2 + 2 bằng bao nhiêu?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(113, 9, 3, 'Ai phát minh ra bóng đèn?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(114, 6, 3, 'Công thức hóa học của nước là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(115, 4, 3, 'Tốc độ ánh sáng gần bằng bao nhiêu?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(116, 1, 3, 'Năm nhuận có bao nhiêu ngày?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(117, 3, 3, 'Trái Đất quay quanh gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(118, 10, 3, 'Việt Nam nằm ở châu lục nào?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(119, 3, 3, 'Sông dài nhất thế giới là?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(120, 2, 3, '1 km bằng bao nhiêu mét?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(121, 9, 3, 'Ai là tác giả “Truyện Kiều”?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(122, 1, 3, 'Ngôn ngữ lập trình chính cho Android?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(123, 9, 3, 'HTML viết tắt của?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(124, 10, 3, 'CSS dùng để làm gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(125, 1, 3, 'CPU là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(126, 4, 3, 'RAM có chức năng gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(127, 7, 3, 'JS viết tắt của?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(128, 4, 3, 'API dùng để?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(129, 8, 3, 'HTTP viết tắt của?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(130, 6, 3, 'SQL là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(131, 6, 3, 'Trình duyệt web là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(132, 1, 3, 'CSS selector là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(133, 5, 3, 'HTTPS khác HTTP ở điểm nào?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(134, 4, 3, 'JSON dùng để?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(135, 3, 3, 'Git là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(136, 1, 3, 'IDE là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(137, 9, 3, 'Framework là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(138, 9, 3, 'Debug nghĩa là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(139, 7, 3, 'URL là gì?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4),
-(140, 9, 3, 'Backend chịu trách nhiệm về?', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-20 08:29:42', '2025-10-24 08:29:42', 4);
-
--- --------------------------------------------------------
 
 --
 -- Cấu trúc bảng cho bảng `student`
@@ -493,15 +271,6 @@ CREATE TABLE `student` (
   `UpdateDate` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Đang đổ dữ liệu cho bảng `student`
---
-
-INSERT INTO `student` (`Id`, `IdAccount`, `Name`, `ClassId`, `CreateDate`, `UpdateDate`) VALUES
-(46, 6, 'Đăng Khoa Võ Phạm', 3, '2025-10-19 15:18:40', '2025-10-19 15:18:40'),
-(47, 9, 'CamTuNguyen Alexia', NULL, '2025-10-19 16:09:30', '2025-10-19 16:09:30'),
-(51, 6, '', 4, NULL, NULL),
-(52, 6, 'Võ Phạm Đăng Khoa', 5, NULL, NULL);
 
 -- --------------------------------------------------------
 

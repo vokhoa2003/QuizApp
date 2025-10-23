@@ -472,12 +472,11 @@ public class MainWindow extends JFrame {
                                 studentTask.setFullName(userInfo.getName());
                                 studentTask.setEmail(userInfo.getEmail());
                                 
-                                // MainWindow.this.dispose();
-                                MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
-
-                                StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask, MainWindow.this);
+                                StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask);
                                 studentDashboard.setVisible(true);
                                 
+                                // Đóng MainWindow
+                                MainWindow.this.dispose();
                             }
                             else if (userRole != null && userRole.equals("teacher") && userStatus != null && userStatus.equals("Active")) {
                                 // Mở giao diện TeacherDashboard cho giáo viên
@@ -485,14 +484,12 @@ public class MainWindow extends JFrame {
                                 Task teacherTask = new Task();
                                 teacherTask.setFullName(userInfo.getName());
                                 teacherTask.setEmail(userInfo.getEmail());
-                                // Đóng MainWindow
-                                // MainWindow.this.dispose();
-                                MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
                                 
-                                TeacherDashboard teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask, MainWindow.this);
+                                TeacherDashboard teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask);
                                 teacherDashboard.setVisible(true);
                                 
-                                
+                                // Đóng MainWindow
+                                MainWindow.this.dispose();
                             }
                             else {
                                 String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";

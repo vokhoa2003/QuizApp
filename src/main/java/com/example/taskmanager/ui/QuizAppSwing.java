@@ -16,6 +16,7 @@ import java.awt.event.WindowEvent;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -405,11 +406,13 @@ public class QuizAppSwing extends JFrame {
             
             questions.add(new Question(qId, e.getValue(), opts, aids));
         }
-
+ 
+        // Randomize question order before applying numberQuestion limit
+        Collections.shuffle(questions);
         if (numberQuestion > 0 && questions.size() > numberQuestion) {
-            questions = questions.subList(0, numberQuestion);
+            questions = new ArrayList<>(questions.subList(0, numberQuestion));
         }
-
+ 
         totalQuestions = questions.size();
         System.out.println("✅ Final: Loaded " + totalQuestions + " questions");
 

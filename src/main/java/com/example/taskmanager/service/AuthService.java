@@ -78,9 +78,6 @@ public class AuthService {
         return accessToken;
     }
     
-    public boolean login(String username, String password) {
-        return "admin".equals(username) && "1234".equals(password);
-    }
     
     private boolean refreshAccessToken() {
         try {
@@ -211,7 +208,7 @@ public class AuthService {
     private boolean saveGoogleUserToDatabase(Userinfo userInfo) {
         return true;
     }
-    private int getUserIdFromToken(String token) {
+    public int getUserIdFromToken(String token) {
         try {
             String[] tokenParts = token.split("\\.");
             if (tokenParts.length != 3) {
