@@ -4,13 +4,25 @@
  */
 package com.example.taskmanager.ui;
 
+import java.awt.BorderLayout;
+import java.awt.Font;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+
+import javax.swing.BorderFactory;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JPasswordField;
+import javax.swing.JSeparator;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.SwingWorker;
+
 import com.example.taskmanager.auth.GoogleLoginHelper;
 import com.example.taskmanager.service.AuthService;
 import com.google.api.services.oauth2.model.Userinfo;
-
-import javax.swing.*;
-import java.awt.*;
-import java.awt.event.ActionEvent;
 
 public class LoginPanel extends JPanel {
     private final JTextField usernameField;
@@ -43,7 +55,7 @@ public class LoginPanel extends JPanel {
         passwordField = new JPasswordField(20);
         
         loginButton = new JButton("Login");
-        loginButton.addActionListener(this::handleLogin);
+        //loginButton.addActionListener(this::handleLogin);
         
         JButton cancelButton = new JButton("Cancel");
         cancelButton.addActionListener(e -> System.exit(0));
@@ -69,56 +81,56 @@ public class LoginPanel extends JPanel {
         add(formPanel, BorderLayout.CENTER);
     }
     
-    private void handleLogin(ActionEvent e) {
-        String username = usernameField.getText();
-        String password = new String(passwordField.getPassword());
+    // private void handleLogin(ActionEvent e) {
+    //     String username = usernameField.getText();
+    //     String password = new String(passwordField.getPassword());
         
-        if (username.isEmpty() || password.isEmpty()) {
-            JOptionPane.showMessageDialog(this, 
-                "Username and password are required", 
-                "Login Error", 
-                JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+    //     if (username.isEmpty() || password.isEmpty()) {
+    //         JOptionPane.showMessageDialog(this, 
+    //             "Username and password are required", 
+    //             "Login Error", 
+    //             JOptionPane.ERROR_MESSAGE);
+    //         return;
+    //     }
         
-        loginButton.setEnabled(false);
-        loginButton.setText("Logging in...");
+    //     loginButton.setEnabled(false);
+    //     loginButton.setText("Logging in...");
         
-        // Sử dụng SwingWorker để không block EDT
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Boolean doInBackground() {
-                return authService.login(username, password);
-            }
+    //     // Sử dụng SwingWorker để không block EDT
+    //     SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+    //         @Override
+    //         protected Boolean doInBackground() {
+    //             return authService.login(username, password);
+    //         }
             
-            @Override
-            protected void done() {
-                try {
-                    boolean success = get();
-                    if (success) {
-                        mainWindow.showTaskPanel();
-                    } else {
-                        JOptionPane.showMessageDialog(LoginPanel.this, 
-                            "Invalid username or password", 
-                            "Login Failed", 
-                            JOptionPane.ERROR_MESSAGE);
-                        loginButton.setEnabled(true);
-                        loginButton.setText("Login");
-                    }
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    JOptionPane.showMessageDialog(LoginPanel.this, 
-                        "An error occurred: " + ex.getMessage(), 
-                        "Login Error", 
-                        JOptionPane.ERROR_MESSAGE);
-                    loginButton.setEnabled(true);
-                    loginButton.setText("Login");
-                }
-            }
-        };
+    //         @Override
+    //         protected void done() {
+    //             try {
+    //                 boolean success = get();
+    //                 if (success) {
+    //                     mainWindow.showTaskPanel();
+    //                 } else {
+    //                     JOptionPane.showMessageDialog(LoginPanel.this, 
+    //                         "Invalid username or password", 
+    //                         "Login Failed", 
+    //                         JOptionPane.ERROR_MESSAGE);
+    //                     loginButton.setEnabled(true);
+    //                     loginButton.setText("Login");
+    //                 }
+    //             } catch (Exception ex) {
+    //                 ex.printStackTrace();
+    //                 JOptionPane.showMessageDialog(LoginPanel.this, 
+    //                     "An error occurred: " + ex.getMessage(), 
+    //                     "Login Error", 
+    //                     JOptionPane.ERROR_MESSAGE);
+    //                 loginButton.setEnabled(true);
+    //                 loginButton.setText("Login");
+    //             }
+    //         }
+    //     };
         
-        worker.execute();
-    }
+    //     worker.execute();
+    // }
     
     private void handleGoogleLogin(ActionEvent e) {
         googleLoginButton.setEnabled(false);

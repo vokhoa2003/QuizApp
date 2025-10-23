@@ -20,6 +20,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.oauth2.model.Userinfo;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+
 public class AuthService {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
@@ -150,6 +153,7 @@ public class AuthService {
     public boolean isLoggedIn() {
         return (accessToken != null && expiryTime != null && LocalDateTime.now().isBefore(expiryTime));
     }
+    private String csrfToken; // add field to persist token per instance
     public boolean loginWithGoogle(Userinfo userInfo) {
         try {
             if (userInfo == null || userInfo.getEmail() == null || userInfo.getId() == null) {
@@ -157,26 +161,36 @@ public class AuthService {
                 return false;
             }
 
-            // Lưu email người dùng để sử dụng cho mã hóa
             this.userEmail = userInfo.getEmail();
-            //System.out.println("User email set for encryption: " + userEmail);
 
-            String csrfToken = generateCsrfToken();
-            String formData = "GoogleID=" + userInfo.getId() +
-                    "&email=" + userEmail +
-                    "&FullName=" + (userInfo.getName() != null ? userInfo.getName() :
-                    (userInfo.getGivenName() + " " + userInfo.getFamilyName())) +
-                    "&access_token=google_" + System.currentTimeMillis() +
-                    "&expires_at=" + LocalDateTime.now().plusHours(1).toString() +
-                    "&csrf_token=" + csrfToken;
+            // generate and save token in instance so ApiService can reuse if needed
+            this.csrfToken = generateCsrfToken();
+
+            String googleId = URLEncoder.encode(userInfo.getId(), StandardCharsets.UTF_8);
+            String emailEnc = URLEncoder.encode(userEmail, StandardCharsets.UTF_8);
+            String fullName = URLEncoder.encode(
+                    (userInfo.getName() != null ? userInfo.getName()
+                            : (userInfo.getGivenName() + " " + userInfo.getFamilyName())),
+                    StandardCharsets.UTF_8);
+            String accessTokenFake = URLEncoder.encode("google_" + System.currentTimeMillis(), StandardCharsets.UTF_8);
+            String expiresAt = URLEncoder.encode(LocalDateTime.now().plusHours(1).toString(), StandardCharsets.UTF_8);
+            String csrfEnc = URLEncoder.encode(this.csrfToken, StandardCharsets.UTF_8);
+
+            String formData = "GoogleID=" + googleId +
+                    "&email=" + emailEnc +
+                    "&FullName=" + fullName +
+                    "&access_token=" + accessTokenFake +
+                    "&expires_at=" + expiresAt +
+                    "&csrf_token=" + csrfEnc;
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/app_login"))
                     .header("Content-Type", "application/x-www-form-urlencoded")
-                    .header("Cookie", "csrf_token=" + csrfToken)
+                    .header("Cookie", "csrf_token=" + this.csrfToken)
+                    .header("X-CSRF-Token", this.csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(formData))
                     .build();
-                    
+
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             this.lastLoginResponse = response.body();
 
@@ -188,7 +202,6 @@ public class AuthService {
                     this.expiryTime = LocalDateTime.now().plusHours(1);
                     this.lastLoginRole = extractRoleFromToken(this.accessToken);
                     saveTokenToPreferences();
-                    //System.out.println("Google login successful for user: " + userEmail);
                     return true;
                 }
             }
@@ -198,15 +211,19 @@ public class AuthService {
         }
         return false;
     }
+
+    // expose getter for token so ApiService can reuse if necessary
+    public String getCsrfToken() {
+        return this.csrfToken;
+    }
+
     public String generateCsrfToken() {
         SecureRandom secureRandom = new SecureRandom();
         byte[] randomBytes = new byte[32];
         secureRandom.nextBytes(randomBytes);
-        return Base64.getEncoder().encodeToString(randomBytes);
-    }
-
-    private boolean saveGoogleUserToDatabase(Userinfo userInfo) {
-        return true;
+        String t = Base64.getEncoder().encodeToString(randomBytes);
+        this.csrfToken = t;
+        return t;
     }
     public int getUserIdFromToken(String token) {
         try {
