@@ -93,6 +93,12 @@ CREATE TABLE `answers` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
+-- Đang đổ dữ liệu cho bảng `answers`
+--
+
+
+
+--
 -- Cấu trúc bảng cho bảng `api_token`
 --
 
@@ -167,6 +173,10 @@ CREATE TABLE `exam_answers` (
   `AttemptId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+
+-- --------------------------------------------------------
+
+--
 -- Cấu trúc bảng cho bảng `exam_attempts`
 --
 
@@ -253,10 +263,8 @@ CREATE TABLE `questions` (
   `TeacherId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Đang đổ dữ liệu cho bảng `questions`
---
 
+-- --------------------------------------------------------
 
 --
 -- Cấu trúc bảng cho bảng `student`
@@ -286,14 +294,6 @@ CREATE TABLE `teacher` (
   `CreateDate` datetime DEFAULT NULL,
   `UpdateDate` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Đang đổ dữ liệu cho bảng `teacher`
---
-
-INSERT INTO `teacher` (`Id`, `IdAccount`, `Name`, `ClassId`, `CreateDate`, `UpdateDate`) VALUES
-(1, 4, 'Đăng Khoa Võ Phạm', 3, '2025-10-06 16:13:47', '2025-10-06 16:13:47'),
-(44, 4, 'Võ Khoa Teacher', 4, '2025-10-21 14:54:26', '2025-10-21 14:54:26');
 
 -- --------------------------------------------------------
 
