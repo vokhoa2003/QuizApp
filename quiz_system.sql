@@ -126,7 +126,6 @@ CREATE TABLE `classes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 
-
 -- --------------------------------------------------------
 
 --
@@ -158,7 +157,6 @@ CREATE TABLE `exams` (
   `ExpireDate` datetime DEFAULT NULL,
   `TeacherId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
 
 -- --------------------------------------------------------
 
@@ -192,13 +190,6 @@ CREATE TABLE `exam_attempts` (
   `Status` enum('in_progress','submitted','expired') DEFAULT 'in_progress'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
---
--- Đang đổ dữ liệu cho bảng `exam_attempts`
---
-
-INSERT INTO `exam_attempts` (`id`, `ExamId`, `StudentId`, `StartTime`, `EndTime`, `SubmitTime`, `Status`) VALUES
-(2, 3, 46, '2025-10-21 12:02:10', NULL, NULL, 'in_progress');
-
 -- --------------------------------------------------------
 
 --
@@ -226,13 +217,6 @@ CREATE TABLE `exam_results` (
   `SubmittedDate` datetime DEFAULT current_timestamp(),
   `AttemptId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
---
--- Đang đổ dữ liệu cho bảng `exam_results`
---
-
-INSERT INTO `exam_results` (`id`, `ExamId`, `StudentId`, `Score`, `SubmittedDate`, `AttemptId`) VALUES
-(6, 3, 46, 2.00, '2025-10-21 12:13:11', 2);
 
 -- --------------------------------------------------------
 

@@ -471,11 +471,11 @@ public class MainWindow extends JFrame {
                                 Task studentTask = new Task();
                                 studentTask.setFullName(userInfo.getName());
                                 studentTask.setEmail(userInfo.getEmail());
-                                
-                                // MainWindow.this.dispose();
-                                MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
 
+                                MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
+                                
                                 StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask, MainWindow.this);
+                                 // Đóng MainWindow
                                 studentDashboard.setVisible(true);
                                 
                             }
@@ -491,7 +491,6 @@ public class MainWindow extends JFrame {
                                 
                                 TeacherDashboard teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask, MainWindow.this);
                                 teacherDashboard.setVisible(true);
-                                
                                 
                             }
                             else {

@@ -37,123 +37,117 @@ public class TaskPanel extends JPanel {
     private static final int BASE_FONT_SIZE = 12;
     private double scaleFactor = 1.0;
 
-    public TaskPanel(ApiService apiService, AuthService authService, MainWindow mainWindow) {
-        this.apiService = apiService;
-        this.authService = authService;
-        this.mainWindow = mainWindow;
-        
-        setLayout(new BorderLayout(10, 10));
-        setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        
-        String[] columnNames = {"ID", "Email", "Full Name", "Role", "Status", "Created Date", "Updated Date", "Phone", "Address", "Birth Date", "Identity Number"};
-        tableModel = new DefaultTableModel(columnNames, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-        
-        userTable = new JTable(tableModel) {
-            @Override
-            public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
-                Component c = super.prepareRenderer(renderer, row, column);
-                if (getRowCount() == 0) {
-                    c.setFont(new Font("Segoe UI", Font.ITALIC, (int) (BASE_FONT_SIZE * scaleFactor)));
-                    c.setForeground(Color.GRAY);
-                }
-                return c;
-            }
-        };
-        userTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        userTable.getTableHeader().setReorderingAllowed(false);
-        userTable.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        userTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
-        
-        // Add Role filter combobox to the Role column header
-        roleFilterComboBox = new JComboBox<>(new String[]{"All", "Quản trị viên", "Giáo viên", "Học sinh"});
-        roleFilterComboBox.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        roleFilterComboBox.setMaximumSize(new Dimension(150, 25));
-        roleFilterComboBox.addActionListener(e -> filterUsersByRole());
-        
-        // Custom header renderer for Role column
-        userTable.getTableHeader().getColumnModel().getColumn(3).setHeaderRenderer(new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                JPanel panel = new JPanel(new BorderLayout());
-                JLabel label = new JLabel("Role");
-                label.setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
-                label.setHorizontalAlignment(SwingConstants.CENTER);
-                panel.add(label, BorderLayout.NORTH);
-                panel.add(roleFilterComboBox, BorderLayout.CENTER);
-                panel.setBorder(BorderFactory.createEmptyBorder(2, 2, 2, 2));
-                return panel;
-            }
-        });
-        
-        JScrollPane scrollPane = new JScrollPane(userTable);
-        
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        
-        refreshButton = new JButton("Refresh");
-        refreshButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        refreshButton.addActionListener(e -> refreshUsers());
-        
-        addButton = new JButton("Add User");
-        addButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        addButton.addActionListener(e -> showAddUserDialog());
-        
-        editButton = new JButton("Edit User");
-        editButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        editButton.addActionListener(e -> {
-            int selectedRow = userTable.getSelectedRow();
-            if (selectedRow >= 0 && tableModel.getRowCount() > 0 && !tableModel.getValueAt(0, 0).equals("Không có dữ liệu")) {
-                showEditUserDialog(getUserFromSelectedRow());
-            } else {
-                JOptionPane.showMessageDialog(this, 
-                    "Please select a user to edit", 
-                    "Selection Required", 
-                    JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-        
-        deleteButton = new JButton("Delete User");
-        deleteButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        deleteButton.addActionListener(e -> {
-            int selectedRow = userTable.getSelectedRow();
-            if (selectedRow >= 0 && tableModel.getRowCount() > 0 && !tableModel.getValueAt(0, 0).equals("Không có dữ liệu")) {
-                confirmAndDeleteUser();
-            } else {
-                JOptionPane.showMessageDialog(this, 
-                    "Please select a user to delete", 
-                    "Selection Required", 
-                    JOptionPane.INFORMATION_MESSAGE);
-            }
-        });
-        
-        logoutButton = new JButton("Logout");
-        logoutButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        logoutButton.addActionListener(e -> {
-            authService.logout();
-            mainWindow.showLoginPanel();
-        });
-        
-        searchButton = new JButton("Search");
-        searchButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
-        searchButton.addActionListener(e -> showSearchDialog());
-        
-        buttonPanel.add(refreshButton);
-        buttonPanel.add(addButton);
-        buttonPanel.add(editButton);
-        buttonPanel.add(deleteButton);
-        buttonPanel.add(logoutButton);
-        buttonPanel.add(Box.createHorizontalGlue());
-        buttonPanel.add(searchButton);
-        
-        add(buttonPanel, BorderLayout.NORTH);
-        add(scrollPane, BorderLayout.CENTER);
-        
-        refreshUsers();
-    }
+// Trong constructor TaskPanel, thay đổi phần tạo table và button panel:
+
+public TaskPanel(ApiService apiService, AuthService authService, MainWindow mainWindow) {
+    this.apiService = apiService;
+    this.authService = authService;
+    this.mainWindow = mainWindow;
+    
+    setLayout(new BorderLayout(10, 10));
+    setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+    
+    String[] columnNames = {"ID", "Email", "Full Name", "Role", "Status", "Created Date", "Updated Date", "Phone", "Address", "Birth Date", "Identity Number"};
+    tableModel = new DefaultTableModel(columnNames, 0) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+    
+    userTable = new JTable(tableModel);
+    userTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+    userTable.getTableHeader().setReorderingAllowed(false);
+    userTable.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    userTable.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, (int) (BASE_FONT_SIZE * scaleFactor)));
+    
+    // XÓA PHẦN CUSTOM HEADER RENDERER CHO ROLE COLUMN
+    
+    JScrollPane scrollPane = new JScrollPane(userTable);
+    
+    // Tạo panel phía trên với filter và buttons
+    JPanel topPanel = new JPanel(new BorderLayout(10, 5));
+    
+    // Panel cho filter
+    JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    JLabel roleFilterLabel = new JLabel("Filter by Role:");
+    roleFilterLabel.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    
+    roleFilterComboBox = new JComboBox<>(new String[]{"All", "Quản trị viên", "Giáo viên", "Học sinh"});
+    roleFilterComboBox.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    roleFilterComboBox.setPreferredSize(new Dimension(150, 30));
+    roleFilterComboBox.addActionListener(e -> filterUsersByRole());
+    
+    filterPanel.add(roleFilterLabel);
+    filterPanel.add(roleFilterComboBox);
+    
+    // Panel cho buttons
+    JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+    
+    refreshButton = new JButton("Refresh");
+    refreshButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    refreshButton.addActionListener(e -> refreshUsers());
+    
+    addButton = new JButton("Add User");
+    addButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    addButton.addActionListener(e -> showAddUserDialog());
+    
+    editButton = new JButton("Edit User");
+    editButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    editButton.addActionListener(e -> {
+        int selectedRow = userTable.getSelectedRow();
+        if (selectedRow >= 0 && tableModel.getRowCount() > 0 && !tableModel.getValueAt(0, 0).equals("Không có dữ liệu")) {
+            showEditUserDialog(getUserFromSelectedRow());
+        } else {
+            JOptionPane.showMessageDialog(this, 
+                "Please select a user to edit", 
+                "Selection Required", 
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+    });
+    
+    deleteButton = new JButton("Delete User");
+    deleteButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    deleteButton.addActionListener(e -> {
+        int selectedRow = userTable.getSelectedRow();
+        if (selectedRow >= 0 && tableModel.getRowCount() > 0 && !tableModel.getValueAt(0, 0).equals("Không có dữ liệu")) {
+            confirmAndDeleteUser();
+        } else {
+            JOptionPane.showMessageDialog(this, 
+                "Please select a user to delete", 
+                "Selection Required", 
+                JOptionPane.INFORMATION_MESSAGE);
+        }
+    });
+    
+    logoutButton = new JButton("Logout");
+    logoutButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    logoutButton.addActionListener(e -> {
+        authService.logout();
+        mainWindow.showLoginPanel();
+    });
+    
+    searchButton = new JButton("Search");
+    searchButton.setFont(new Font("Segoe UI", Font.PLAIN, (int) (BASE_FONT_SIZE * scaleFactor)));
+    searchButton.addActionListener(e -> showSearchDialog());
+    
+    buttonPanel.add(refreshButton);
+    buttonPanel.add(addButton);
+    buttonPanel.add(editButton);
+    buttonPanel.add(deleteButton);
+    buttonPanel.add(logoutButton);
+    buttonPanel.add(Box.createHorizontalStrut(20)); // Thêm khoảng cách
+    buttonPanel.add(searchButton);
+    
+    // Thêm filter panel và button panel vào top panel
+    topPanel.add(filterPanel, BorderLayout.NORTH);
+    topPanel.add(buttonPanel, BorderLayout.CENTER);
+    
+    add(topPanel, BorderLayout.NORTH);
+    add(scrollPane, BorderLayout.CENTER);
+    
+    refreshUsers();
+}
 
     public void updateFonts(double scaleFactor) {
         this.scaleFactor = scaleFactor;
