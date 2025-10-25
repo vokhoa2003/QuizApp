@@ -646,10 +646,10 @@ public class StudentDashboard extends JFrame {
         
         JButton actionButton;
         if ("Xem Chi Tiết".equals(action)) {
-            actionButton = new JButton("👁️ Xem Chi Tiết");
+            actionButton = new JButton("Xem Chi Tiết");
             actionButton.setBackground(new Color(0x0EA5E9));
         } else {
-            actionButton = new JButton("✏️ Làm Kiểm Tra");
+            actionButton = new JButton("Làm Kiểm Tra");
             actionButton.setBackground(new Color(0x10B981));
         }
         
@@ -778,9 +778,11 @@ public class StudentDashboard extends JFrame {
                     System.out.println("   ClassId: " + classId);
                     System.out.println("   NumberQuestion: " + numberQuestion);
                     
+                    StudentDashboard.this.setVisible(false);  // Ẩn thay vì dispose()
                     // ✅ Mở QuizAppSwing với đầy đủ thông tin
-                    new QuizAppSwing(apiService, authService, examId, classId, numberQuestion);
-                    dispose(); // Đóng dashboard
+                    new QuizAppSwing(apiService, authService, examId, classId, numberQuestion, StudentDashboard.this);
+                    //dispose(); // Đóng dashboard
+                    
                     
                 } catch (Exception e) {
                     e.printStackTrace();
