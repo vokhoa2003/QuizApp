@@ -1,18 +1,43 @@
 package com.example.taskmanager.ui;
 
-import java.awt.*;
-import java.util.*;
-import java.util.List;
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import java.text.SimpleDateFormat;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
 import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+import javax.swing.UIManager;
+import javax.swing.border.EmptyBorder;
 
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
-import com.example.taskmanager.service.StudentInfoService;
 import com.example.taskmanager.service.ExamService;
+import com.example.taskmanager.service.StudentInfoService;
 import com.formdev.flatlaf.FlatLightLaf;
 
 public class StudentDashboard extends JFrame {
@@ -216,21 +241,37 @@ public class StudentDashboard extends JFrame {
             @Override
             protected List<Map<String, Object>> doInBackground() {
                 try {
-                    StudentInfoService sis = new StudentInfoService(apiService);
-
-                    // Ưu tiên email từ currentStudent; fallback từ authService nếu có
-                    String email = currentStudent != null ? currentStudent.getEmail() : null;
-                    if ((email == null || email.isEmpty()) && authService != null) {
-                        try {
-                            email = (String) authService.getClass().getMethod("getUserEmail").invoke(authService);
-                        } catch (Exception ignored) {}
-                    }
-                    if (email == null || email.isEmpty()) {
-                        System.err.println("StudentDashboard: missing email to load classes");
+                    // Chỉ sử dụng accountId lấy từ token (không dùng email)
+                    Integer accountId = getAccountIdFromAuth();
+                    System.out.println("DEBUG: resolved accountId = " + accountId);
+                    if (accountId == null) {
+                        System.err.println("StudentDashboard: accountId missing. Aborting class load.");
                         return Collections.emptyList();
                     }
 
-                    return sis.fetchStudentClassesByEmail(email);
+                    // Lấy dữ liệu lớp bằng JOIN từ student -> classes theo IdAccount
+                    List<Map<String, Object>> classes = fetchStudentClassesForAccount(accountId);
+                    //System.out.println("DEBUG: fetched classes by join = " + classes);
+
+                    if (classes == null || classes.isEmpty()) {
+                        return Collections.emptyList();
+                    }
+
+                    // Dedupe bằng Id (giữ thứ tự)
+                    LinkedHashMap<Integer, Map<String, Object>> unique = new LinkedHashMap<>();
+                    for (Map<String, Object> row : classes) {
+                        Integer idKey = null;
+                        Object oid = row.getOrDefault("Id", row.getOrDefault("id", row.get("classes.Id")));
+                        if (oid instanceof Number) idKey = ((Number) oid).intValue();
+                        else if (oid != null) {
+                            try { idKey = Integer.parseInt(oid.toString()); } catch (Exception ignored) {}
+                        }
+                        if (idKey != null && !unique.containsKey(idKey)) {
+                            unique.put(idKey, row);
+                        }
+                    }
+
+                    return new ArrayList<>(unique.values());
                 } catch (Exception ex) {
                     ex.printStackTrace();
                     return Collections.emptyList();
@@ -253,6 +294,96 @@ public class StudentDashboard extends JFrame {
         };
         worker.execute();
     }
+
+    // Resolve account id from email (calls API)
+    private Integer resolveAccountIdByEmail(String email) {
+        if (email == null) return null;
+        try {
+            Map<String,Object> p = new HashMap<>();
+            p.put("action", "get");
+            p.put("method", "SELECT");
+            p.put("table", "account");
+            p.put("columns", List.of("id as AccountId"));
+            p.put("where", Map.of("email", email));
+            p.put("limit", 1);
+            System.out.println("DEBUG: resolveAccountIdByEmail payload=" + p);
+            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
+            System.out.println("DEBUG: resolveAccountIdByEmail resp=" + resp);
+            if (resp != null && !resp.isEmpty()) {
+                Object v = resp.get(0).get("AccountId");
+                if (v == null) v = resp.get(0).get("id");
+                if (v instanceof Number) return ((Number)v).intValue();
+                if (v != null) return Integer.parseInt(v.toString());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
+    // Get ClassId list from student table for given account id
+    private Set<Integer> fetchStudentClassIdsForAccount(Integer accountId) {
+        Set<Integer> out = new HashSet<>();
+        if (accountId == null) return out;
+        try {
+            Map<String,Object> p = new HashMap<>();
+            p.put("action", "get");
+            p.put("method", "SELECT");
+            p.put("table", "student");
+            p.put("columns", List.of("ClassId"));
+            Map<String,Object> where = new HashMap<>();
+            where.put("IdAccount", accountId);
+            p.put("where", where);
+            p.put("groupBy", List.of("ClassId"));
+            System.out.println("DEBUG: fetchStudentClassIdsForAccount payload=" + accountId);
+            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
+            System.out.println("DEBUG: fetchStudentClassIdsForAccount resp=" + resp);
+            if (resp != null) {
+                for (Map<String,Object> r : resp) {
+                    Object c = r.get("ClassId");
+                    if (c == null) c = r.get("classid");
+                    if (c instanceof Number) out.add(((Number)c).intValue());
+                    else if (c != null) {
+                        try { out.add(Integer.parseInt(c.toString())); } catch (Exception ignored) {}
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return out;
+    }
+
+    // Lấy danh sách classes theo tập Ids từ API
+    private List<Map<String, Object>> fetchClassesByIds(Set<Integer> ids) {
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        try {
+            Map<String,Object> p = new HashMap<>();
+            p.put("action", "get");
+            p.put("method", "SELECT");
+            p.put("table", "classes");
+            p.put("columns", List.of("Id", "Name", "TeacherName", "StudentCount"));
+            Map<String,Object> where = new HashMap<>();
+            where.put("Id", ids);
+            p.put("where", where);
+            System.out.println("DEBUG: fetchClassesByIds payload=" + p);
+            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
+            if (resp == null) return Collections.emptyList();
+
+            // Chuẩn hoá key ClassName nếu cần
+            List<Map<String,Object>> out = new ArrayList<>();
+            for (Map<String,Object> r : resp) {
+                Map<String,Object> m = new HashMap<>(r);
+                Object name = r.getOrDefault("Name", r.get("name"));
+                if (name != null) m.put("ClassName", name.toString());
+                out.add(m);
+            }
+            return out;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
     
     private void displayClasses(List<Map<String, Object>> classes) {
         classesPanel.removeAll();
@@ -272,13 +403,23 @@ public class StudentDashboard extends JFrame {
 
         for (Map<String, Object> classData : classes) {
             String className = String.valueOf(
-                classData.getOrDefault("ClassName", classData.getOrDefault("classes.Name", "Lớp học"))
+                classData.getOrDefault("classesName", classData.getOrDefault("classes.Name", classData.getOrDefault("ClassName", "Lớp học")))
             );
-            String teacherName = String.valueOf(classData.getOrDefault("TeacherName", "Đang cập nhật"));
+
+            String teacherName = String.valueOf(classData.getOrDefault("TeacherName", classData.getOrDefault("teacher.Name", "Đang cập nhật")));
             Object sc = classData.getOrDefault("StudentCount", 0);
             int studentCount = (sc instanceof Number) ? ((Number) sc).intValue() : 0;
 
-            JPanel classCard = createClassCard(className, teacherName, studentCount);
+            // Lấy ClassId an toàn
+            Integer classId = null;
+            Object idObj = classData.getOrDefault("Id", classData.get("classes.Id"));
+            if (idObj instanceof Number) classId = ((Number) idObj).intValue();
+            else if (idObj != null) {
+                try { classId = Integer.parseInt(idObj.toString()); } catch (Exception ignored) {}
+            }
+
+            // Gọi createClassCard với classId (sử dụng id để fetch exam)
+            JPanel classCard = createClassCard(classId, className, teacherName, studentCount);
             classesPanel.add(classCard);
             classesPanel.add(Box.createVerticalStrut(12));
         }
@@ -287,91 +428,10 @@ public class StudentDashboard extends JFrame {
         classesPanel.repaint();
     }
     
-    private JPanel createClassCard(String className, String teacherName, int studentCount) {
-        JPanel card = new JPanel(new BorderLayout(12, 0));
-        card.setBackground(Color.WHITE);
-        card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(0xE5E7EB), 1),
-            new EmptyBorder(15, 15, 15, 15)
-        ));
-        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
-        
-        // Icon
-        JLabel iconLabel = new JLabel("📖");
-        iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
-        card.add(iconLabel, BorderLayout.WEST);
-        
-        // Info
-        JPanel infoPanel = new JPanel();
-        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
-        infoPanel.setOpaque(false);
-        
-        JLabel nameLabel = new JLabel(className);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        nameLabel.setForeground(new Color(0x1F2937));
-        
-        JLabel teacherLabel = new JLabel("👨‍🏫 " + teacherName);
-        teacherLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        teacherLabel.setForeground(new Color(0x6B7280));
-        
-        JLabel studentLabel = new JLabel("👥 " + studentCount + " học sinh");
-        studentLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        studentLabel.setForeground(new Color(0x9CA3AF));
-        
-        infoPanel.add(nameLabel);
-        infoPanel.add(Box.createVerticalStrut(4));
-        infoPanel.add(teacherLabel);
-        infoPanel.add(Box.createVerticalStrut(2));
-        infoPanel.add(studentLabel);
-        
-        card.add(infoPanel, BorderLayout.CENTER);
-        
-        // Hover effect
-        card.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                card.setBackground(new Color(0xF0F9FF));
-                card.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(0x0EA5E9), 2),
-                    new EmptyBorder(14, 14, 14, 14)
-                ));
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                if (!className.equals(selectedClassName)) {
-                    card.setBackground(Color.WHITE);
-                    card.setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createLineBorder(new Color(0xE5E7EB), 1),
-                        new EmptyBorder(15, 15, 15, 15)
-                    ));
-                }
-            }
-            public void mouseClicked(java.awt.event.MouseEvent evt) {
-                selectClass(className, card);
-            }
-        });
-        
-        return card;
-    }
-    public List<Map<String, Object>> loadStudentExamData() {
-        // Sử dụng StudentInfoService để lấy dữ liệu account + student + classes theo email của currentStudent
-        try {
-            StudentInfoService sis = new StudentInfoService(apiService);
-            String email = currentStudent != null ? currentStudent.getEmail() : null;
-            List<Map<String, Object>> result = sis.fetchProfileByEmail(email);
-            System.out.println("✅ Data loaded from StudentInfoService: " + result);
-            return result;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                "Lỗi khi tải thông tin học sinh và bài kiểm tra!",
-                "Lỗi API", JOptionPane.ERROR_MESSAGE);
-            return Collections.emptyList();
-        }
-    }
-    
-    private void selectClass(String className, JPanel selectedCard) {
+    // cập nhật: nhận classId để select chính xác
+    private void selectClass(Integer classId, String className, JPanel selectedCard) {
         selectedClassName = className;
-        
+
         // Update all cards appearance
         for (Component comp : classesPanel.getComponents()) {
             if (comp instanceof JPanel) {
@@ -383,19 +443,19 @@ public class StudentDashboard extends JFrame {
                 ));
             }
         }
-        
+
         // Highlight selected card
         selectedCard.setBackground(new Color(0xF0F9FF));
         selectedCard.setBorder(BorderFactory.createCompoundBorder(
             BorderFactory.createLineBorder(new Color(0x0EA5E9), 2),
             new EmptyBorder(14, 14, 14, 14)
         ));
-        
-        // Load exams for this class
-        loadClassExams(className);
+
+        // Load exams for this class by ClassId (important)
+        loadClassExams(classId, className);
     }
     
-    private void loadClassExams(String className) {
+    private void loadClassExams(Integer classId, String className) {
         examsTitle.setText("📝 Bài Kiểm Tra - " + className);
         examsPanel.removeAll();
 
@@ -411,9 +471,65 @@ public class StudentDashboard extends JFrame {
         SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Map<String, Object>> doInBackground() {
-                List<Map<String, Object>> exams = examService.fetchExamsByClass(className);
-                List<Map<String, Object>> results = examService.fetchExamResults(currentStudent.getEmail());
-                return processExams(exams, results);
+                try {
+                    // Lấy exams theo ClassId — dùng điều kiện số để tránh nhầm lẫn tên
+                    Map<String, Object> params = new HashMap<>();
+                    params.put("action", "get");
+                    params.put("method", "SELECT");
+                    params.put("table", List.of("exams", "classes"));
+                    params.put("columns", List.of(
+                        "exams.id as ExamId",
+                        "exams.ExamName",
+                        "exams.NumberQuestion",
+                        "exams.Description",
+                        "exams.PublishDate",
+                        "exams.ExpireDate",
+                        "exams.ClassId",
+                        "classes.Name as ClassName"
+                    ));
+
+                    Map<String, Object> join1 = new HashMap<>();
+                    join1.put("type", "INNER");
+                    join1.put("on", List.of("exams.ClassId = classes.Id"));
+                    params.put("join", List.of(join1));
+
+                    Map<String, Object> conditions = new HashMap<>();
+                    // dùng key rõ ràng "exams.ClassId"
+                    conditions.put("exams.ClassId", classId);
+                    params.put("conditions", conditions);
+
+                    System.out.println("DEBUG: fetchExamsByClassId payload=" + params);
+                    List<Map<String, Object>> exams = apiService.postApiGetList("/autoGet", params);
+                    if (exams == null) exams = Collections.emptyList();
+
+                    // Chuẩn hoá trường tên và ngày (để processExams / displayExams dùng được)
+                    List<Map<String, Object>> normalized = new ArrayList<>();
+                    for (Map<String, Object> r : exams) {
+                        Map<String, Object> m = new HashMap<>(r);
+                        // ensure PublishDate/ExpireDate keys exist
+                        if (!m.containsKey("PublishDate") && m.containsKey("PublicDate")) {
+                            m.put("PublishDate", m.get("PublicDate"));
+                        }
+                        if (!m.containsKey("ExpireDate") && m.containsKey("Expire")) {
+                            m.put("ExpireDate", m.get("Expire"));
+                        }
+                        // ensure ExamId key
+                        if (!m.containsKey("ExamId")) {
+                            Object id = m.getOrDefault("exams.id", m.get("id"));
+                            if (id != null) m.put("ExamId", id);
+                        }
+                        normalized.add(m);
+                    }
+
+                    // Lấy kết quả làm bài của học sinh
+                    List<Map<String, Object>> results = examService.fetchExamResults(currentStudent != null ? currentStudent.getEmail() : null);
+
+                    // xử lý (processExams sẽ so sánh ExamId)
+                    return processExams(normalized, results);
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    return Collections.emptyList();
+                }
             }
 
             @Override
@@ -796,10 +912,10 @@ public class StudentDashboard extends JFrame {
         worker.execute();
     }
     
-    private void openExamDetail(int examId, String studentName, String examName) {
-        new ExamDetailWindow(apiService, authService, examId, currentStudent.getEmail(), 
-                           studentName, examName, 0);
-    }
+    // private void openExamDetail(int examId, String studentName, String examName) {
+    //     new ExamDetailWindow(apiService, authService, examId, currentStudent.getEmail(), 
+    //                        studentName, examName, 0);
+    // }
     
     private void startExam(int examId) {
         // TODO: Implement start exam functionality
@@ -927,5 +1043,140 @@ public class StudentDashboard extends JFrame {
             }
         };
         worker.execute();
+    }
+    
+    // Thử lấy account id trực tiếp từ authService bằng hàm đã có trong AuthService
+    private Integer getAccountIdFromAuth() {
+        if (authService == null) return null;
+        try {
+            String token = authService.getAccessToken();
+            if (token == null || token.isEmpty()) return null;
+            int id = authService.getUserIdFromToken(token);
+            if (id <= 0) return null;
+            return Integer.valueOf(id);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return null;
+        }
+    }
+
+    // New: fetch classes for an account using JOIN student -> classes
+    private List<Map<String, Object>> fetchStudentClassesForAccount(Integer accountId) {
+        if (accountId == null) return Collections.emptyList();
+        try {
+            Map<String, Object> p = new HashMap<>();
+            p.put("action", "get");
+            p.put("method", "SELECT");
+            // gửi table như mảng để API xây JOIN
+            p.put("table", List.of("student", "classes", "teacher"));
+            // lấy thông tin lớp cần hiển thị
+            p.put("columns", List.of("classes.Id", "classes.Name as classesName", "teacher.Name as TeacherName"));
+            // cấu trúc join phù hợp với ModelSQL.autoQuery
+            Map<String, Object> join1 = new HashMap<>();
+            join1.put("type", "INNER");
+            join1.put("on", List.of("student.ClassId = classes.Id"));
+
+            Map<String, Object> join2 = new HashMap<>();
+            join2.put("type", "Left");
+            join2.put("on", List.of("classes.Id = teacher.ClassId"));
+
+            p.put("join", List.of(join1, join2));
+
+            Map<String, Object> conditions = new HashMap<>();
+            conditions.put("student.IdAccount", accountId);
+            p.put("conditions", conditions);
+            
+
+            System.out.println("DEBUG: fetchStudentClassesForAccount payload=" + p);
+            List<Map<String, Object>> resp = apiService.postApiGetList("/autoGet", p);
+            System.out.println("DEBUG: fetchStudentClassesForAccount resp=" + resp);
+            if (resp == null) return Collections.emptyList();
+
+            // Chuẩn hoá key: đảm bảo có ClassName/Id/TeacherName
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (Map<String, Object> r : resp) {
+                Map<String, Object> m = new HashMap<>(r);
+                Object name = r.getOrDefault("Name", r.get("classes.Name"));
+                if (name != null) m.put("ClassName", name.toString());
+                // normalize Id key
+                if (!m.containsKey("Id")) {
+                    Object cid = r.getOrDefault("classes.Id", r.get("ClassId"));
+                    if (cid != null) m.put("Id", cid);
+                }
+                out.add(m);
+            }
+            return out;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
+    
+    // Tạo card hiển thị lớp (đã bao gồm classId) — gọi selectClass khi click
+    private JPanel createClassCard(Integer classId, String className, String teacherName, int studentCount) {
+        JPanel card = new JPanel(new BorderLayout(12, 0));
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(new Color(0xE5E7EB), 1),
+            new EmptyBorder(15, 15, 15, 15)
+        ));
+        card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 90));
+
+        // Icon
+        JLabel iconLabel = new JLabel("📖");
+        iconLabel.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
+        card.add(iconLabel, BorderLayout.WEST);
+
+        // Info
+        JPanel infoPanel = new JPanel();
+        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+        infoPanel.setOpaque(false);
+
+        JLabel nameLabel = new JLabel(className != null ? className : "Lớp học");
+        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        nameLabel.setForeground(new Color(0x1F2937));
+
+        JLabel teacherLabel = new JLabel("👨‍🏫 " + (teacherName != null ? teacherName : "Đang cập nhật"));
+        teacherLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        teacherLabel.setForeground(new Color(0x6B7280));
+
+        JLabel studentLabel = new JLabel("👥 " + studentCount + " học sinh");
+        studentLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        studentLabel.setForeground(new Color(0x9CA3AF));
+
+        infoPanel.add(nameLabel);
+        infoPanel.add(Box.createVerticalStrut(4));
+        infoPanel.add(teacherLabel);
+        infoPanel.add(Box.createVerticalStrut(2));
+        infoPanel.add(studentLabel);
+
+        card.add(infoPanel, BorderLayout.CENTER);
+
+        // Hover/Click: truyền classId để load exam chính xác
+        card.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                card.setBackground(new Color(0xF0F9FF));
+                card.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(0x0EA5E9), 2),
+                    new EmptyBorder(14, 14, 14, 14)
+                ));
+            }
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                if (!className.equals(selectedClassName)) {
+                    card.setBackground(Color.WHITE);
+                    card.setBorder(BorderFactory.createCompoundBorder(
+                        BorderFactory.createLineBorder(new Color(0xE5E7EB), 1),
+                        new EmptyBorder(15, 15, 15, 15)
+                    ));
+                }
+            }
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                // Nếu classId null vẫn cho phép chọn theo tên (fallback)
+                selectClass(classId, className, card);
+            }
+        });
+
+        return card;
     }
 }
