@@ -64,6 +64,8 @@ public class MainWindow extends JFrame {
     // Services
     private final AuthService authService;
     private final ApiService apiService;
+    private QuizAppSwing quizAppSwing;
+
     
     // Layout
     private final CardLayout cardLayout;
@@ -474,7 +476,7 @@ public class MainWindow extends JFrame {
 
                                 MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
                                 
-                                StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask, MainWindow.this);
+                                StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask, quizAppSwing, MainWindow.this);
                                  // Đóng MainWindow
                                 studentDashboard.setVisible(true);
                                 

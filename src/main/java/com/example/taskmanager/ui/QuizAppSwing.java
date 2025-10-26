@@ -103,6 +103,7 @@ public class QuizAppSwing extends JFrame {
         this.examId = examId;
         this.classId = classId;
         this.numberQuestion = numberQuestion;
+        this.studentDashboard = studentDashboard;
         
         // ✅ Lấy email từ authService
         try {
@@ -933,87 +934,92 @@ public class QuizAppSwing extends JFrame {
 
     // Nộp bài: lưu tất cả đáp án + đánh dấu attempt + tính điểm
     private void submitExam() {
-        if (studentId <= 0 || examId <= 0) {
-            JOptionPane.showMessageDialog(this, "Thiếu thông tin học sinh/bài thi", "Lỗi", JOptionPane.ERROR_MESSAGE);
+    
+    // ✅ Validate thông tin cơ bản
+    if (studentId <= 0 || examId <= 0) {
+        JOptionPane.showMessageDialog(this, 
+            "Thiếu thông tin học sinh/bài thi", 
+            "Lỗi", 
+            JOptionPane.ERROR_MESSAGE);
+        return;
+    }
+    
+    // ✅ Đảm bảo có attemptId
+    if (attemptId == null) {
+        ensureAttemptAndPrefill();
+        if (attemptId == null) {
+            JOptionPane.showMessageDialog(this, 
+                "Không khởi tạo được Attempt!", 
+                "Lỗi", 
+                JOptionPane.ERROR_MESSAGE);
             return;
         }
-        if (attemptId == null) {
-            ensureAttemptAndPrefill();
-            if (attemptId == null) {
-                JOptionPane.showMessageDialog(this, "Không khởi tạo được Attempt!", "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
+    }
+
+    System.out.println("📝 Submitting exam for StudentId=" + studentId + 
+                       ", ExamId=" + examId + 
+                       ", AttemptId=" + attemptId);
+
+    // Chuẩn bị dữ liệu submit
+
+    List<Map<String, Object>> submitData = new ArrayList<>();
+    for (Question q : questions) {
+        Integer ansId = selectedAnswers.get(q.id);
+
+        Map<String, Object> record = new HashMap<>();
+        record.put("AttemptId", attemptId);
+        record.put("StudentId", studentId);
+        record.put("QuestionId", q.id);
+        record.put("AnswerId", ansId != null ? ansId : null);
+
+        submitData.add(record);
+    }
+
+    Map<String, Object> params = new HashMap<>();
+    params.put("action", "update");
+    params.put("method", "UPSERT");
+    params.put("table", "exam_answers");
+    params.put("data", submitData);
+
+    try {
+        List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
+        System.out.println("Save-all answers response: " + response);
+
+        markAttemptSubmitted();
+        saveExamResult();
+
+        JOptionPane.showMessageDialog(this, "Nộp bài thành công!", "OK", JOptionPane.INFORMATION_MESSAGE);
+        
+        if (timer != null) timer.stop();
+        
+        // Dừng auto-submit timer
+        if (autoSubmitTimer != null) {
+            autoSubmitTimer.stop();
         }
-
-        System.out.println("Submitting exam for StudentId=" + studentId + ", ExamId=" + examId + ", AttemptId=" + attemptId);
-
-        List<Map<String, Object>> submitData = new ArrayList<>();
-        for (Question q : questions) {
-            Integer ansId = selectedAnswers.get(q.id);
-
-            Map<String, Object> record = new HashMap<>();
-            record.put("AttemptId", attemptId);
-            record.put("StudentId", studentId);
-            record.put("QuestionId", q.id);
-            record.put("AnswerId", ansId != null ? ansId : null);
-
-            submitData.add(record);
-        }
-
-        Map<String, Object> params = new HashMap<>();
-        params.put("action", "update");
-        params.put("method", "UPSERT");
-        params.put("table", "exam_answers");
-        params.put("data", submitData);
-
-        try {
-            List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
-            System.out.println("Save-all answers response: " + response);
-
-            markAttemptSubmitted();
-            saveExamResult();
-
-            JOptionPane.showMessageDialog(this, "Nộp bài thành công!", "OK", JOptionPane.INFORMATION_MESSAGE);
-            if (timer != null) timer.stop();
-            dispose();
-            // Open dashboard window
-            Task studentTask = new Task();
-            try {
-                List<Map<String, Object>> profile = studentInfoService.fetchProfileByEmail(studentEmail);
-                if (profile != null && !profile.isEmpty()) {
-                    Map<String, Object> p = profile.get(0);
-                    studentTask.setFullName(getFirstString(p, "FullName", "Fullname", "Name"));
-                    String email = getFirstString(p, "Email", "email");
-                    if (email == null || email.isEmpty()) email = studentEmail;
-                    studentTask.setEmail(email != null ? email : "");
-                } else {
-                    studentTask.setEmail(studentEmail != null ? studentEmail : "");
-                    studentTask.setFullName("");
-                }
-            } catch (Exception ex) {
-                studentTask.setEmail(studentEmail != null ? studentEmail : "");
-                studentTask.setFullName("");
-            }
-            StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask);
+        
+        // ✅ QUAN TRỌNG: Hiển thị dashboard TRƯỚC khi dispose
+        if (studentDashboard != null) {
             studentDashboard.setVisible(true);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this, "Lỗi khi nộp bài: " + ex.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+            studentDashboard.toFront();
+            studentDashboard.requestFocus();
+            System.out.println("✅ StudentDashboard shown");
+        } else {
+            System.err.println("⚠️ studentDashboard is null!");
         }
+        
+        // ✅ Dispose CUỐI CÙNG - sử dụng invokeLater để đảm bảo dashboard hiện trước
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            this.setVisible(false);
+            this.dispose();
+            System.out.println("✅ QuizAppSwing disposed");
+        });
+        
+    } catch (Exception e) {
+        System.err.println("❌ Error submitting exam: " + e.getMessage());
+        JOptionPane.showMessageDialog(this, "Lỗi khi nộp bài: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
+    }
+
+        
     }
 
     // Cập nhật trạng thái attempt -> submitted
