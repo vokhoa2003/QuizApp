@@ -64,6 +64,8 @@ public class MainWindow extends JFrame {
     // Services
     private final AuthService authService;
     private final ApiService apiService;
+    private QuizAppSwing quizAppSwing;
+
     
     // Layout
     private final CardLayout cardLayout;
@@ -471,12 +473,13 @@ public class MainWindow extends JFrame {
                                 Task studentTask = new Task();
                                 studentTask.setFullName(userInfo.getName());
                                 studentTask.setEmail(userInfo.getEmail());
+
+                                MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
                                 
-                                StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask);
+                                StudentDashboard studentDashboard = new StudentDashboard(apiService, authService, studentTask, quizAppSwing, MainWindow.this);
+                                 // Đóng MainWindow
                                 studentDashboard.setVisible(true);
                                 
-                                // Đóng MainWindow
-                                MainWindow.this.dispose();
                             }
                             else if (userRole != null && userRole.equals("teacher") && userStatus != null && userStatus.equals("Active")) {
                                 // Mở giao diện TeacherDashboard cho giáo viên
@@ -484,12 +487,13 @@ public class MainWindow extends JFrame {
                                 Task teacherTask = new Task();
                                 teacherTask.setFullName(userInfo.getName());
                                 teacherTask.setEmail(userInfo.getEmail());
+                                // Đóng MainWindow
+                                // MainWindow.this.dispose();
+                                MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
                                 
-                                TeacherDashboard teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask);
+                                TeacherDashboard teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask, MainWindow.this);
                                 teacherDashboard.setVisible(true);
                                 
-                                // Đóng MainWindow
-                                MainWindow.this.dispose();
                             }
                             else {
                                 String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";

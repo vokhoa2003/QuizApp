@@ -45,6 +45,8 @@ public class StudentDashboard extends JFrame {
     private AuthService authService;
     private Task currentStudent;
     private ExamService examService;
+    private MainWindow mainWindow;  // Thêm reference đến MainWindow
+    private QuizAppSwing quizAppSwing;
     
     private JLabel studentNameLabel;
     private JPanel classesPanel;
@@ -52,11 +54,19 @@ public class StudentDashboard extends JFrame {
     private JLabel examsTitle;
     private String selectedClassName = null;
     
-    public StudentDashboard(ApiService apiService, AuthService authService, Task student) {
+
+    public StudentDashboard(ApiService apiService, AuthService authService, Task teacher) {
+        this(apiService, authService, teacher, null, null);
+    }
+
+    //constructor mới với MainWindow
+    public StudentDashboard(ApiService apiService, AuthService authService, Task student, QuizAppSwing quizAppSwing, MainWindow mainWindow) {
         this.apiService = apiService;
         this.authService = authService;
         this.currentStudent = student;
+        this.mainWindow = mainWindow;
         this.examService = new ExamService(apiService); // Khởi tạo ExamService
+        this.quizAppSwing = quizAppSwing;
         
         setTitle("Trang Chủ Học Sinh - SecureStudy");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -754,10 +764,10 @@ public class StudentDashboard extends JFrame {
         
         JButton actionButton;
         if ("Xem Chi Tiết".equals(action)) {
-            actionButton = new JButton("👁️ Xem Chi Tiết");
+            actionButton = new JButton("Xem Chi Tiết");
             actionButton.setBackground(new Color(0x0EA5E9));
         } else {
-            actionButton = new JButton("✏️ Làm Kiểm Tra");
+            actionButton = new JButton("Làm Kiểm Tra");
             actionButton.setBackground(new Color(0x10B981));
         }
         
@@ -886,9 +896,12 @@ public class StudentDashboard extends JFrame {
                     System.out.println("   ClassId: " + classId);
                     System.out.println("   NumberQuestion: " + numberQuestion);
                     
+                    StudentDashboard.this.setVisible(false);  // Ẩn thay vì dispose()
                     // ✅ Mở QuizAppSwing với đầy đủ thông tin
-                    new QuizAppSwing(apiService, authService, examId, classId, numberQuestion);
-                    dispose(); // Đóng dashboard
+                    new QuizAppSwing(apiService, authService, examId, classId, numberQuestion, StudentDashboard.this);
+                    //dispose(); // Đóng dashboard
+                    
+                    
                     
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -921,9 +934,13 @@ public class StudentDashboard extends JFrame {
             JOptionPane.YES_NO_OPTION);
         
         if (confirm == JOptionPane.YES_OPTION) {
+            // Gọi logout API
             authService.logout();
+            // Đóng TeacherDashboard
             dispose();
-            // TODO: Open login window
+            // Open login window
+            mainWindow.setVisible(true);
+            mainWindow.showLoginPanel();
         }
     }
     
@@ -940,7 +957,7 @@ public class StudentDashboard extends JFrame {
             student.setFullName("Nguyễn Văn B");
             student.setEmail("student@example.com");
             
-            new StudentDashboard(null, null, student);
+            new StudentDashboard(null, null, student, null, null);
         });
     }
 
