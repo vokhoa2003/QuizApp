@@ -1,7 +1,10 @@
 package com.example.taskmanager.service;
 
-import java.util.*;
-import com.example.taskmanager.service.ApiService;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class StudentInfoService {
     private final ApiService apiService;
@@ -48,8 +51,8 @@ public class StudentInfoService {
         }
     }
 
-    // Lấy profile theo account id
-    public List<Map<String, Object>> fetchProfileByAccountId(int accountId) {
+    // (renamed) Lấy profile (account + student + class) theo account id (từ token)
+    public List<Map<String, Object>> fetchProfileById(int accountId) {
         try {
             Map<String, Object> params = new HashMap<>();
             params.put("action", "get");
