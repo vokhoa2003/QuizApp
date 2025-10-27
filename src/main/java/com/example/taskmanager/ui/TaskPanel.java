@@ -1,22 +1,46 @@
 package com.example.taskmanager.ui;
 
-import com.example.taskmanager.model.Task;
-import com.example.taskmanager.service.ApiService;
-import com.example.taskmanager.service.AuthService;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dialog;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Vector;
+import java.util.stream.Collectors;
 
-import javax.swing.*;
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
-import java.awt.*;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Collections;
-import java.util.List;
-import java.util.Vector;
-import java.util.stream.Collectors;
+
+import com.example.taskmanager.model.Task;
+import com.example.taskmanager.service.ApiService;
+import com.example.taskmanager.service.AuthService;
 
 public class TaskPanel extends JPanel {
     private final ApiService apiService;
@@ -284,13 +308,9 @@ public class TaskPanel extends JPanel {
     }
 
     public void refreshUsers() {
-        refreshButton.setEnabled(false);
-        refreshButton.setText("Loading...");
-        String currentFilter = (String) roleFilterComboBox.getSelectedItem();
-
         SwingWorker<List<Task>, Void> worker = new SwingWorker<>() {
             @Override
-            protected List<Task> doInBackground() {
+            protected List<Task> doInBackground() throws Exception {
                 return apiService.getUsers();
             }
 
@@ -298,32 +318,71 @@ public class TaskPanel extends JPanel {
             protected void done() {
                 try {
                     List<Task> users = get();
-                    allUsers = users != null ? users : Collections.emptyList();
-                    roleFilterComboBox.setSelectedItem(currentFilter);
-                    filterUsersByRole();
-                    refreshButton.setEnabled(true);
-                    refreshButton.setText("Refresh");
+                    System.out.println("📊 Tasks received in TaskPanel: " + (users != null ? users.size() : 0));
+                    
+                    if (users != null && !users.isEmpty()) {
+                        // ✅ In ra chi tiết từng user để debug
+                        for (Task user : users) {
+                            System.out.println("  - ID: " + user.getId() + ", Email: " + user.getEmail() + 
+                                             ", Role: " + user.getRole() + ", Name: " + user.getFullName());
+                        }
+                        
+                        updateTable(users);
+                    } else {
+                        System.out.println("⚠️ No users to display");
+                        tableModel.setRowCount(0);
+                    }
                 } catch (Exception e) {
                     e.printStackTrace();
-                    showErrorDialog("Error loading users: " + e.getMessage());
-                    refreshButton.setEnabled(true);
-                    refreshButton.setText("Refresh");
+                    JOptionPane.showMessageDialog(TaskPanel.this,
+                        "Lỗi tải danh sách người dùng: " + e.getMessage(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE);
                 }
             }
         };
-
         worker.execute();
+    }
+
+    private void updateTable(List<Task> users) {
+        tableModel.setRowCount(0);
+        System.out.println("🔄 Updating table with " + users.size() + " users");
+        
+        for (Task user : users) {
+            Vector<Object> row = new Vector<>();
+            // ✅ Sắp xếp đúng thứ tự cột: ID, Email, Full Name, Role, Status, Created Date, Updated Date, Phone, Address, Birth Date, Identity Number
+            row.add(user.getId() != null ? user.getId() : "N/A");
+            row.add(user.getEmail() != null ? user.getEmail() : "N/A");
+            row.add(user.getFullName() != null ? user.getFullName() : "N/A");
+            row.add(user.getRole() != null ? user.getRole() : "N/A");
+            row.add(user.getStatus() != null ? user.getStatus() : "N/A");
+            row.add(formatDateTime(user.getCreateDate()));
+            row.add(formatDateTime(user.getUpdateDate()));
+            row.add(user.getPhone() != null ? user.getPhone() : "N/A");
+            row.add(user.getAddress() != null ? user.getAddress() : "N/A");
+            row.add(formatDateTime(user.getBirthDate()));
+            row.add(user.getIdentityNumber() != null ? user.getIdentityNumber() : "N/A");
+            
+            System.out.println("  ➕ Adding row: " + row);
+            tableModel.addRow(row);
+        }
+        
+        System.out.println("✅ Table updated, total rows: " + tableModel.getRowCount());
+        userTable.revalidate();
+        userTable.repaint();
     }
 
     private void filterUsersByRole() {
         String selectedRole = (String) roleFilterComboBox.getSelectedItem();
         List<Task> filteredUsers;
         
-        if (selectedRole == null || selectedRole.equals("All")) {
+        if (selectedRole == null || selectedRole.equals("Tất cả")) {
             filteredUsers = allUsers;
         } else {
+            // ✅ Map role từ combo filter sang DB value trước khi filter
+            String dbRole = mapDisplayToRole(selectedRole);
             filteredUsers = allUsers.stream()
-                .filter(user -> user.getRole() != null && user.getRole().equalsIgnoreCase(selectedRole))
+                .filter(user -> user.getRole() != null && user.getRole().equalsIgnoreCase(dbRole))
                 .collect(Collectors.toList());
         }
         
@@ -447,9 +506,13 @@ public class TaskPanel extends JPanel {
             isEdit ? user.getEmail() : "");
         JTextField fullNameField = addFormField(formPanel, "Full Name", gbc, 1, 
             isEdit ? user.getFullName() : "");
+        
+        // ✅ Map role từ database sang hiển thị tiếng Việt
+        String displayRole = isEdit ? mapRoleToDisplay(user.getRole()) : "Quản trị viên";
         JComboBox<String> roleComboBox = addComboField(formPanel, "Role", gbc, 2,
             new String[]{"Quản trị viên", "Giáo viên", "Học sinh"},
-            isEdit ? user.getRole() : "Quản trị viên");
+            displayRole);
+            
         JComboBox<String> statusComboBox = addComboField(formPanel, "Status", gbc, 3,
             new String[]{"Active", "Blocked"},
             isEdit ? user.getStatus() : "Active");
@@ -482,7 +545,11 @@ public class TaskPanel extends JPanel {
             Task userToSave = isEdit ? user : new Task();
             userToSave.setEmail(email);
             userToSave.setFullName(fullName);
-            userToSave.setRole((String) roleComboBox.getSelectedItem());
+            
+            // ✅ Map role từ hiển thị tiếng Việt sang database value
+            String selectedDisplayRole = (String) roleComboBox.getSelectedItem();
+            userToSave.setRole(mapDisplayToRole(selectedDisplayRole));
+            
             userToSave.setStatus((String) statusComboBox.getSelectedItem());
             userToSave.setPhone(phoneField.getText().trim());
             userToSave.setAddress(addressField.getText().trim());
@@ -514,6 +581,28 @@ public class TaskPanel extends JPanel {
         
         dialog.add(contentPanel);
         dialog.setVisible(true);
+    }
+    
+    // ✅ Helper method: Map từ DB role (admin/teacher/student) sang hiển thị tiếng Việt
+    private String mapRoleToDisplay(String dbRole) {
+        if (dbRole == null) return "Quản trị viên";
+        switch (dbRole.toLowerCase()) {
+            case "admin": return "Quản trị viên";
+            case "teacher": return "Giáo viên";
+            case "student": return "Học sinh";
+            default: return "Quản trị viên";
+        }
+    }
+    
+    // ✅ Helper method: Map từ hiển thị tiếng Việt sang DB role
+    private String mapDisplayToRole(String displayRole) {
+        if (displayRole == null) return "admin";
+        switch (displayRole) {
+            case "Quản trị viên": return "admin";
+            case "Giáo viên": return "teacher";
+            case "Học sinh": return "student";
+            default: return "admin";
+        }
     }
     
     private JTextField addFormField(JPanel panel, String label, GridBagConstraints gbc, 

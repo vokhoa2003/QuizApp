@@ -39,12 +39,12 @@ import javax.swing.UIManager;
 import javax.swing.plaf.basic.BasicButtonUI;
 
 import com.example.taskmanager.auth.GoogleLoginHelper;
+import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.oauth2.model.Userinfo;
-import com.example.taskmanager.model.Task;
 
 public class MainWindow extends JFrame {
     
@@ -358,76 +358,6 @@ public class MainWindow extends JFrame {
         return googleLoginButton;
     }
     
-//    private void handleGoogleLogin(ActionEvent e) {
-//        JButton googleLoginButton = (JButton)e.getSource();
-//        googleLoginButton.setEnabled(false);
-//        googleLoginButton.setText("Đang đăng nhập...");
-//        
-//        SwingWorker<Userinfo, Void> worker = new SwingWorker<>() {
-//            @Override
-//            protected Userinfo doInBackground() throws Exception {
-//                return GoogleLoginHelper.login();
-//            }
-//            
-//            @Override
-//            protected void done() {
-//                try {
-//                    Userinfo userInfo = get();
-//                    if (userInfo != null) {
-//                        boolean success = authService.loginWithGoogle(userInfo);
-//                        if (success) {
-//                            // Kiểm tra role
-//                            String userRole = authService.getLastLoginRole();
-//                            String userEmail = userInfo.getEmail();
-//                            if (userRole == null || !userRole.equals("admin")) {
-//                                String errorMessage = "Bạn chưa được cấp quyền để truy cập ứng dụng này.\n";
-//                                if (userRole != null && userRole.equals("customer")) {
-//                                    errorMessage += "Vui lòng truy cập ứng dụng web tại: " + WEB_APP_URL;
-//                                } else {
-//                                    errorMessage += "Tài khoản của bạn (" + userEmail + ") không có quyền truy cập.";
-//                                }
-//                                JOptionPane.showMessageDialog(MainWindow.this, 
-//                                    errorMessage, 
-//                                    "Access Denied", 
-//                                    JOptionPane.ERROR_MESSAGE);
-//                                authService.logout();
-//                            } else {
-//                                // Role là admin, chuyển sang TaskPanel
-//                                JOptionPane.showMessageDialog(MainWindow.this, 
-//                                    "Xin chào " + userInfo.getName() + "\nEmail: " + userInfo.getEmail(), 
-//                                    "Đăng nhập thành công", 
-//                                    JOptionPane.INFORMATION_MESSAGE);
-//                                showTaskPanel();
-//                            }
-//                        } else {
-//                            JOptionPane.showMessageDialog(MainWindow.this, 
-//                                "Không thể đăng nhập với tài khoản Google này", 
-//                                "Lỗi đăng nhập", 
-//                                JOptionPane.ERROR_MESSAGE);
-//                            authService.logout();
-//                        }
-//                    } else {
-//                        JOptionPane.showMessageDialog(MainWindow.this, 
-//                            "Đăng nhập Google thất bại", 
-//                            "Lỗi đăng nhập", 
-//                            JOptionPane.ERROR_MESSAGE);
-//                        authService.logout();
-//                    }
-//                } catch (Exception ex) {
-//                    ex.printStackTrace();
-//                    JOptionPane.showMessageDialog(MainWindow.this, 
-//                        "Lỗi đăng nhập Google: " + ex.getMessage(), 
-//                        "Lỗi đăng nhập", 
-//                        JOptionPane.ERROR_MESSAGE);
-//                    authService.logout();
-//                } finally {
-//                    googleLoginButton.setEnabled(true);
-//                    googleLoginButton.setText("Đăng nhập bằng Google");
-//                }
-//            }
-//        };
-//        worker.execute();
-//    }
     private void handleGoogleLogin(ActionEvent e) {
         JButton googleLoginButton = (JButton)e.getSource();
         googleLoginButton.setEnabled(false);
