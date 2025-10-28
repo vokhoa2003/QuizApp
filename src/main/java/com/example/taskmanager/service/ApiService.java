@@ -1,7 +1,10 @@
 package com.example.taskmanager.service;
 
 import com.example.taskmanager.config.ApiConfig;
+import com.example.taskmanager.model.ClassRoom;
+import com.example.taskmanager.model.Student;
 import com.example.taskmanager.model.Task;
+import com.example.taskmanager.model.Teacher;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -342,4 +345,134 @@ public class ApiService {
         }
         return Collections.emptyList();
     }
+
+    // ========================================
+// 1. LẤY DANH SÁCH
+// ========================================
+
+public List<ClassRoom> getClasses() {
+    Map<String, Object> data = new HashMap<>();
+    data.put("table", "classes");
+    return postDataAndGetList("/get", data, ClassRoom.class);
+}
+
+public List<Teacher> getTeachers() {
+    Map<String, Object> data = new HashMap<>();
+    data.put("table", "teacher");
+    return postDataAndGetList("/get", data, Teacher.class);
+}
+
+public List<Student> getStudents() {
+    Map<String, Object> data = new HashMap<>();
+    data.put("table", "student");
+    return postDataAndGetList("/get", data, Student.class);
+}
+
+// ========================================
+// 2. THÊM MỚI
+// ========================================
+
+public boolean createClass(ClassRoom classRoom) {
+    Map<String, Object> data = objectMapper.convertValue(classRoom, Map.class);
+    data.put("table", "classes");
+    data.put("action", "insert");
+    return postAndCheckSuccess("/add", data);
+}
+
+public boolean createTeacher(Teacher teacher) {
+    Map<String, Object> data = objectMapper.convertValue(teacher, Map.class);
+    data.put("table", "teacher");
+    data.put("action", "insert");
+    return postAndCheckSuccess("/add", data);
+}
+
+public boolean createStudent(Student student) {
+    Map<String, Object> data = objectMapper.convertValue(student, Map.class);
+    data.put("table", "student");
+    data.put("action", "insert");
+    return postAndCheckSuccess("/add", data);
+}
+
+// ========================================
+// 3. CẬP NHẬT
+// ========================================
+
+public boolean updateClass(ClassRoom classRoom) {
+    Map<String, Object> data = objectMapper.convertValue(classRoom, Map.class);
+    data.put("table", "classes");
+    data.put("action", "update");
+    return postAndCheckSuccess("/AdminUpdate", data);
+}
+
+public boolean updateTeacher(Teacher teacher) {
+    Map<String, Object> data = objectMapper.convertValue(teacher, Map.class);
+    data.put("table", "teacher");
+    data.put("action", "update");
+    return postAndCheckSuccess("/AdminUpdate", data);
+}
+
+public boolean updateStudent(Student student) {
+    Map<String, Object> data = objectMapper.convertValue(student, Map.class);
+    data.put("table", "student");
+    data.put("action", "update");
+    return postAndCheckSuccess("/AdminUpdate", data);
+}
+
+// ========================================
+// 4. XÓA
+// ========================================
+
+public boolean deleteClass(Long id) {
+    Map<String, Object> data = new HashMap<>();
+    data.put("table", "classes");
+    data.put("id", id);
+    return postAndCheckSuccess("/delete", data);
+}
+
+public boolean deleteTeacher(Long id) {
+    Map<String, Object> data = new HashMap<>();
+    data.put("table", "teacher");
+    data.put("id", id);
+    return postAndCheckSuccess("/delete", data);
+}
+
+public boolean deleteStudent(Long id) {
+    Map<String, Object> data = new HashMap<>();
+    data.put("table", "student");
+    data.put("id", id);
+    return postAndCheckSuccess("/delete", data);
+}
+
+// ========================================
+// 5. HÀM HỖ TRỢ: GỬI POST + KIỂM TRA SUCCESS
+// ========================================
+
+private boolean postAndCheckSuccess(String endpoint, Map<String, Object> data) {
+    try {
+        data.put("csrf_token", csrfToken);
+        String requestBody = objectMapper.writeValueAsString(data);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiConfig.getApiBaseUrl() + endpoint))
+                .header("Authorization", "Bearer " + authService.getAccessToken())
+                .header("Content-Type", "application/json")
+                .header("Cookie", "csrf_token=" + csrfToken)
+                .header("X-CSRF-Token", csrfToken)
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        System.out.println("API [" + endpoint + "] Response: " + response.statusCode());
+        System.out.println("Request: " + requestBody);
+        System.out.println("Response: " + response.body());
+
+        if (response.statusCode() == 200) {
+            JsonNode json = objectMapper.readTree(response.body());
+            return json.has("status") && "success".equals(json.get("status").asText());
+        }
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+    return false;
+}
 }

@@ -72,7 +72,7 @@ public class MainWindow extends JFrame {
     private final JPanel contentPanel;
     
     // Panels
-    private final TaskPanel taskPanel;
+    //private final TaskPanel taskPanel;
     
     // Components để cập nhật font
     private JLabel welcomeLabel;
@@ -138,12 +138,12 @@ public class MainWindow extends JFrame {
         JPanel modernLoginPanel = createModernLoginPanel();
         
         // Tạo panel nhiệm vụ
-        this.taskPanel = new TaskPanel(apiService, authService, this);
+        // this.taskPanel = new TaskPanel(apiService, authService, this);
 
         
         // Thêm các panel vào CardLayout
         contentPanel.add(modernLoginPanel, LOGIN_PANEL);
-        contentPanel.add(taskPanel, TASK_PANEL);
+        //contentPanel.add(taskPanel, TASK_PANEL);
         
         mainPanel.add(contentPanel, BorderLayout.CENTER);
         add(mainPanel);
@@ -236,7 +236,7 @@ public class MainWindow extends JFrame {
         
         // Cập nhật font size
         updateFonts();
-        taskPanel.updateFonts(scaleFactor); // Cập nhật font trong TaskPanel
+        //taskPanel.updateFonts(scaleFactor); // Cập nhật font trong TaskPanel
     }
 
     private void updateFonts() {
@@ -391,11 +391,19 @@ public class MainWindow extends JFrame {
                             String userEmail = userInfo.getEmail();
                             if (userRole != null && userRole.equals("admin") && userStatus != null && userStatus.equals("Active")) {
                                 // Role là admin và status là Active, chuyển sang TaskPanel
-                                JOptionPane.showMessageDialog(MainWindow.this, 
-                                    "Xin chào " + userInfo.getName() + "\nEmail: " + userInfo.getEmail(), 
-                                    "Đăng nhập thành công", 
-                                    JOptionPane.INFORMATION_MESSAGE);
-                                showTaskPanel();
+                                // JOptionPane.showMessageDialog(MainWindow.this, 
+                                //     "Xin chào " + userInfo.getName() + "\nEmail: " + userInfo.getEmail(), 
+                                //     "Đăng nhập thành công", 
+                                //     JOptionPane.INFORMATION_MESSAGE);
+                                //showTaskPanel();
+                                Task adminTask = new Task();
+    adminTask.setFullName(userInfo.getName());
+    adminTask.setEmail(userInfo.getEmail());
+
+    MainWindow.this.setVisible(false); // Ẩn MainWindow
+
+    AdminDashboard adminDashboard = new AdminDashboard(apiService, authService, adminTask, MainWindow.this);
+    adminDashboard.setVisible(true);
                             }
                             else if (userRole != null && userRole.equals("student") && userStatus != null && userStatus.equals("Active")) {
                                 // Mở giao diện StudentDashboard cho học sinh
@@ -559,8 +567,8 @@ public class MainWindow extends JFrame {
             setLocationRelativeTo(null);
         }
         // Refresh tasks khi hiển thị panel
-        taskPanel.refreshUsers();
-        taskPanel.updateFonts(scaleFactor);
+        // taskPanel.refreshUsers();
+        // taskPanel.updateFonts(scaleFactor);
     }
     // Main method for testing
     public static void main(String[] args) {
