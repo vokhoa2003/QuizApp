@@ -426,21 +426,21 @@ public boolean updateStudent(Student student) {
 public boolean deleteClass(Long id) {
     Map<String, Object> data = new HashMap<>();
     data.put("table", "classes");
-    data.put("id", id);
+    data.put("Id", id);
     return postAndCheckSuccess("/delete", data);
 }
 
 public boolean deleteTeacher(Long id) {
     Map<String, Object> data = new HashMap<>();
     data.put("table", "teacher");
-    data.put("id", id);
+    data.put("Id", id);
     return postAndCheckSuccess("/delete", data);
 }
 
 public boolean deleteStudent(Long id) {
     Map<String, Object> data = new HashMap<>();
     data.put("table", "student");
-    data.put("id", id);
+    data.put("Id", id);
     return postAndCheckSuccess("/delete", data);
 }
 
