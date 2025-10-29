@@ -431,7 +431,9 @@ public class StudentDashboard extends JFrame {
     }
     
     // cập nhật: nhận classId để select chính xác
+    private Integer currentClassId = null; // THÊM FIELD
     private void selectClass(Integer classId, String className, JPanel selectedCard) {
+        this.currentClassId = classId; // LƯU LẠI
         selectedClassName = className;
 
         // Update all cards appearance
@@ -926,6 +928,18 @@ public class StudentDashboard extends JFrame {
             "Chức năng làm bài kiểm tra chưa được triển khai.",
             "Thông báo", JOptionPane.INFORMATION_MESSAGE);
     }
+
+    /**
+ * Gọi từ QuizAppSwing sau khi nộp bài để reload danh sách exams
+ */
+public void refreshCurrentClassExams() {
+    if (currentClassId == null || selectedClassName == null) {
+        System.out.println("No class selected");
+        return;
+    }
+    System.out.println("Refreshing exams for class ID: " + currentClassId);
+    loadClassExams(currentClassId, selectedClassName);
+}
     
     private void logout() {
         int confirm = JOptionPane.showConfirmDialog(this,

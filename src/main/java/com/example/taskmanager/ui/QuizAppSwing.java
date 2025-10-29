@@ -1001,6 +1001,8 @@ public class QuizAppSwing extends JFrame {
         if (studentDashboard != null) {
             studentDashboard.setVisible(true);
             studentDashboard.toFront();
+            // GỌI REFRESH DANH SÁCH BÀI KIỂM TRA
+    studentDashboard.refreshCurrentClassExams();
             studentDashboard.requestFocus();
             System.out.println("✅ StudentDashboard shown");
         } else {
