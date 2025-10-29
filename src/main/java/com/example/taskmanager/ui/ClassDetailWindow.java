@@ -156,21 +156,21 @@ public class ClassDetailWindow extends JFrame {
         innerPanel.add(examsTitle);
         innerPanel.add(Box.createVerticalStrut(10));
 
-        // examsPanel: we'll put it inside a panel that uses BorderLayout so it can expand to full width
+        // examsPanel
         examsPanel = new JPanel();
         examsPanel.setLayout(new BoxLayout(examsPanel, BoxLayout.Y_AXIS));
         examsPanel.setOpaque(false);
         // ensure examsPanel can expand horizontally
         examsPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        examsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
+        //examsPanel.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
         // optional debug border
         // examsPanel.setBorder(BorderFactory.createLineBorder(Color.GREEN, 2));
 
-        // Wrap examsPanel in a container so it stretches across available width
-        JPanel examsContainer = new JPanel(new BorderLayout());
-        examsContainer.setOpaque(false);
-        examsContainer.add(examsPanel, BorderLayout.CENTER);
-        examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
+        // BỌC TRONG examsContainer
+JPanel examsContainer = new JPanel(new BorderLayout());
+examsContainer.setOpaque(false);
+examsContainer.add(examsPanel, BorderLayout.NORTH);  // NORTH để tự động xuống dòng
+examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         // set examsContainer to expand
         examsContainer.setMaximumSize(new Dimension(Integer.MAX_VALUE, Integer.MAX_VALUE));
@@ -509,28 +509,48 @@ public class ClassDetailWindow extends JFrame {
         }
 
         @Override
-        protected void done() {
-            try {
-                List<Object[]> data = get();
-                SwingUtilities.invokeLater(() -> {
-                    examsPanel.removeAll();
-                    if (data.isEmpty()) {
-                        examsPanel.add(new JLabel("Chưa có bài kiểm tra nào."));
-                    } else {
-                        for (Object[] row : data) {
-                            examsPanel.add(createExamCard(
-                                (int)row[0], (String)row[1], (String)row[2],
-                                (String)row[3], (String)row[4], (String)row[5]
-                            ));
+protected void done() {
+    try {
+        List<Object[]> data = get();
+        SwingUtilities.invokeLater(() -> {
+            examsPanel.removeAll();
+            if (data.isEmpty()) {
+                JLabel emptyLabel = new JLabel("Chưa có bài kiểm tra nào.");
+                emptyLabel.setFont(new Font("Segoe UI", Font.ITALIC, 14));
+                emptyLabel.setForeground(new Color(0x6B7280));
+                examsPanel.add(emptyLabel);
+            } else {
+                for (Object[] row : data) {
+                    JPanel card = createExamCard(
+                        (int)row[0],
+                        (String)row[1],
+                        row[2] + " câu hỏi",  // NumberQuestion
+                        (String)row[3],       // PublishDate
+                        (String)row[4],       // ExpireDate
+                        (String)row[5]        // Description
+                    );
+                    card.addMouseListener(new java.awt.event.MouseAdapter() {
+                        public void mouseClicked(java.awt.event.MouseEvent e) {
+                            openExamDetailForExam((int)row[0], (String)row[1]);
                         }
-                    }
-                    examsPanel.revalidate();
-                    examsPanel.repaint();
-                });
-            } catch (Exception e) {
-                e.printStackTrace();
+                        public void mouseEntered(java.awt.event.MouseEvent e) {
+                            card.setBackground(new Color(0xF3F4F6));
+                        }
+                        public void mouseExited(java.awt.event.MouseEvent e) {
+                            card.setBackground(Color.WHITE);
+                        }
+                    });
+                    card.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                    examsPanel.add(card);
+                }
             }
-        }
+            examsPanel.revalidate();
+            examsPanel.repaint();
+        });
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
+}
     };
     worker.execute();
 }
@@ -576,13 +596,14 @@ private String formatDate(Object dateObj) {
         BorderFactory.createEmptyBorder(15, 15, 15, 15)
     ));
     card.setBackground(Color.WHITE);
-    card.setPreferredSize(new Dimension(280, 150));
+    card.setPreferredSize(new Dimension(280, 160));
+    card.setMaximumSize(new Dimension(280, 160));
 
     JLabel nameLabel = new JLabel(examName);
     nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
     nameLabel.setForeground(new Color(0x1F2937));
 
-    JLabel questionLabel = new JLabel(numQuestions + " câu hỏi");
+    JLabel questionLabel = new JLabel(numQuestions);
     questionLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
     questionLabel.setForeground(new Color(0x6B7280));
 
@@ -596,7 +617,7 @@ private String formatDate(Object dateObj) {
     card.add(Box.createVerticalStrut(5));
     card.add(dateLabel);
     if (description != null && !description.isEmpty()) {
-        JLabel descLabel = new JLabel("<html>" + description + "</html>");
+        JLabel descLabel = new JLabel("<html><div width=240>" + description + "</div></html>");
         descLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         descLabel.setForeground(new Color(0x4B5563));
         card.add(Box.createVerticalStrut(8));
