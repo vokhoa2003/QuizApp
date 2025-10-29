@@ -345,16 +345,23 @@ public class CourseManagementPanel extends JFrame {
                 msg("Tên lớp không được để trống!", "Lỗi");
                 return;
             }
-            ClassRoom c = edit ? classObj : new ClassRoom();
-            c.setName(name.getText().trim());
-            c.setDescription(desc.getText().trim());
-            if (!edit) {
-                c.setCreateDate(LocalDateTime.now());
-            }
-            c.setUpdateDate(LocalDateTime.now());
+            // TẠO MỚI LUÔN → TRÁNH GỬI createDate CŨ
+    ClassRoom c = new ClassRoom();
+    c.setName(name.getText().trim());
+    c.setDescription(desc.getText().trim());
+    c.setUpdateDate(LocalDateTime.now());
 
-            if (edit) updateClass(c); else createClass(c);
-            d.dispose();
+    if (edit) {
+        c.setId(classObj.getId()); // Chỉ gửi Id
+        // KHÔNG GỌI setCreateDate()
+    } else {
+        c.setCreateDate(LocalDateTime.now());
+    }
+
+    if (edit) updateClass(c); 
+    else createClass(c);
+    
+    d.dispose();
         });
         JButton cancel = btn("Hủy", TEXT_LIGHT, e -> d.dispose());
         btns.add(save); btns.add(cancel);

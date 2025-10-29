@@ -406,6 +406,9 @@ public boolean createStudent(Student student) {
 
 public boolean updateClass(ClassRoom classRoom) {
     Map<String, Object> data = objectMapper.convertValue(classRoom, Map.class);
+    // BẮT BUỘC LOẠI BỎ createDate
+    data.remove("CreateDate");
+    data.remove("createDate");
     data.put("table", "classes");
     data.put("action", "update");
     return postAndCheckSuccess("/AdminUpdate", data);
