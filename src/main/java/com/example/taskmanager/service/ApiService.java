@@ -235,7 +235,8 @@ public class ApiService {
         try {
             // Tạo Map chứa dữ liệu, bao gồm id và csrf_token
             Map<String, Object> data = new HashMap<>();
-            data.put("id", userId); // Gửi id qua body JSON
+            data.put("table", "account");
+            data.put("Id", userId); // Gửi id qua body JSON
             data.put("csrf_token", csrfToken);
             String requestBody = objectMapper.writeValueAsString(data);
 
@@ -250,13 +251,18 @@ public class ApiService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             System.out.println("API Response: " + response.statusCode());
-            //System.out.println("Request body: " + requestBody);
+            System.out.println("Request body: " + requestBody);
+            System.out.println("Response body: " + response.body());
 
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
                 if (jsonNode.has("message") && "Xóa thành công".equals(jsonNode.get("message").asText())) {
                     System.out.println("XÓA THÀNH CÔNG");
                     return true;
+                } else if (jsonNode.has("message") && "Xóa thất bại".equals(jsonNode.get("message").asText())) {
+                    //.out.println("requestBody: " + requestBody);
+                    System.out.println("XÓA THẤT BẠI");
+                    return false;
                 } else {
                     System.err.println("Error: " + (jsonNode.has("message") ? jsonNode.get("message").asText() : "Unknown error"));
                     return false;

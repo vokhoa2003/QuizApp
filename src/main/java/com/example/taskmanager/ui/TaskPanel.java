@@ -1,16 +1,51 @@
 package com.example.taskmanager.ui;
 
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
 import java.awt.Dialog.ModalityType;
-import java.awt.event.*;
-import java.time.*;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.Point;
+import java.awt.RenderingHints;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-import javax.swing.*;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTable;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
-import javax.swing.table.*;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
 
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
@@ -615,13 +650,36 @@ public class TaskPanel extends JFrame {
     }
 
     private void deleteUser(Long id) {
+        System.out.println("Deleting user with ID: " + id);
         new SwingWorker<Boolean, Void>() {
-            @Override protected Boolean doInBackground() { return apiService.deleteUser(id); }
-            @Override protected void done() {
+            @Override
+            protected Boolean doInBackground() {
+                boolean result = apiService.deleteUser(id);
+                if (!result) {
+                    System.out.println("API service returned false for deleteUser");
+                } else {
+                    System.out.println("User deleted successfully via API");
+                }
+                return result;
+            }
+
+            @Override
+            protected void done() {
                 try {
-                    if (get()) { refreshUsers(); showSuccessDialog("Xóa thành công!"); }
-                    else showErrorDialog("Xóa thất bại!");
-                } catch (Exception e) { e.printStackTrace(); showErrorDialog("Lỗi: " + e.getMessage()); }
+                    boolean success = get();
+                    // Always refresh after the attempt
+                    refreshUsers();
+                    if (success) {
+                        showSuccessDialog("Xóa thành công!");
+                    } else {
+                        showErrorDialog("Xóa thất bại!");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    showErrorDialog("Lỗi: " + e.getMessage());
+                    // ensure UI refresh even on exception
+                    refreshUsers();
+                }
             }
         }.execute();
     }
