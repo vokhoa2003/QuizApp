@@ -9,24 +9,19 @@ public class ClassRoom {
     private LocalDateTime createDate;
     private LocalDateTime updateDate;
 
-    // Constructors
     public ClassRoom() {}
-    public ClassRoom(String name, String description) {
-        this.name = name;
-        this.description = description;
-        this.createDate = LocalDateTime.now();
-        this.updateDate = LocalDateTime.now();
-    }
 
-    // Getters & Setters
+    // getters
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
     public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
     public LocalDateTime getCreateDate() { return createDate; }
-    public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
     public LocalDateTime getUpdateDate() { return updateDate; }
+
+    // setters
+    public void setId(Long id) { this.id = id; }
+    public void setName(String name) { this.name = name; }
+    public void setDescription(String description) { this.description = description; }
+    public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
     public void setUpdateDate(LocalDateTime updateDate) { this.updateDate = updateDate; }
 }

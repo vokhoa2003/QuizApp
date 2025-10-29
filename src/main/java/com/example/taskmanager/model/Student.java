@@ -10,27 +10,25 @@ public class Student {
     private LocalDateTime createDate;
     private LocalDateTime updateDate;
 
-    // Constructors
     public Student() {}
-    public Student(Long idAccount, String name, Long classId) {
-        this.idAccount = idAccount;
+
+    public Student(Long id, String name, Long classId) {
+        this.id = id;
         this.name = name;
         this.classId = classId;
-        this.createDate = LocalDateTime.now();
-        this.updateDate = LocalDateTime.now();
     }
 
-    // Getters & Setters
     public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
     public Long getIdAccount() { return idAccount; }
-    public void setIdAccount(Long idAccount) { this.idAccount = idAccount; }
     public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
     public Long getClassId() { return classId; }
-    public void setClassId(Long classId) { this.classId = classId; }
     public LocalDateTime getCreateDate() { return createDate; }
-    public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
     public LocalDateTime getUpdateDate() { return updateDate; }
+
+    public void setId(Long id) { this.id = id; }
+    public void setIdAccount(Long idAccount) { this.idAccount = idAccount; }
+    public void setName(String name) { this.name = name; }
+    public void setClassId(Long classId) { this.classId = classId; }
+    public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
     public void setUpdateDate(LocalDateTime updateDate) { this.updateDate = updateDate; }
 }

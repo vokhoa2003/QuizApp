@@ -10,9 +10,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
+import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 import com.google.api.services.oauth2.model.Userinfo;
 
 import java.io.IOException;
@@ -22,8 +25,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -31,7 +32,7 @@ import java.util.Map;
 
 public class ApiService {
     private final HttpClient httpClient;
-    private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final ApiConfig apiConfig;
     private final AuthService authService;
     private String csrfToken; // Lưu CSRF token
@@ -39,18 +40,18 @@ public class ApiService {
     public ApiService(AuthService authService) {
         this.authService = authService;
         this.apiConfig = ApiConfig.getInstance();
-        this.objectMapper = new ObjectMapper();
-        this.objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         
+        // Allow case-insensitive mapping so JSON keys like "Id" / "Name" map to id/name
+        objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+        // Register JavaTimeModule and a LocalDateTime deserializer with expected pattern
         JavaTimeModule javaTimeModule = new JavaTimeModule();
-        // ✅ Thêm nhiều pattern để xử lý date không đầy đủ
-        javaTimeModule.addDeserializer(LocalDateTime.class, 
-            new LocalDateTimeDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-        javaTimeModule.addDeserializer(LocalDate.class, 
-            new LocalDateDeserializer(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-        
-        this.objectMapper.registerModule(javaTimeModule);
-        // ✅ Cho phép parse date rỗng/null thành null thay vì lỗi
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(dtf));
+        objectMapper.registerModule(javaTimeModule);
+
+        // keep existing date acceptance setting
         this.objectMapper.configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
         
         this.httpClient = HttpClient.newBuilder()
@@ -275,7 +276,7 @@ public class ApiService {
             // Thêm CSRF token nếu có
             data.put("csrf_token", csrfToken);
             String requestBody = objectMapper.writeValueAsString(data);
-
+            System.out.println("📤 Request to " + endpoint + ": " + requestBody);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiConfig.getApiBaseUrl() + endpoint))
                     .header("Authorization", "Bearer " + authService.getAccessToken())

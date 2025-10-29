@@ -1,19 +1,56 @@
 package com.example.taskmanager.ui;
 
-import com.example.taskmanager.model.*;
-import com.example.taskmanager.service.ApiService;
-import com.example.taskmanager.service.AuthService;
-
-import javax.swing.*;
-import javax.swing.border.EmptyBorder;
-import javax.swing.table.*;
-import java.awt.*;
-import java.awt.event.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
+import java.awt.Frame;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.Point;
+import java.awt.RenderingHints;
+import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseMotionAdapter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
+import javax.swing.JTable;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SwingWorker;
+import javax.swing.border.EmptyBorder;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
+import javax.swing.table.JTableHeader;
+
+import com.example.taskmanager.model.ClassRoom;
+import com.example.taskmanager.model.Student;
+import com.example.taskmanager.model.Teacher;
+import com.example.taskmanager.service.ApiService;
+import com.example.taskmanager.service.AuthService;
 
 public class CourseManagementPanel extends JFrame {
     private final ApiService apiService;
@@ -236,6 +273,10 @@ public class CourseManagementPanel extends JFrame {
     }
 
     public void loadData() {
+        System.err.println("Loading data for CourseManagementPanel..."
+        + " Classes: " + allClasses.size()
+        + ", Teachers: " + allTeachers.size()   
+        );
         new SwingWorker<Void, Void>() {
             @Override protected Void doInBackground() throws Exception {
                 allClasses = apiService.getClasses();
