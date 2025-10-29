@@ -1,13 +1,37 @@
 package com.example.taskmanager.ui;
 
-import java.awt.*;
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Component;
+import java.awt.Cursor;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Font;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
-import javax.swing.*;
+import java.util.Map;
+
+import javax.swing.BorderFactory;
+import javax.swing.Box;
+import javax.swing.BoxLayout;
+import javax.swing.JButton;
+import javax.swing.JComboBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JSpinner;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 
-import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 
@@ -315,65 +339,94 @@ public class CreateExamWindow extends JFrame {
         
         return panel;
     }
-    
     private void loadTeacherAndClassInfo() {
-        // TODO: Load teacher ID and class ID from API
-        // For now, using mock data
-        SwingWorker<Map<String, Integer>, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Map<String, Integer> doInBackground() {
-                Map<String, Integer> result = new HashMap<>();
-                
-                // Get teacher ID by name
-                Map<String, Object> teacherParams = new HashMap<>();
-                teacherParams.put("action", "get");
-                teacherParams.put("method", "SELECT");
-                teacherParams.put("table", List.of("teachers"));
-                teacherParams.put("columns", List.of("teachers.id"));
-                
-                Map<String, Object> whereTeacher = new HashMap<>();
-                whereTeacher.put("teachers.FullName", teacherName);
-                teacherParams.put("where", whereTeacher);
-                
-                List<Map<String, Object>> teacherData = apiService.postApiGetList("/autoGet", teacherParams);
-                if (!teacherData.isEmpty()) {
-                    Object idObj = teacherData.get(0).get("teachers.id");
-                    result.put("teacherId", idObj != null ? Integer.parseInt(idObj.toString()) : 0);
-                }
-                
-                // Get class ID by name
-                Map<String, Object> classParams = new HashMap<>();
-                classParams.put("action", "get");
-                classParams.put("method", "SELECT");
-                classParams.put("table", List.of("classes"));
-                classParams.put("columns", List.of("classes.id"));
-                
-                Map<String, Object> whereClass = new HashMap<>();
-                whereClass.put("classes.Name", className);
-                classParams.put("where", whereClass);
-                
-                List<Map<String, Object>> classData = apiService.postApiGetList("/autoGet", classParams);
-                if (!classData.isEmpty()) {
-                    Object idObj = classData.get(0).get("classes.id");
-                    result.put("classId", idObj != null ? Integer.parseInt(idObj.toString()) : 0);
-                }
-                
-                return result;
-            }
-            
-            @Override
-            protected void done() {
-                try {
-                    Map<String, Integer> ids = get();
-                    teacherId = ids.getOrDefault("teacherId", 0);
-                    classId = ids.getOrDefault("classId", 0);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        worker.execute();
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "get");
+        params.put("method", "SELECT");
+        params.put("table", List.of("teacher", "classes"));
+        params.put("columns", List.of("teacher.id as teacherId", "classes.id as classId"));
+        List<Map<String, Object>> join = new ArrayList<>();
+        Map<String, Object> j1 = new HashMap<>();
+        j1.put("type", "inner");
+        j1.put("on", List.of("teacher.ClassId = classes.Id"));
+        join.add(j1);
+        params.put("join", join);
+        Map<String, Object> where = new HashMap<>();
+        where.put("teacher.Name", teacherName);
+        where.put("classes.Name", className);
+        params.put("where", where);
+        System.out.println("Request params for teacher and class info: " + params);
+
+        List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+        System.out.println("API Response for teacher and class info: " + result);
+
+        if (!result.isEmpty()) {
+            Map<String, Object> record = result.get(0);
+            Object teacherIdObj = record.get("teachers.id");
+            Object classIdObj = record.get("classes.id");
+            teacherId = teacherIdObj != null ? Integer.parseInt(teacherIdObj.toString()) : 0;
+            classId = classIdObj != null ? Integer.parseInt(classIdObj.toString()) : 0;
+        }
     }
+    
+    // private void loadTeacherAndClassInfo() {
+    //     // TODO: Load teacher ID and class ID from API
+    //     // For now, using mock data
+    //     SwingWorker<Map<String, Integer>, Void> worker = new SwingWorker<>() {
+    //         @Override
+    //         protected Map<String, Integer> doInBackground() {
+    //             Map<String, Integer> result = new HashMap<>();
+                
+    //             // Get teacher ID by name
+    //             Map<String, Object> teacherParams = new HashMap<>();
+    //             teacherParams.put("action", "get");
+    //             teacherParams.put("method", "SELECT");
+    //             teacherParams.put("table", List.of("teachers"));
+    //             teacherParams.put("columns", List.of("teachers.id"));
+                
+    //             Map<String, Object> whereTeacher = new HashMap<>();
+    //             whereTeacher.put("teachers.FullName", teacherName);
+    //             teacherParams.put("where", whereTeacher);
+                
+    //             List<Map<String, Object>> teacherData = apiService.postApiGetList("/autoGet", teacherParams);
+    //             if (!teacherData.isEmpty()) {
+    //                 Object idObj = teacherData.get(0).get("teachers.id");
+    //                 result.put("teacherId", idObj != null ? Integer.parseInt(idObj.toString()) : 0);
+    //             }
+                
+    //             // Get class ID by name
+    //             Map<String, Object> classParams = new HashMap<>();
+    //             classParams.put("action", "get");
+    //             classParams.put("method", "SELECT");
+    //             classParams.put("table", List.of("classes"));
+    //             classParams.put("columns", List.of("classes.id"));
+                
+    //             Map<String, Object> whereClass = new HashMap<>();
+    //             whereClass.put("classes.Name", className);
+    //             classParams.put("where", whereClass);
+                
+    //             List<Map<String, Object>> classData = apiService.postApiGetList("/autoGet", classParams);
+    //             if (!classData.isEmpty()) {
+    //                 Object idObj = classData.get(0).get("classes.id");
+    //                 result.put("classId", idObj != null ? Integer.parseInt(idObj.toString()) : 0);
+    //             }
+                
+    //             return result;
+    //         }
+            
+    //         @Override
+    //         protected void done() {
+    //             try {
+    //                 Map<String, Integer> ids = get();
+    //                 teacherId = ids.getOrDefault("teacherId", 0);
+    //                 classId = ids.getOrDefault("classId", 0);
+    //             } catch (Exception e) {
+    //                 e.printStackTrace();
+    //             }
+    //         }
+    //     };
+    //     worker.execute();
+    // }
     
     private void saveExam() {
         // Validation
