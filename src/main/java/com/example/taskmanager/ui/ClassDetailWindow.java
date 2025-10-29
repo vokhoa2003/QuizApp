@@ -10,7 +10,9 @@ import java.awt.Font;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -24,12 +26,16 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
+import javax.swing.Timer;
 
+import com.example.taskmanager.model.Student;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 
@@ -45,13 +51,17 @@ public class ClassDetailWindow extends JFrame {
     private JLabel classInfoLabel;
     private JLabel studentCountLabel;
     private JPanel examsPanel; // Panel chứa các card bài kiểm tra
+    private JLabel loadingLabel;  
+    private DefaultTableModel studentTableModel;
+
     
     public ClassDetailWindow(ApiService apiService, AuthService authService, 
-                            String className, String teacherName) {
+                            String className, String teacherName, int classId) {
         this.apiService = apiService;
         this.authService = authService;
         this.className = className;
         this.teacherName = teacherName;
+        this.classId = classId; 
 
         setTitle("Chi Tiết Lớp: " + className);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -59,9 +69,9 @@ public class ClassDetailWindow extends JFrame {
         setLocationRelativeTo(null);
 
         // Tải classId
-        loadClassId();
 
         initUI();
+        loadData();
         
         setVisible(true);
     }
@@ -186,16 +196,25 @@ public class ClassDetailWindow extends JFrame {
         scrollPane.getVerticalScrollBar().setUnitIncrement(16);
         scrollPane.setBackground(new Color(0xF8F9FA));
 
+        // THÊM LOADING LABEL
+    loadingLabel = new JLabel("Đang tải dữ liệu...");
+    loadingLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+    loadingLabel.setForeground(new Color(0x2563EB));
+    loadingLabel.setHorizontalAlignment(SwingConstants.CENTER);
+    loadingLabel.setVisible(false);
+
         // Add to main panel (center)
         mainPanel.add(scrollPane, BorderLayout.CENTER);
+        mainPanel.add(loadingLabel, BorderLayout.SOUTH);
 
         // add mainPanel to frame
         add(mainPanel);
 
 
-        // Tải dữ liệu
-        loadStudentData();
-        loadExamData();
+        // // Tải dữ liệu
+        // loadStudentData();
+        // loadExamData();
+        // CHỜ classId TRƯỚC KHI LOAD
     }
     
     private JPanel createHeaderPanel() {
@@ -267,8 +286,8 @@ public class ClassDetailWindow extends JFrame {
         
         JButton refreshBtn = createActionButton("Làm Mới", new Color(0x6B7280));
         refreshBtn.addActionListener(e -> {
-            loadStudentData();
-            loadExamData();
+            loadStudentData(classId);
+            loadExamData(classId);
         });
         
         JButton createExamBtn = createActionButton("Tạo Bài Kiểm Tra", new Color(0x2563EB));
@@ -288,7 +307,7 @@ public class ClassDetailWindow extends JFrame {
         
         // Create table
         String[] columns = {"STT", "Họ và Tên", "Lớp", "Số Bài Đã Làm", "Điểm TB", "Chi Tiết Bài Thi"};
-        tableModel = new DefaultTableModel(columns, 0) {
+        studentTableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return column == 5;
@@ -302,7 +321,7 @@ public class ClassDetailWindow extends JFrame {
             }
         };
         
-        studentTable = new JTable(tableModel);
+        studentTable = new JTable(studentTableModel);
         studentTable.setRowHeight(55);
         studentTable.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         studentTable.setSelectionBackground(new Color(0xDCEEFE));
@@ -366,230 +385,226 @@ public class ClassDetailWindow extends JFrame {
         return btn;
     }
     
-    private void loadClassId() {
-        SwingWorker<Integer, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Integer doInBackground() {
-                Map<String, Object> params = new HashMap<>();
-                params.put("action", "get");
-                params.put("method", "SELECT");
-                params.put("table", List.of("classes"));
-                params.put("columns", List.of("classes.id"));
-
-                Map<String, Object> where = new HashMap<>();
-                where.put("classes.Name", className);
-                params.put("where", where);
-                System.out.println("Loading classId for class: " + className);
-
-                try {
-                    List<Map<String, Object>> classData = apiService.postApiGetList("/autoGet", params);
-                    if (!classData.isEmpty()) {
-                        Object idObj = classData.get(0).get("classes.id");
-                        return idObj != null ? Integer.parseInt(idObj.toString()) : 0;
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                return 0;
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    classId = get();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        worker.execute();
+    private void loadData() {
+    if (classId <= 0) {
+        JOptionPane.showMessageDialog(this, "Lỗi: Không có ID lớp!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        return;
     }
 
-    private void loadStudentData() {
-        SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
-            @Override
-            protected List<Object[]> doInBackground() {
-                List<Object[]> data = new ArrayList<>();
-                // Gọi API để lấy danh sách học sinh
-                // apiService.getStudentsByClass(className);
-                
-                // Dữ liệu mẫu
-                data.add(new Object[]{1, "Nguyễn Văn A", className, 5, 8.5, "detail"});
-                data.add(new Object[]{2, "Trần Thị B", className, 4, 7.8, "detail"});
-                data.add(new Object[]{3, "Lê Văn C", className, 6, 9.2, "detail"});
-                data.add(new Object[]{4, "Phạm Thị D", className, 3, 6.5, "detail"});
-                data.add(new Object[]{5, "Hoàng Văn E", className, 7, 8.9, "detail"});
-                data.add(new Object[]{6, "Vũ Thị F", className, 5, 7.5, "detail"});
-                data.add(new Object[]{7, "Đỗ Văn G", className, 4, 8.0, "detail"});
-                data.add(new Object[]{8, "Bùi Thị H", className, 6, 9.0, "detail"});
-                data.add(new Object[]{9, "Đinh Văn I", className, 5, 7.2, "detail"});
-                data.add(new Object[]{10, "Mai Thị K", className, 8, 9.5, "detail"});
-                
-                return data;
+    loadingLabel.setText("Đang tải dữ liệu...");
+    loadingLabel.setVisible(true);
+
+    loadStudentData(classId);  // ← DÙNG classId TRỰC TIẾP
+    loadExamData(classId);     // ← DÙNG classId TRỰC TIẾP
+
+    // Ẩn loading sau 2s
+    new Timer(2000, e -> {
+        SwingUtilities.invokeLater(() -> loadingLabel.setVisible(false));
+        ((Timer)e.getSource()).stop();
+    }).start();
+}
+
+    private void loadStudentData(int classId) {
+    SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
+        @Override
+        protected List<Object[]> doInBackground() throws Exception {
+            List<Object[]> rows = new ArrayList<>();
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("method", "SELECT");
+            payload.put("action", "get");
+            payload.put("table", List.of("student", "account", "classes"));
+            payload.put("columns", List.of(
+                "student.Id as StudentId",
+                "account.FullName",
+                "student.Name as StudentName",
+                "classes.Name as ClassName"
+            ));
+
+            // JOIN 1: student → account
+            // JOIN 2: student → classes
+            List<Map<String, Object>> joins = new ArrayList<>();
+            joins.add(Map.of(
+                "type", "inner",
+                "on", List.of("student.IdAccount = account.id")
+            ));
+            joins.add(Map.of(
+                "type", "inner",
+                "on", List.of("student.ClassId = classes.Id")
+            ));
+            payload.put("join", joins);
+
+            // WHERE: chỉ lấy học sinh của lớp classId
+            Map<String, Object> where = new HashMap<>();
+            where.put("student.ClassId", classId);
+            payload.put("where", where);
+
+            System.out.println("DEBUG: loadStudentData payload = " + payload);
+
+            Object resp = apiService.postApiGetList("/autoGet", payload);
+            List<Map<String, Object>> data = normalizeApiList(resp);
+
+            for (Map<String, Object> row : data) {
+                rows.add(new Object[]{
+                    row.get("StudentId"),
+                    row.get("FullName") != null ? row.get("FullName") : row.get("StudentName"),
+                    row.get("ClassName")
+                });
             }
-            
-            @Override
-            protected void done() {
-                try {
-                    List<Object[]> data = get();
-                    tableModel.setRowCount(0);
+            return rows;
+        }
+
+        @Override
+        protected void done() {
+            try {
+                List<Object[]> data = get();
+                SwingUtilities.invokeLater(() -> {
+                    studentTableModel.setRowCount(0);
                     for (Object[] row : data) {
-                        tableModel.addRow(row);
+                        studentTableModel.addRow(row);
                     }
                     studentCountLabel.setText("Tổng số học sinh: " + data.size());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    JOptionPane.showMessageDialog(ClassDetailWindow.this,
-                        "Lỗi khi tải danh sách học sinh!",
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
-                }
+                    System.out.println("UI: Loaded " + data.size() + " students");
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        };
-        worker.execute();
-    }
+        }
+    };
+    worker.execute();
+}
 
-    private void loadExamData() {
-        SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
-            @Override
-            protected List<Object[]> doInBackground() {
-                List<Object[]> data = new ArrayList<>();
+    private void loadExamData(int classId) {
+    SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
+        @Override
+        protected List<Object[]> doInBackground() throws Exception {
+            List<Object[]> rows = new ArrayList<>();
 
-                // Gọi API để lấy danh sách bài kiểm tra
-                Map<String, Object> params = new HashMap<>();
-                params.put("action", "get");
-                params.put("method", "SELECT");
-                params.put("table", List.of("exams"));
-                params.put("columns", List.of("exams.id", "exams.Name", "exams.PublishDate", 
-                                            "exams.ExpireDate", "exams.NumberQuestion"));
-                
-                Map<String, Object> where = new HashMap<>();
-                where.put("exams.ClassId", classId);
-                params.put("where", where);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("method", "SELECT");
+            payload.put("action", "get");
+            payload.put("table", List.of("exams"));
+            payload.put("columns", List.of(
+                "id", "ExamName", "NumberQuestion", "Description",
+                "PublishDate", "ExpireDate"
+            ));
+            Map<String, Object> where = new HashMap<>();
+            where.put("ClassId", classId);
+            payload.put("where", where);
 
-                try {
-                    List<Map<String, Object>> examData = apiService.postApiGetList("/autoGet", params);
-                    int stt = 1;
-                    for (Map<String, Object> exam : examData) {
-                        data.add(new Object[]{
-                            stt++,
-                            exam.get("exams.Name"),
-                            exam.get("exams.PublishDate"),
-                            exam.get("exams.ExpireDate"),
-                            exam.get("exams.NumberQuestion"),
-                            exam.get("exams.id")
-                        });
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+            Object resp = apiService.postApiGetList("/autoGet", payload);
+            List<Map<String, Object>> data = normalizeApiList(resp);
 
-                // Dữ liệu mẫu nếu API chưa sẵn sàng
-                if (data.isEmpty()) {
-                    data.add(new Object[]{1, "Kiểm tra 1", "2025-10-20 08:00:00", "2025-10-20 10:00:00", 10, 1});
-                    data.add(new Object[]{2, "Kiểm tra 2", "2025-10-21 09:00:00", "2025-10-21 11:00:00", 15, 2});
-                }
-
-                return data;
+            for (Map<String, Object> row : data) {
+                rows.add(new Object[]{
+                    row.get("id"),
+                    row.get("ExamName"),
+                    row.get("NumberQuestion"),
+                    formatDate(row.get("PublishDate")),
+                    formatDate(row.get("ExpireDate")),
+                    row.get("Description")
+                });
             }
+            return rows;
+        }
 
-            @Override
-            protected void done() {
-                try {
-                    List<Object[]> data = get();
+        @Override
+        protected void done() {
+            try {
+                List<Object[]> data = get();
+                SwingUtilities.invokeLater(() -> {
                     examsPanel.removeAll();
-                    for (Object[] row : data) {
-                        JPanel card = createExamCard(
-                            (int) row[0], 
-                            (String) row[1], 
-                            (String) row[2], 
-                            (String) row[3], 
-                            (int) row[4], 
-                            (int) row[5]
-                        );
-                        examsPanel.add(card);
-                        examsPanel.add(Box.createVerticalStrut(10));
+                    if (data.isEmpty()) {
+                        examsPanel.add(new JLabel("Chưa có bài kiểm tra nào."));
+                    } else {
+                        for (Object[] row : data) {
+                            examsPanel.add(createExamCard(
+                                (int)row[0], (String)row[1], (String)row[2],
+                                (String)row[3], (String)row[4], (String)row[5]
+                            ));
+                        }
                     }
                     examsPanel.revalidate();
                     examsPanel.repaint();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    JOptionPane.showMessageDialog(ClassDetailWindow.this,
-                        "Lỗi khi tải danh sách bài kiểm tra!",
-                        "Lỗi",
-                        JOptionPane.ERROR_MESSAGE);
-                }
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        };
-        worker.execute();
+        }
+    };
+    worker.execute();
+}
+
+@SuppressWarnings("unchecked")
+private List<Map<String, Object>> normalizeApiList(Object resp) {
+    if (resp == null) return Collections.emptyList();
+    if (resp instanceof List) {
+        return (List<Map<String, Object>>) resp;
+    }
+    if (resp instanceof Map) {
+        Map<?,?> m = (Map<?,?>) resp;
+        Object data = m.get("data");
+        if (data instanceof List) return (List<Map<String, Object>>) data;
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (Object key : m.keySet()) {
+            if (key == null) continue;
+            String ks = key.toString();
+            if (ks.matches("\\d+")) {
+                Object val = m.get(key);
+                if (val instanceof Map) list.add((Map<String, Object>) val);
+            }
+        }
+        if (!list.isEmpty()) return list;
+    }
+    System.out.println("WARN: cannot normalize API response, resp=" + Objects.toString(resp));
+    return Collections.emptyList();
+}
+
+private String formatDate(Object dateObj) {
+    if (dateObj == null) return "Chưa công bố";
+    String date = dateObj.toString().trim();
+    if (date.isEmpty() || "null".equalsIgnoreCase(date)) return "Chưa công bố";
+    if (date.contains("Không giới hạn")) return "Không giới hạn";
+    return date;
+}
+    private JPanel createExamCard(int examId, String examName, String numQuestions,
+                              String publishDate, String expireDate, String description) {
+    JPanel card = new JPanel();
+    card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+    card.setBorder(BorderFactory.createCompoundBorder(
+        BorderFactory.createLineBorder(new Color(0xE5E7EB), 1),
+        BorderFactory.createEmptyBorder(15, 15, 15, 15)
+    ));
+    card.setBackground(Color.WHITE);
+    card.setPreferredSize(new Dimension(280, 150));
+
+    JLabel nameLabel = new JLabel(examName);
+    nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
+    nameLabel.setForeground(new Color(0x1F2937));
+
+    JLabel questionLabel = new JLabel(numQuestions + " câu hỏi");
+    questionLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+    questionLabel.setForeground(new Color(0x6B7280));
+
+    JLabel dateLabel = new JLabel("Từ: " + publishDate + " → " + expireDate);
+    dateLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+    dateLabel.setForeground(new Color(0x374151));
+
+    card.add(nameLabel);
+    card.add(Box.createVerticalStrut(5));
+    card.add(questionLabel);
+    card.add(Box.createVerticalStrut(5));
+    card.add(dateLabel);
+    if (description != null && !description.isEmpty()) {
+        JLabel descLabel = new JLabel("<html>" + description + "</html>");
+        descLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        descLabel.setForeground(new Color(0x4B5563));
+        card.add(Box.createVerticalStrut(8));
+        card.add(descLabel);
     }
 
-    private JPanel createExamCard(int stt, String examName, String publishDate, String expireDate, int numQuestions, int examId) {
-        JPanel card = new JPanel();
-        card.setLayout(new BorderLayout(10, 10));
-        card.setBackground(Color.WHITE);
-        card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(0xE5E7EB), 1),
-            BorderFactory.createEmptyBorder(15, 15, 15, 15)
-        ));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 140)); // max width large, height cố định
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-
-        // Nội dung card
-        JPanel contentPanel = new JPanel();
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-        contentPanel.setOpaque(false);
-
-        JLabel nameLabel = new JLabel("📝 " + examName);
-        nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        nameLabel.setForeground(new Color(0x1F2937));
-        contentPanel.add(nameLabel);
-        contentPanel.add(Box.createVerticalStrut(5));
-
-        JLabel publishLabel = new JLabel("Ngày công bố: " + publishDate);
-        publishLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        publishLabel.setForeground(new Color(0x6B7280));
-        contentPanel.add(publishLabel);
-
-        JLabel expireLabel = new JLabel("Ngày kết thúc: " + expireDate);
-        expireLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        expireLabel.setForeground(new Color(0x6B7280));
-        contentPanel.add(expireLabel);
-
-        JLabel questionsLabel = new JLabel("Số câu hỏi: " + numQuestions);
-        questionsLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        questionsLabel.setForeground(new Color(0x6B7280));
-        contentPanel.add(questionsLabel);
-
-        card.add(contentPanel, BorderLayout.CENTER);
-
-        // Nút hành động
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        buttonPanel.setOpaque(false);
-
-        JButton detailBtn = new JButton("Xem Chi Tiết");
-        detailBtn.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        detailBtn.setForeground(Color.WHITE);
-        detailBtn.setBackground(new Color(0x8B5CF6));
-        detailBtn.setBorderPainted(false);
-        detailBtn.setFocusPainted(false);
-        detailBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        detailBtn.addActionListener(e -> openExamDetailForExam(examId, examName));
-        detailBtn.addMouseListener(new java.awt.event.MouseAdapter() {
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                detailBtn.setBackground(new Color(0x7C3AED));
-            }
-            public void mouseExited(java.awt.event.MouseEvent evt) {
-                detailBtn.setBackground(new Color(0x8B5CF6));
-            }
-        });
-
-        buttonPanel.add(detailBtn);
-        card.add(buttonPanel, BorderLayout.SOUTH);
-
-        return card;
-    }
+    return card;
+}
     
     private void openExamDetail(int row) {
         String studentName = (String) tableModel.getValueAt(row, 1);

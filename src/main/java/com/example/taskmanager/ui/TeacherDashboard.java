@@ -387,13 +387,17 @@ public class TeacherDashboard extends JFrame {
 
                     List<Map<String,Object>> classes = teacherService.getClassesForTeacher(teacherId);
                     for (Map<String,Object> c : classes) {
-                        Object className = c.getOrDefault("ClassName", c.get("Name"));
-                        Object studentCount = c.getOrDefault("StudentCount", 0);
-                        rows.add(new Object[]{ currentTeacher != null ? currentTeacher.getFullName() : "Giáo viên",
-                                               String.valueOf(className),
-                                               String.valueOf(studentCount),
-                                               "detail" });
-                    }
+    Object classId = c.get("ClassId") != null ? c.get("ClassId") : c.get("id");
+    Object className = c.getOrDefault("ClassName", c.get("Name"));
+    Object studentCount = c.getOrDefault("StudentCount", 0);
+
+    rows.add(new Object[]{
+        currentTeacher != null ? currentTeacher.getFullName() : "Giáo viên",
+        String.valueOf(className),
+        String.valueOf(studentCount),
+        classId  // ← TRUYỀN classId QUA CỘT ẨN
+    });
+}
                 } catch (Exception ex) {
                     ex.printStackTrace();
                 }
@@ -423,13 +427,32 @@ public class TeacherDashboard extends JFrame {
         new QuizCreatorAppSwing(apiService, authService, null);
     }
     
-    private void openClassDetail(int row) {
-        String className = (String) tableModel.getValueAt(row, 1);
-        String teacherName = (String) tableModel.getValueAt(row, 0);
+    // private void openClassDetail(int row) {
+    //     String className = (String) tableModel.getValueAt(row, 1);
+    //     String teacherName = (String) tableModel.getValueAt(row, 0);
         
-        // Open class detail window
-        new ClassDetailWindow(apiService, authService, className, teacherName);
+    //     // Open class detail window
+    //     new ClassDetailWindow(apiService, authService, className, teacherName);
+    // }
+    private void openClassDetail(int row) {
+    String className = (String) tableModel.getValueAt(row, 1);
+    String teacherName = (String) tableModel.getValueAt(row, 0);
+    Object classIdObj = tableModel.getValueAt(row, 3); // CỘT ẨN
+
+    int classId = 0;
+    if (classIdObj instanceof Number) {
+        classId = ((Number) classIdObj).intValue();
+    } else if (classIdObj != null) {
+        try { classId = Integer.parseInt(classIdObj.toString()); } catch (Exception ignored) {}
     }
+
+    if (classId <= 0) {
+        JOptionPane.showMessageDialog(this, "Không tìm thấy ID lớp!", "Lỗi", JOptionPane.ERROR_MESSAGE);
+        return;
+    }
+
+    new ClassDetailWindow(apiService, authService, className, teacherName, classId);
+}
     
     private void logout() {
         int confirm = JOptionPane.showConfirmDialog(this,
