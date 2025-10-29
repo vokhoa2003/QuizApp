@@ -273,10 +273,7 @@ public class CourseManagementPanel extends JFrame {
     }
 
     public void loadData() {
-        System.err.println("Loading data for CourseManagementPanel..."
-        + " Classes: " + allClasses.size()
-        + ", Teachers: " + allTeachers.size()   
-        );
+        System.err.println("Loading data for CourseManagementPanel...");
         new SwingWorker<Void, Void>() {
             @Override protected Void doInBackground() throws Exception {
                 allClasses = apiService.getClasses();
