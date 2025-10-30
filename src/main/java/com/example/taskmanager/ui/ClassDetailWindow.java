@@ -45,6 +45,7 @@ public class ClassDetailWindow extends JFrame {
     private String className;
     private String teacherName;
     private int classId;
+    private MainWindow mainWindow;
     
     private JTable studentTable;
     private DefaultTableModel tableModel;
@@ -56,12 +57,13 @@ public class ClassDetailWindow extends JFrame {
 
     
     public ClassDetailWindow(ApiService apiService, AuthService authService, 
-                            String className, String teacherName, int classId) {
+                            String className, String teacherName, int classId, MainWindow mainWindow) {
         this.apiService = apiService;
         this.authService = authService;
         this.className = className;
         this.teacherName = teacherName;
         this.classId = classId; 
+        this.mainWindow = mainWindow;
 
         setTitle("Chi Tiết Lớp: " + className);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -234,7 +236,10 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
         backBtn.setFocusPainted(false);
         backBtn.setCursor(new Cursor(Cursor.HAND_CURSOR));
         backBtn.setPreferredSize(new Dimension(110, 35));
-        backBtn.addActionListener(e -> dispose());
+        backBtn.addActionListener(e -> {
+    dispose();
+    mainWindow.showTeacherDashboard(); // GỌI HÀM TRONG MainWindow
+});
         leftPanel.add(backBtn);
         
         JLabel titleLabel = new JLabel("Chi Tiết Lớp Học");

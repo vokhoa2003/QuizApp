@@ -1,11 +1,16 @@
 package com.example.taskmanager.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
+
+import com.example.taskmanager.model.Teacher;
 
 public class TeacherService {
     private final ApiService apiService;
@@ -16,91 +21,79 @@ public class TeacherService {
 
     // Trả về danh sách lớp của giáo viên kèm studentCount (keys: ClassId, ClassName, StudentCount)
     public List<Map<String, Object>> getClassesForTeacher(int teacherId) {
-        if (teacherId <= 0) return Collections.emptyList();
+    if (teacherId <= 0) return Collections.emptyList();
 
-        List<Map<String,Object>> result = Collections.emptyList();
+    Set<Integer> classIds = new HashSet<>();
+    Map<Integer, String> classNames = new HashMap<>();
 
-        // Thử một số biến thể query theo thứ tự
-        List<Map<String,Object>> attempts = new ArrayList<>();
+    // === LẤY TỪ exams ===
+    try {
+        Map<String, Object> p = new HashMap<>();
+        p.put("action", "get"); p.put("method", "SELECT");
+        p.put("table", List.of("exams", "classes"));
+        p.put("columns", List.of("DISTINCT classes.Id as ClassId", "classes.Name as ClassName"));
+        p.put("join", List.of(Map.of("type", "inner", "on", List.of("exams.ClassId = classes.Id"))));
+        p.put("where", Map.of("exams.TeacherId", teacherId));
 
-        Map<String,Object> a = new HashMap<>();
-        a.put("action", "get");
-        a.put("method", "SELECT");
-        a.put("table", "classes");
-        a.put("columns", List.of("id as ClassId", "Name as ClassName"));
-        a.put("where", Map.of("TeacherId", teacherId));
-        attempts.add(a);
-
-        Map<String,Object> b = new HashMap<>();
-        b.put("action", "get");
-        b.put("method", "SELECT");
-        b.put("table", List.of("teacher", "classes"));
-        b.put("columns", List.of("classes.id as ClassId", "classes.Name as ClassName"));
-        b.put("where", Map.of("teacher.Id", teacherId));
-        attempts.add(b);
-
-        Map<String,Object> c = new HashMap<>();
-        c.put("action", "get");
-        c.put("method", "SELECT");
-        c.put("table", "classes");
-        c.put("columns", List.of("Id as ClassId", "Name as ClassName"));
-        c.put("where", Map.of("TeacherId", teacherId));
-        attempts.add(c);
-
-        for (Map<String,Object> params : attempts) {
-            try {
-                Object resp = apiService.postApiGetList("/autoGet", params);
-                List<Map<String,Object>> rows = normalize(resp);
-                if (rows != null && !rows.isEmpty()) {
-                    result = rows;
-                    break;
-                }
-            } catch (Exception ex) {
-                System.err.println("WARN: getClassesForTeacher attempt failed: " + ex.getMessage());
-            }
-        }
-
-        // Nếu không có lớp thì trả rỗng
-        if (result == null || result.isEmpty()) return Collections.emptyList();
-
-        // Thu thập classIds để lấy counts bằng 1 truy vấn GROUP BY
-        List<Integer> classIds = new ArrayList<>();
-        Map<Integer, Map<String,Object>> tmpById = new HashMap<>();
-        for (Map<String,Object> r : result) {
-            Object cidObj = firstNonNull(r, "ClassId", "id", "Id", "classes.Id");
+        List<Map<String, Object>> rows = normalize(apiService.postApiGetList("/autoGet", p));
+        for (Map<String, Object> r : rows) {
+            Object cidObj = firstNonNull(r, "ClassId", "id", "Id");
             Integer cid = null;
-            if (cidObj instanceof Number) cid = ((Number) cidObj).intValue();
-            else if (cidObj != null) {
-                try { cid = Integer.parseInt(cidObj.toString()); } catch (Exception ignored) {}
+            if (cidObj instanceof Number) {
+                cid = ((Number) cidObj).intValue();
+            } else if (cidObj != null) {
+                try { cid = Integer.parseInt(cidObj.toString().trim()); } catch (Exception ignored) {}
             }
-            String cname = String.valueOf(firstNonNull(r, "ClassName", "Name", "classes.Name", ""));
-            Map<String,Object> item = new HashMap<>();
-            item.put("ClassId", cid);
-            item.put("ClassName", cname);
-            tmpById.put(cid != null ? cid : -1, item);
-            if (cid != null) classIds.add(cid);
+            String name = String.valueOf(firstNonNull(r, "ClassName", "Name", "Lớp"));
+            if (cid != null) {
+                classIds.add(cid);
+                classNames.put(cid, name);
+            }
         }
+    } catch (Exception ignored) {}
 
-        // Lấy counts cho tất cả classIds bằng 1 request (nếu có IDs)
-        Map<Integer,Integer> counts = Collections.emptyMap();
-        if (!classIds.isEmpty()) {
-            counts = getCountsForClasses(classIds);
+    // === LẤY TỪ teacher.ClassId ===
+    try {
+        Map<String, Object> p = new HashMap<>();
+        p.put("action", "get"); p.put("method", "SELECT");
+        p.put("table", List.of("teacher", "classes"));
+        p.put("columns", List.of("teacher.ClassId", "classes.Name as ClassName"));
+        p.put("join", List.of(Map.of("type", "left", "on", List.of("teacher.ClassId = classes.Id"))));
+        p.put("where", Map.of("teacher.Id", teacherId));
+
+        List<Map<String, Object>> rows = normalize(apiService.postApiGetList("/autoGet", p));
+        if (!rows.isEmpty()) {
+            Map<String, Object> r = rows.get(0);
+            Object cidObj = r.get("ClassId");
+            Integer cid = null;
+            if (cidObj instanceof Number) {
+                cid = ((Number) cidObj).intValue();
+            } else if (cidObj != null) {
+                try { cid = Integer.parseInt(cidObj.toString().trim()); } catch (Exception ignored) {}
+            }
+            String name = String.valueOf(firstNonNull(r, "ClassName", "Name", "Lớp chính"));
+            if (cid != null) {
+                classIds.add(cid);
+                classNames.put(cid, name);
+            }
         }
+    } catch (Exception ignored) {}
 
-        // Ghép kết quả
-        List<Map<String,Object>> out = new ArrayList<>();
-        for (Integer key : tmpById.keySet()) {
-            Map<String,Object> base = tmpById.get(key);
-            Integer cid = (Integer) base.get("ClassId");
-            int cnt = 0;
-            if (cid != null && counts.containsKey(cid)) cnt = counts.get(cid);
-            base.put("StudentCount", cnt);
-            out.add(base);
-        }
+    // Tính số học sinh
+    List<Integer> listIds = new ArrayList<>(classIds);
+    Map<Integer, Integer> counts = getCountsForClasses(listIds);
 
-        return out;
+    // Tạo kết quả
+    List<Map<String, Object>> result = new ArrayList<>();
+    for (Integer cid : listIds) {
+        Map<String, Object> item = new HashMap<>();
+        item.put("ClassId", cid);
+        item.put("ClassName", classNames.getOrDefault(cid, "Lớp " + cid));
+        item.put("StudentCount", counts.getOrDefault(cid, 0));
+        result.add(item);
     }
-
+    return result;
+}
     // Trả về danh sách exams do teacher tạo (id, ExamName, NumberQuestion, PublishDate, ExpireDate)
     public List<Map<String,Object>> getExamsForTeacher(int teacherId) {
         if (teacherId <= 0) return Collections.emptyList();
@@ -200,6 +193,49 @@ public class TeacherService {
         }
         return Collections.emptyList();
     }
+
+    public Teacher getTeacherById(int teacherId) {
+    if (teacherId <= 0) return null;
+
+    Map<String, Object> p = new HashMap<>();
+    p.put("action", "get");
+    p.put("method", "SELECT");
+    p.put("table", "teacher");
+    p.put("columns", List.of("Id", "Name", "ClassId"));
+    p.put("where", Map.of("Id", teacherId));
+
+    try {
+        Object resp = apiService.postApiGetList("/autoGet", p);
+        List<Map<String, Object>> rows = normalize(resp);
+        if (rows != null && !rows.isEmpty()) {
+            Map<String, Object> d = rows.get(0);
+            Teacher t = new Teacher();
+            t.setId(toLong(d.get("id")));
+            t.setName((String) firstNonNull(d, "name", "Name")); // ← AN TOÀN VỚI CASE
+            t.setClassId(toLong(d.get("classId")));
+            System.out.println("DEBUG: Teacher Name loaded = " + t.getName());
+            return t;
+        }
+    } catch (Exception e) {
+        System.err.println("ERROR: getTeacherById: " + e.getMessage());
+        e.printStackTrace();
+    }
+    return null;
+}
+
+// Helper methods
+private Long toLong(Object obj) {
+    if (obj instanceof Number) return ((Number) obj).longValue();
+    if (obj != null) {
+        try { return Long.parseLong(obj.toString().trim()); } catch (Exception ignored) {}
+    }
+    return null;
+}
+
+private LocalDateTime toLocalDateTime(Object obj) {
+    if (obj == null) return null;
+    try { return LocalDateTime.parse(obj.toString()); } catch (Exception e) { return null; }
+}
 
     private Object firstNonNull(Map<String,Object> m, String... keys) {
         if (m == null) return null;

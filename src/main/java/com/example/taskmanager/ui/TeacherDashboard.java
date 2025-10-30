@@ -35,6 +35,7 @@ import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 
 import com.example.taskmanager.model.Task;
+import com.example.taskmanager.model.Teacher;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.example.taskmanager.service.TeacherService;
@@ -46,8 +47,10 @@ public class TeacherDashboard extends JFrame {
     private Task currentTeacher;
     private TeacherService teacherService; // new
     private MainWindow mainWindow;  // Thêm reference đến MainWindow
+    private Teacher currentTeacherModel;
     
     private JLabel teacherNameLabel;
+    private JLabel welcomeLabel;
     private JTable classTable;
     private DefaultTableModel tableModel;
     
@@ -62,9 +65,20 @@ public class TeacherDashboard extends JFrame {
         this.currentTeacher = teacher;
         this.teacherService = new TeacherService(apiService); // init service
         this.mainWindow = mainWindow;
+
+//         //lấy teacherId từ currentTeacher (Task)
+// int teacherId = currentTeacher != null && currentTeacher.getId() != null 
+//     ? currentTeacher.getId().intValue() : 0;
+
+// if (teacherId > 0) {
+//     loadTeacherModel(teacherId); // LẤY TÊN TỪ BẢNG teacher
+// } else {
+//     currentTeacherModel = new Teacher();
+//     currentTeacherModel.setName("Giáo viên");
+// }
         
         setTitle("Trang Chủ Giáo Viên - SecureStudy");
-        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(1200, 700);
         setLocationRelativeTo(null);
         
@@ -98,6 +112,14 @@ public class TeacherDashboard extends JFrame {
         mainPanel.add(contentPanel, BorderLayout.CENTER);
         
         add(mainPanel);
+        // SAU KHI TẠO UI → BẮT ĐẦU LOAD TÊN
+    int teacherId = currentTeacher != null && currentTeacher.getId() != null 
+        ? currentTeacher.getId().intValue() : 0;
+    if (teacherId > 0) {
+        loadTeacherModel(teacherId);
+    } else {
+        updateTeacherNameInUI("Giáo viên");
+    }
     }
     
     private JPanel createHeaderPanel() {
@@ -134,7 +156,7 @@ public class TeacherDashboard extends JFrame {
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         rightPanel.setOpaque(false);
         
-        teacherNameLabel = new JLabel("👤 " + (currentTeacher != null ? currentTeacher.getFullName() : "Giáo viên"));
+        teacherNameLabel = new JLabel("👤 ");
         teacherNameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         teacherNameLabel.setForeground(Color.WHITE);
         rightPanel.add(teacherNameLabel);
@@ -154,7 +176,7 @@ public class TeacherDashboard extends JFrame {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
         
-        JLabel welcomeLabel = new JLabel("Xin chào, " + (currentTeacher != null ? currentTeacher.getFullName() : "Giáo viên") + "! 👋");
+        welcomeLabel = new JLabel("Xin chào, ");
         welcomeLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
         welcomeLabel.setForeground(new Color(0x1F2937));
         welcomeLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -396,7 +418,9 @@ public class TeacherDashboard extends JFrame {
         String.valueOf(className),
         String.valueOf(studentCount),
         classId  // ← TRUYỀN classId QUA CỘT ẨN
+        
     });
+    System.out.println("DEBUG: ClassId = " + classId + " | ClassName = " + className);
 }
                 } catch (Exception ex) {
                     ex.printStackTrace();
@@ -451,9 +475,51 @@ public class TeacherDashboard extends JFrame {
         return;
     }
 
-    new ClassDetailWindow(apiService, authService, className, teacherName, classId);
+    new ClassDetailWindow(apiService, authService, className, teacherName, classId, this.mainWindow);
+}
+
+public void refreshTeacherClasses() {
+    tableModel.setRowCount(0);
+    // GỌI LẠI HÀM loadTeacherClasses() HIỆN TẠI
+    loadTeacherClasses();
 }
     
+private int resolveTeacherIdFromTask() {
+    if (currentTeacher == null || currentTeacher.getId() == null) return 0;
+    return currentTeacher.getId().intValue();
+}
+
+private void loadTeacherModel(int teacherId) {
+    SwingWorker<Teacher, Void> worker = new SwingWorker<>() {
+        @Override
+        protected Teacher doInBackground() {
+            return teacherService.getTeacherById(teacherId);
+        }
+
+        @Override
+        protected void done() {
+            try {
+                Teacher teacher = get();
+                String name = (teacher != null && teacher.getName() != null && !teacher.getName().trim().isEmpty())
+                    ? teacher.getName()
+                    : "Giáo viên";
+                updateTeacherNameInUI(name);
+            } catch (Exception e) {
+                updateTeacherNameInUI("Giáo viên");
+            }
+        }
+    };
+    worker.execute();
+}
+
+private void updateTeacherNameInUI(String name) {
+    if (teacherNameLabel != null) {
+        teacherNameLabel.setText("Người dùng " + name);
+    }
+    if (welcomeLabel != null) {
+        welcomeLabel.setText("Xin chào, " + name + "!");
+    }
+}
     private void logout() {
         int confirm = JOptionPane.showConfirmDialog(this,
             "Bạn có chắc muốn đăng xuất?",

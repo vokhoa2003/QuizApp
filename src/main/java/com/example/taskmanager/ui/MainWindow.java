@@ -65,6 +65,8 @@ public class MainWindow extends JFrame {
     private final AuthService authService;
     private final ApiService apiService;
     private QuizAppSwing quizAppSwing;
+    private TeacherDashboard teacherDashboard;
+    private Task currentTeacher;
 
     
     // Layout
@@ -570,6 +572,16 @@ public class MainWindow extends JFrame {
         // taskPanel.refreshUsers();
         // taskPanel.updateFonts(scaleFactor);
     }
+    public void showTeacherDashboard() {
+    if (teacherDashboard == null) {
+        teacherDashboard = new TeacherDashboard(apiService, authService, currentTeacher, this);
+        contentPanel.add(teacherDashboard, "TeacherDashboard"); // ← THÊM VÀO contentPanel
+    } else {
+        teacherDashboard.refreshTeacherClasses(); // TẢI LẠI DỮ LIỆU
+        teacherDashboard.setVisible(true);
+    }
+    cardLayout.show(contentPanel, "TeacherDashboard");
+}
     // Main method for testing
     public static void main(String[] args) {
         try {

@@ -10,7 +10,7 @@ public class Teacher {
     @JsonProperty("IdAccount")
     private Long idAccount;
 
-    @JsonProperty("Name")
+    @JsonProperty("name")
     private String name;
 
     @JsonProperty("ClassId")
