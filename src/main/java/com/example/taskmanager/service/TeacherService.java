@@ -195,41 +195,42 @@ public class TeacherService {
     }
 
     public Teacher getTeacherById(int teacherId) {
-    if (teacherId <= 0) return null;
+    System.out.println("getTeacherById(" + teacherId + ") STARTED");
+    if (teacherId <= 0) {
+        System.out.println("getTeacherById: teacherId <= 0 → return null");
+        return null;
+    }
 
     Map<String, Object> p = new HashMap<>();
     p.put("action", "get");
     p.put("method", "SELECT");
     p.put("table", "teacher");
-    p.put("columns", List.of("Id", "Name", "ClassId")); // đổi FullName nếu cần
+    p.put("columns", List.of("Id", "Name", "ClassId"));
     p.put("where", Map.of("Id", teacherId));
 
     try {
         Object resp = apiService.postApiGetList("/autoGet", p);
-        System.out.println("DEBUG RAW: " + resp); // kiểm tra JSON trả về
+        System.out.println("DEBUG RAW RESPONSE: " + resp);
 
         List<Map<String, Object>> rows = normalize(resp);
         if (rows != null && !rows.isEmpty()) {
             Map<String, Object> d = rows.get(0);
             Teacher t = new Teacher();
             t.setId(toLong(firstNonNull(d, "Id", "id")));
+            String name = String.valueOf(firstNonNull(d, "Name", "name", "FullName"));
+            t.setName(name != null && !name.trim().isEmpty() ? name.trim() : "Giáo viên");
+            t.setClassId(toLong(firstNonNull(d, "ClassId")));
             
-            String rawName = String.valueOf(firstNonNull(
-                d, "Name", "name", "teacher.Name", "FullName", "fullname", "Tên"
-            ));
-            if (rawName == null || rawName.trim().isEmpty() || "null".equalsIgnoreCase(rawName.trim())) {
-                rawName = "Giáo viên";
-            }
-            t.setName(rawName.trim());
-            t.setClassId(toLong(firstNonNull(d, "ClassId", "classId")));
-            
-            System.out.println("DEBUG: Teacher Name loaded = " + t.getName());
+            System.out.println("getTeacherById() SUCCESS → Name = " + t.getName());
             return t;
+        } else {
+            System.out.println("getTeacherById() → No data in response");
         }
     } catch (Exception e) {
-        System.err.println("ERROR: getTeacherById: " + e.getMessage());
+        System.err.println("ERROR in getTeacherById(): " + e.getMessage());
         e.printStackTrace();
     }
+    System.out.println("getTeacherById() → return null");
     return null;
 }
 

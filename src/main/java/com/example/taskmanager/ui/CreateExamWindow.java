@@ -469,14 +469,14 @@ public class CreateExamWindow extends JFrame {
                 params.put("table", "exams");
                 
                 Map<String, Object> data = new HashMap<>();
-                data.put("Name", examName);
                 data.put("ClassId", classId);
-                data.put("TeacherId", teacherId);
+                data.put("Name", examName);
                 data.put("NumberQuestion", numberOfQuestions);
                 data.put("Description", description);
                 data.put("CreateDate", createDateStr);
                 data.put("PublishDate", publishDateStr);
                 data.put("ExpireDate", expireDateStr);
+                data.put("TeacherId", teacherId);
                 
                 params.put("data", data);
                 

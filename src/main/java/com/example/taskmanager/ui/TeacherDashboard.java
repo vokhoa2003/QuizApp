@@ -94,7 +94,7 @@ if (teacherId > 0) {
     });
 
 } else {
-    updateTeacherNameInUI(getName());
+    updateTeacherNameInUI("Giáo viên");
     loadTeacherClasses();
 }
         
