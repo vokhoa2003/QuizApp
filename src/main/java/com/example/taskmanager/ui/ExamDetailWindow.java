@@ -182,7 +182,7 @@ public class ExamDetailWindow extends JFrame {
                     Map<String, Object> params1 = new HashMap<>();
                     params1.put("action", "get");
                     params1.put("method", "SELECT");
-                    params1.put("table", List.of("exam_questions", "questions", "answers"));
+                    params1.put("table", List.of("questions", "answers", "exam_answers", "exams", "exam_attempts"));
                     params1.put("columns", List.of(
                         "questions.id as QuestionId",
                         "questions.Question as QuestionText",
@@ -192,13 +192,26 @@ public class ExamDetailWindow extends JFrame {
                     ));
                     Map<String, Object> join1 = new HashMap<>();
                     join1.put("type", "inner");
-                    join1.put("on", List.of("exam_questions.QuestionId = questions.id"));
+                    join1.put("on", List.of("questions.id = answers.QuestionId"));
+
+
                     Map<String, Object> join2 = new HashMap<>();
                     join2.put("type", "inner");
-                    join2.put("on", List.of("questions.id = answers.QuestionId"));
-                    params1.put("join", List.of(join1, join2));
+                    join2.put("on", List.of("answers.id = exam_answers.AnswerId"));
+
+                    Map<String, Object> join3 = new HashMap<>();
+                    join3.put("type", "inner");
+                    join3.put("on", List.of("exam_answers.AttemptId = exam_attempts.id"));
+
+                    Map<String, Object> join4 = new HashMap<>();
+                    join4.put("type", "inner");
+                    join4.put("on", List.of("exam_attempts.ExamId = exams.id"));
+
+                    params1.put("join", List.of(join1, join2, join3, join4));
+
                     Map<String, Object> where1 = new HashMap<>();
-                    where1.put("exam_questions.ExamId", examId);
+                    where1.put("exam_attempts.ExamId", examId);
+                    where1.put("exam_attempts.StudentId", studentId);
                     params1.put("where", where1);
 
                     Object qResp = apiService.postApiGetList("/autoGet", params1);
