@@ -25,8 +25,9 @@ public class Student {
     // Constructors
     public Student() {}
 
-    public Student(Long id, String name, Long classId) {
-        this.id = id;
+    public Student(Long idAccount, String name, Long classId) {
+        //this.id = id;
+        this.idAccount = idAccount;
         this.name = name;
         this.classId = classId;
     }

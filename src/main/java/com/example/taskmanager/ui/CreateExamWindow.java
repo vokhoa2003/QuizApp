@@ -53,6 +53,9 @@ public class CreateExamWindow extends JFrame {
     private DateTimePickerPanel publishDatePicker;
     private DateTimePickerPanel expireDatePicker;
     private JLabel templateInfoLabel;
+    private JComboBox<Map<String, Object>> periodComboBox;
+private JTextField numberOfQuestionsField;
+private JTextField timeLimitField;
     
     public CreateExamWindow(ApiService apiService, AuthService authService,
                            String className, String teacherName) {
@@ -172,14 +175,37 @@ public class CreateExamWindow extends JFrame {
         
         // Number of questions
         addLabel(panel, "Số Lượng Câu Hỏi:", true);
-        SpinnerNumberModel questionModel = new SpinnerNumberModel(10, 1, 100, 1);
-        numberOfQuestionsSpinner = new JSpinner(questionModel);
-        numberOfQuestionsSpinner.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        numberOfQuestionsSpinner.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
-        ((JSpinner.DefaultEditor) numberOfQuestionsSpinner.getEditor()).getTextField().setEditable(false);
-        panel.add(numberOfQuestionsSpinner);
-        panel.add(Box.createVerticalStrut(15));
+numberOfQuestionsField = new JTextField("10");
+numberOfQuestionsField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+numberOfQuestionsField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+numberOfQuestionsField.setBorder(BorderFactory.createCompoundBorder(
+    BorderFactory.createLineBorder(new Color(0xD1D5DB)),
+    BorderFactory.createEmptyBorder(5, 10, 5, 10)
+));
+panel.add(numberOfQuestionsField);
+panel.add(Box.createVerticalStrut(15));
         
+        // Thêm PeriodId
+addLabel(panel, "Kỳ Thi (Period):", true);
+periodComboBox = new JComboBox<>();
+periodComboBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+periodComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+periodComboBox.setRenderer(new PeriodComboBoxRenderer());
+loadExamPeriods(); // Tải danh sách kỳ thi
+panel.add(periodComboBox);
+panel.add(Box.createVerticalStrut(15));
+
+// Thêm TimeLimit
+addLabel(panel, "Thời Gian Làm Bài (phút):", true);
+timeLimitField = new JTextField("120");
+timeLimitField.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+timeLimitField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 35));
+timeLimitField.setBorder(BorderFactory.createCompoundBorder(
+    BorderFactory.createLineBorder(new Color(0xD1D5DB)),
+    BorderFactory.createEmptyBorder(5, 10, 5, 10)
+));
+panel.add(timeLimitField);
+panel.add(Box.createVerticalStrut(25));
         // Description
         addLabel(panel, "Mô Tả:", false);
         descriptionArea = new JTextArea(4, 20);
@@ -428,46 +454,116 @@ public class CreateExamWindow extends JFrame {
     //     worker.execute();
     // }
     
+    private void loadExamPeriods() {
+    SwingWorker<Void, Void> worker = new SwingWorker<>() {
+        @Override
+        protected Void doInBackground() {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", List.of("exam_period"));
+            params.put("columns", List.of("Id", "Name", "Description"));
+
+            List<Map<String, Object>> periods = apiService.postApiGetList("/autoGet", params);
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                periodComboBox.removeAllItems();
+                if (periods != null && !periods.isEmpty()) {
+                    for (Map<String, Object> period : periods) {
+                        periodComboBox.addItem(period);
+                    }
+                } else {
+                    periodComboBox.addItem(createEmptyPeriodItem());
+                }
+                periodComboBox.setSelectedIndex(0);
+            });
+            return null;
+        }
+    };
+    worker.execute();
+}
+
+private Map<String, Object> createEmptyPeriodItem() {
+    Map<String, Object> empty = new HashMap<>();
+    empty.put("Id", 0);
+    empty.put("Name", "-- Chọn kỳ thi --");
+    empty.put("Description", "");
+    return empty;
+}
+
+private static class PeriodComboBoxRenderer extends javax.swing.DefaultListCellRenderer {
+    @Override
+    public Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
+                                                  int index, boolean isSelected, boolean cellHasFocus) {
+        super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+        if (value instanceof Map) {
+            Map<String, Object> period = (Map<String, Object>) value;
+            String name = (String) period.get("Name");
+            String desc = (String) period.get("Description");
+            if (desc != null && !desc.isEmpty()) {
+                setText(name + " - " + desc);
+            } else {
+                setText(name);
+            }
+        }
+        return this;
+    }
+}
+
     private void saveExam() {
-        // Validation
-        String examName = examNameField.getText().trim();
-        if (examName.isEmpty()) {
-            JOptionPane.showMessageDialog(this,
-                "Vui lòng nhập tên bài kiểm tra!",
-                "Lỗi",
-                JOptionPane.WARNING_MESSAGE);
-            examNameField.requestFocus();
-            return;
-        }
-        
-        Date publishDate = publishDatePicker.getDateTime();
-        Date expireDate = expireDatePicker.getDateTime();
-        
-        if (expireDate.before(publishDate)) {
-            JOptionPane.showMessageDialog(this,
-                "Ngày kết thúc phải sau ngày công bố!",
-                "Lỗi",
-                JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        
-        // Prepare data
-        int numberOfQuestions = (int) numberOfQuestionsSpinner.getValue();
-        String description = descriptionArea.getText().trim();
-        
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-        String publishDateStr = sdf.format(publishDate);
-        String expireDateStr = sdf.format(expireDate);
-        String createDateStr = sdf.format(new Date());
-        
-        // Save to database
-        SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
-            @Override
-            protected Boolean doInBackground() {
+    // === Validation ở đây (giữ nguyên) ===
+    String examName = examNameField.getText().trim();
+    if (examName.isEmpty()) {
+        JOptionPane.showMessageDialog(this, "Vui lòng nhập tên bài kiểm tra!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+        examNameField.requestFocus();
+        return;
+    }
+
+    Date publishDate = publishDatePicker.getDateTime();
+    Date expireDate = expireDatePicker.getDateTime();
+    if (expireDate.before(publishDate)) {
+        JOptionPane.showMessageDialog(this, "Ngày kết thúc phải sau ngày công bố!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+
+    // === Chuyển toàn bộ logic vào SwingWorker ===
+    SwingWorker<Boolean, Void> worker = new SwingWorker<>() {
+        @Override
+        protected Boolean doInBackground() {
+            try {
+                // === Lấy dữ liệu từ UI (phải trong EDT hoặc sau khi validate) ===
+                String examName = examNameField.getText().trim();
+                String description = descriptionArea.getText().trim();
+
+                // Number of questions
+                int numberOfQuestions = Integer.parseInt(numberOfQuestionsField.getText().trim());
+                if (numberOfQuestions < 1 || numberOfQuestions > 200) return false;
+
+                // Time limit
+                int timeLimit = Integer.parseInt(timeLimitField.getText().trim());
+                if (timeLimit < 1 || timeLimit > 1440) return false;
+
+                // PeriodId
+                Map<String, Object> selectedPeriod = (Map<String, Object>) periodComboBox.getSelectedItem();
+                int periodId = 0;
+                if (selectedPeriod != null) {
+                    Object idObj = selectedPeriod.get("Id");
+                    if (idObj != null) {
+                        periodId = Integer.parseInt(idObj.toString());
+                    }
+                }
+                if (periodId == 0) return false;
+
+                // Dates
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                String publishDateStr = sdf.format(publishDate);
+                String expireDateStr = sdf.format(expireDate);
+                String createDateStr = sdf.format(new Date());
+
+                // === Gửi API ===
                 Map<String, Object> params = new HashMap<>();
                 params.put("action", "insert");
                 params.put("table", "exams");
-                
+
                 Map<String, Object> data = new HashMap<>();
                 data.put("ClassId", classId);
                 data.put("Name", examName);
@@ -477,46 +573,46 @@ public class CreateExamWindow extends JFrame {
                 data.put("PublishDate", publishDateStr);
                 data.put("ExpireDate", expireDateStr);
                 data.put("TeacherId", teacherId);
-                
+                data.put("PeriodId", periodId);
+                data.put("TimeLimit", timeLimit);
+
                 params.put("data", data);
-                
-                // Call API
-                try {
-                    apiService.postApiGetList("/autoUpdate", params);
-                    return true;
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    return false;
-                }
+
+                apiService.postApiGetList("/autoUpdate", params);
+                return true;
+            } catch (Exception e) {
+                e.printStackTrace();
+                return false;
             }
-            
-            @Override
-            protected void done() {
-                try {
-                    boolean success = get();
-                    if (success) {
-                        JOptionPane.showMessageDialog(CreateExamWindow.this,
-                            "Tạo bài kiểm tra thành công!",
-                            "Thành công",
-                            JOptionPane.INFORMATION_MESSAGE);
-                        dispose();
-                    } else {
-                        JOptionPane.showMessageDialog(CreateExamWindow.this,
-                            "Có lỗi xảy ra khi tạo bài kiểm tra!",
-                            "Lỗi",
-                            JOptionPane.ERROR_MESSAGE);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+        }
+
+        @Override
+        protected void done() {
+            try {
+                boolean success = get();
+                if (success) {
                     JOptionPane.showMessageDialog(CreateExamWindow.this,
-                        "Có lỗi xảy ra: " + e.getMessage(),
+                        "Tạo bài kiểm tra thành công!",
+                        "Thành công",
+                        JOptionPane.INFORMATION_MESSAGE);
+                    dispose();
+                } else {
+                    JOptionPane.showMessageDialog(CreateExamWindow.this,
+                        "Có lỗi xảy ra khi tạo bài kiểm tra!",
                         "Lỗi",
                         JOptionPane.ERROR_MESSAGE);
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(CreateExamWindow.this,
+                    "Lỗi: " + e.getMessage(),
+                    "Lỗi",
+                    JOptionPane.ERROR_MESSAGE);
             }
-        };
-        worker.execute();
-    }
+        }
+    };
+    worker.execute();
+}
     // Custom DateTime Picker Panel
     private static class DateTimePickerPanel extends JPanel {
         private JComboBox<Integer> dayCombo;
