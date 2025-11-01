@@ -869,7 +869,7 @@ public class QuizCreatorAppSwing extends JFrame {
                         qr.put("PublishDate", getPublishDateTimeString());
                         qr.put("ExpireDate", getEndPublishDateTimeString());
                         qr.put("TeacherId", teacherId);
-                        if (examId != null) qr.put("ExamId", examId);
+                        // NOTE: do NOT include ExamId here — questions table in DB does not have ExamId column.
                         questionRows.add(qr);
                     }
 
@@ -898,6 +898,27 @@ public class QuizCreatorAppSwing extends JFrame {
 
                         System.out.println("DEBUG: parsed questionIds count = " + questionIds.size());
 
+                        // --- NEW: create exam_questions mapping (ExamId <-> QuestionId) if we have both examId and questionIds
+                        if (examId != null && !questionIds.isEmpty()) {
+                            List<Map<String,Object>> examQuestionRows = new ArrayList<>();
+                            for (Integer qid : questionIds) {
+                                Map<String,Object> mq = new HashMap<>();
+                                mq.put("ExamId", examId);
+                                mq.put("QuestionId", qid);
+                                examQuestionRows.add(mq);
+                            }
+                            Map<String,Object> opExamQuestions = new HashMap<>();
+                            opExamQuestions.put("table", "exam_questions");
+                            opExamQuestions.put("rows", examQuestionRows);
+                            System.out.println("DEBUG: will insert exam_questions mapping (rows=" + examQuestionRows.size() + ")");
+                            List<Map<String,Object>> resExamQ = callMultiInsert(List.of(opExamQuestions));
+                            System.out.println("DEBUG: resExamQ = " + resExamQ);
+                        } else {
+                            if (examId != null && questionIds.isEmpty()) {
+                                System.err.println("WARN: questions inserted but no questionIds returned from API; answers mapping will be attempted without QuestionId.");
+                            }
+                        }
+
                         // 3) insert answers, map answers to created question ids if available
                         List<Map<String,Object>> answerRows = new ArrayList<>();
                         int qIndex = 0;
@@ -906,7 +927,6 @@ public class QuizCreatorAppSwing extends JFrame {
                             for (int ai = 0; ai < q.getAnswers().size(); ai++) {
                                 Map<String,Object> ar = new HashMap<>();
                                 if (qId != null) ar.put("QuestionId", qId);
-                                // if QuestionId not available, we'll rely on server-side mapping or require client to set later
                                 ar.put("Answer", q.getAnswers().get(ai));
                                 ar.put("IsCorrect", (ai == q.getCorrectAnswer()) ? 1 : 0);
                                 answerRows.add(ar);
