@@ -34,6 +34,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
+import javax.swing.JComboBox;
+
 
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
@@ -98,6 +100,7 @@ public class QuizCreatorAppSwing extends JFrame {
     private JLabel questionCountLabel;
     private JButton addQuestionBtn;
     private JButton saveExamBtn;
+    private JComboBox<Map<String, Object>> periodComboBox;
     // thêm spinner chọn ngày giờ publish
     private javax.swing.JSpinner publishDateSpinner;
     // thêm spinner cho ngày giờ kết thúc
@@ -381,6 +384,22 @@ public class QuizCreatorAppSwing extends JFrame {
         panel.add(Box.createVerticalStrut(6));
         panel.add(quickPanel);
         panel.add(Box.createVerticalStrut(10));
+
+        // --- NEW: Period Selection ---
+panel.add(Box.createVerticalStrut(10));
+JLabel periodLabel = new JLabel("Kỳ thi (Period):");
+periodLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+panel.add(periodLabel);
+
+periodComboBox = new JComboBox<>();
+periodComboBox.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+periodComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 30));
+periodComboBox.setRenderer(new PeriodComboBoxRenderer());
+panel.add(periodComboBox);
+panel.add(Box.createVerticalStrut(8));
+
+// Tải dữ liệu kỳ thi
+loadExamPeriods();
         // --- END new UI ---
 
         return panel;
@@ -556,71 +575,112 @@ public class QuizCreatorAppSwing extends JFrame {
         questionsContainer.repaint();
     }
 
-    private void saveExam() {
-        if (examCodeField.getText().trim().isEmpty() ||
-                descriptionArea.getText().trim().isEmpty() ||
-                gradeComboBox.getSelectedItem() == null) {
-            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin đề thi!", "Lỗi",
-                    JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-        for (Question q : questions) {
-            if (q.getQuestionText().trim().isEmpty()) {
-                JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ nội dung câu hỏi!", "Lỗi",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            if (q.getAnswers() == null || q.getAnswers().size() < 4) {
-                JOptionPane.showMessageDialog(this, "Mỗi câu hỏi phải có đủ 4 đáp án!", "Lỗi",
-                        JOptionPane.WARNING_MESSAGE);
-                return;
-            }
-            for (String a : q.getAnswers()) {
-                if (a == null || a.trim().isEmpty()) {
-                    JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ các đáp án!", "Lỗi",
-                            JOptionPane.WARNING_MESSAGE);
-                    return;
+    private void loadExamPeriods() {
+    SwingWorker<Void, Void> worker = new SwingWorker<>() {
+        @Override
+        protected Void doInBackground() {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", List.of("exam_period"));
+            params.put("columns", List.of("Id", "Name", "Description"));
+
+            List<Map<String, Object>> periods = apiService.postApiGetList("/autoGet", params);
+
+            SwingUtilities.invokeLater(() -> {
+                periodComboBox.removeAllItems();
+                if (periods != null && !periods.isEmpty()) {
+                    for (Map<String, Object> period : periods) {
+                        periodComboBox.addItem(period);
+                    }
+                } else {
+                    periodComboBox.addItem(createEmptyPeriodItem());
                 }
-            }
+                periodComboBox.setSelectedIndex(0);
+            });
+            return null;
         }
+    };
+    worker.execute();
+}
 
-        java.util.Date start = (java.util.Date) publishDateSpinner.getValue();
-        java.util.Date end = (java.util.Date) endDateSpinner.getValue();
-        if (end.before(start)) {
-            JOptionPane.showMessageDialog(this, "Thời gian kết thúc phải lớn hơn thời gian bắt đầu!", "Lỗi",
-                    JOptionPane.WARNING_MESSAGE);
+private Map<String, Object> createEmptyPeriodItem() {
+    Map<String, Object> empty = new HashMap<>();
+    empty.put("Id", 0);
+    empty.put("Name", "-- Chọn kỳ thi --");
+    empty.put("Description", "");
+    return empty;
+}
+
+    private void saveExam() {
+    // === VALIDATION ===
+    if (examCodeField.getText().trim().isEmpty() ||
+            descriptionArea.getText().trim().isEmpty() ||
+            gradeComboBox.getSelectedItem() == null) {
+        JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ thông tin đề thi!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+
+    // Validate Period
+    Map<String, Object> selectedPeriod = (Map<String, Object>) periodComboBox.getSelectedItem();
+    int periodId = 0;
+    if (selectedPeriod != null) {
+        Object idObj = selectedPeriod.get("Id");
+        if (idObj != null) {
+            periodId = Integer.parseInt(idObj.toString());
+        }
+    }
+    if (periodId == 0) {
+        JOptionPane.showMessageDialog(this, "Vui lòng chọn kỳ thi!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+
+    for (Question q : questions) {
+        if (q.getQuestionText().trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ nội dung câu hỏi!", "Lỗi", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
-        // ready to insert: resolve teacherId and classId, then call insert flow
-        ClassItem selectedClass = null;
-        try { selectedClass = (ClassItem) gradeComboBox.getSelectedItem(); } catch (Exception ignored) {}
-        String className = selectedClass == null ? String.valueOf(gradeComboBox.getSelectedItem()) : selectedClass.getName();
-        System.out.println("Saving exam:");
-        System.out.println("Code: " + examCodeField.getText());
-        System.out.println("Grade: " + className);
-        System.out.println("Description: " + descriptionArea.getText());
-        System.out.println("Questions count: " + questions.size());
-        System.out.println("Publish start: " + getPublishDateTimeString());
-        System.out.println("Publish end: " + getEndPublishDateTimeString());
-
-        // resolve teacher id from authService
-        Integer teacherId = getTeacherIdFromAuth();
-        System.out.println("DEBUG: resolved teacherId = " + teacherId);
-
-        // use id from combo if available
-        Integer classId = selectedClass == null ? resolveClassIdByName(className, teacherId) : selectedClass.getId();
-        System.out.println("DEBUG: resolved classId = " + classId + " for className=" + className);
-
-        // if unresolved, warn and stop
-        if (classId == null) {
-            int ok = JOptionPane.showConfirmDialog(this, "Không tìm thấy lớp '" + className + "' trên server. Tiếp tục lưu không kèm ClassId?", "Xác nhận", JOptionPane.YES_NO_OPTION);
-            if (ok != JOptionPane.YES_OPTION) return;
+        if (q.getAnswers() == null || q.getAnswers().size() < 4) {
+            JOptionPane.showMessageDialog(this, "Mỗi câu hỏi phải có đủ 4 đáp án!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+            return;
         }
-
-        // call insert flow
-        insertExamWithQuestionsAndAnswers(teacherId == null ? 0L : teacherId.longValue(), classId == null ? -1 : classId, examCodeField.getText());
+        for (String a : q.getAnswers()) {
+            if (a == null || a.trim().isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Vui lòng điền đầy đủ các đáp án!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+        }
     }
+
+    java.util.Date start = (java.util.Date) publishDateSpinner.getValue();
+    java.util.Date end = (java.util.Date) endDateSpinner.getValue();
+    if (end.before(start)) {
+        JOptionPane.showMessageDialog(this, "Thời gian kết thúc phải lớn hơn thời gian bắt đầu!", "Lỗi", JOptionPane.WARNING_MESSAGE);
+        return;
+    }
+
+    // === RESOLVE IDs ===
+    ClassItem selectedClass = null;
+    try { selectedClass = (ClassItem) gradeComboBox.getSelectedItem(); } catch (Exception ignored) {}
+    String className = selectedClass == null ? String.valueOf(gradeComboBox.getSelectedItem()) : selectedClass.getName();
+
+    Integer teacherId = getTeacherIdFromAuth();
+    Integer classId = selectedClass == null ? resolveClassIdByName(className, teacherId) : selectedClass.getId();
+
+    if (classId == null) {
+        int ok = JOptionPane.showConfirmDialog(this, "Không tìm thấy lớp '" + className + "'. Tiếp tục lưu không kèm ClassId?", "Xác nhận", JOptionPane.YES_NO_OPTION);
+        if (ok != JOptionPane.YES_OPTION) return;
+    }
+
+    // === GỌI LƯU ===
+    final int finalPeriodId = periodId; // final để dùng trong worker
+    insertExamWithQuestionsAndAnswers(
+        teacherId == null ? 0L : teacherId.longValue(),
+        classId == null ? -1 : classId,
+        examCodeField.getText(),
+        finalPeriodId  // ← Thêm PeriodId
+    );
+}
 
     // Try resolve teacher id from authService -> account->teacher
     private Integer getTeacherIdFromAuth() {
@@ -820,7 +880,7 @@ public class QuizCreatorAppSwing extends JFrame {
     }
 
     // Orchestrator: insert exam -> insert questions -> insert answers (uses callMultiInsert)
-    private void insertExamWithQuestionsAndAnswers(long teacherId, int classId, String examName) {
+    private void insertExamWithQuestionsAndAnswers(long teacherId, int classId, String examName, int periodId) {
         SwingWorker<Void, Void> worker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
@@ -834,6 +894,7 @@ public class QuizCreatorAppSwing extends JFrame {
                     examRow.put("PublishDate", getPublishDateTimeString());
                     examRow.put("ExpireDate", getEndPublishDateTimeString());
                     examRow.put("TeacherId", teacherId);
+                    examRow.put("PeriodId", periodId);
 
                     Map<String,Object> opExam = new HashMap<>();
                     opExam.put("table", "exams");
@@ -866,6 +927,7 @@ public class QuizCreatorAppSwing extends JFrame {
                         qr.put("TestNumber", q.getQuestionNumber());
                         if (classId > 0) qr.put("ClassId", classId);
                         qr.put("Question", q.getQuestionText());
+                        qr.put("PeriodId", periodId);
                         qr.put("PublishDate", getPublishDateTimeString());
                         qr.put("ExpireDate", getEndPublishDateTimeString());
                         qr.put("TeacherId", teacherId);
@@ -1004,4 +1066,22 @@ public class QuizCreatorAppSwing extends JFrame {
         public String getName() { return name; }
         @Override public String toString() { return name == null ? "" : name; } // displayed in JComboBox
     }
+    private static class PeriodComboBoxRenderer extends javax.swing.DefaultListCellRenderer {
+    @Override
+    public Component getListCellRendererComponent(javax.swing.JList<?> list, Object value,
+                                                  int index, boolean isSelected, boolean cellHasFocus) {
+        super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+        if (value instanceof Map) {
+            Map<String, Object> period = (Map<String, Object>) value;
+            String name = (String) period.get("Name");
+            String desc = (String) period.get("Description");
+            if (desc != null && !desc.isEmpty()) {
+                setText(name + " - " + desc);
+            } else {
+                setText(name);
+            }
+        }
+        return this;
+    }
+}
 }

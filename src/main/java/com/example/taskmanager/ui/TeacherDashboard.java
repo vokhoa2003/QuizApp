@@ -45,7 +45,7 @@ public class TeacherDashboard extends JFrame {
     private ApiService apiService;
     private AuthService authService;
     private Task currentTeacher;
-    private TeacherService teacherService; // new
+    private TeacherService teacherService; 
     private MainWindow mainWindow;  // Thêm reference đến MainWindow
     private Teacher currentTeacherModel;
     
@@ -83,7 +83,20 @@ public class TeacherDashboard extends JFrame {
         setLocationRelativeTo(null);
         
         initUI();
+        int teacherId = currentTeacher != null && currentTeacher.getId() != null 
+    ? currentTeacher.getId().intValue() : 0;
+
+if (teacherId > 0) {
+    // LOAD TÊN TRƯỚC
+    loadTeacherModel(teacherId, () -> {
+        // SAU KHI CÓ TÊN → MỚI LOAD BẢNG
         loadTeacherClasses();
+    });
+
+} else {
+    updateTeacherNameInUI("Giáo viên");
+    loadTeacherClasses();
+}
         
         setVisible(true);
     }
@@ -112,14 +125,7 @@ public class TeacherDashboard extends JFrame {
         mainPanel.add(contentPanel, BorderLayout.CENTER);
         
         add(mainPanel);
-        // SAU KHI TẠO UI → BẮT ĐẦU LOAD TÊN
-    int teacherId = currentTeacher != null && currentTeacher.getId() != null 
-        ? currentTeacher.getId().intValue() : 0;
-    if (teacherId > 0) {
-        loadTeacherModel(teacherId);
-    } else {
-        updateTeacherNameInUI("Giáo viên");
-    }
+        
     }
     
     private JPanel createHeaderPanel() {
@@ -156,7 +162,7 @@ public class TeacherDashboard extends JFrame {
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         rightPanel.setOpaque(false);
         
-        teacherNameLabel = new JLabel("👤 ");
+        teacherNameLabel = new JLabel("👤");
         teacherNameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         teacherNameLabel.setForeground(Color.WHITE);
         rightPanel.add(teacherNameLabel);
@@ -374,7 +380,7 @@ public class TeacherDashboard extends JFrame {
                                 p.put("action", "get");
                                 p.put("method", "SELECT");
                                 p.put("table", List.of("account", "teacher"));
-                                p.put("columns", List.of("teacher.Id as TeacherId"));
+                                p.put("columns", List.of("teacher.Id as TeacherId", "teacher.Name"));
                                 Map<String, Object> where = new HashMap<>();
                                 where.put("account.email", email);
                                 p.put("where", where);
@@ -388,6 +394,7 @@ public class TeacherDashboard extends JFrame {
                                 List<Map<String, Object>> list = normalizeApiList(resp);
                                 if (list != null && !list.isEmpty()) {
                                     Object tid = firstNonNull(list.get(0), "TeacherId", "teacher.Id", "Id");
+                                    Object tname = firstNonNull(list.get(0), "Name", "teacher.Name");
                                     if (tid instanceof Number) teacherId = ((Number) tid).intValue();
                                     else if (tid != null) {
                                         try { teacherId = Integer.parseInt(tid.toString()); } catch (Exception ignored) {}
@@ -413,13 +420,19 @@ public class TeacherDashboard extends JFrame {
     Object className = c.getOrDefault("ClassName", c.get("Name"));
     Object studentCount = c.getOrDefault("StudentCount", 0);
 
-    rows.add(new Object[]{
-        currentTeacher != null ? currentTeacher.getFullName() : "Giáo viên",
-        String.valueOf(className),
-        String.valueOf(studentCount),
-        classId  // ← TRUYỀN classId QUA CỘT ẨN
-        
-    });
+    String nameDisplay = "Giáo viên";
+if (currentTeacherModel != null && currentTeacherModel.getName() != null) {
+    nameDisplay = currentTeacherModel.getName().trim();
+} else if (currentTeacher != null && currentTeacher.getFullName() != null) {
+    nameDisplay = currentTeacher.getFullName().trim();
+}
+
+rows.add(new Object[]{
+    nameDisplay,
+    className != null ? className.toString() : "Chưa rõ",
+    studentCount != null ? studentCount.toString() : "0",
+    classId
+});
     System.out.println("DEBUG: ClassId = " + classId + " | ClassName = " + className);
 }
                 } catch (Exception ex) {
@@ -489,7 +502,7 @@ private int resolveTeacherIdFromTask() {
     return currentTeacher.getId().intValue();
 }
 
-private void loadTeacherModel(int teacherId) {
+private void loadTeacherModel(int teacherId, Runnable onComplete) {
     SwingWorker<Teacher, Void> worker = new SwingWorker<>() {
         @Override
         protected Teacher doInBackground() {
@@ -500,17 +513,42 @@ private void loadTeacherModel(int teacherId) {
         protected void done() {
             try {
                 Teacher teacher = get();
-                String name = (teacher != null && teacher.getName() != null && !teacher.getName().trim().isEmpty())
-                    ? teacher.getName()
-                    : "Giáo viên";
+                currentTeacherModel = teacher;
+
+                String name = null;
+                if (teacher != null && teacher.getName() != null && !teacher.getName().trim().isEmpty()) {
+                    name = teacher.getName().trim();
+                } else if (currentTeacher != null && currentTeacher.getFullName() != null && !currentTeacher.getFullName().trim().isEmpty()) {
+                    name = currentTeacher.getFullName().trim();
+                } else {
+                    name = "Giáo viên";
+                }
+
+                // Cập nhật header + welcome
                 updateTeacherNameInUI(name);
+                System.out.println("DEBUG: Teacher Name loaded = " + name);
+
             } catch (Exception e) {
-                updateTeacherNameInUI("Giáo viên");
+                e.printStackTrace();
+                currentTeacherModel = null;
+
+                String fallbackName = (currentTeacher != null && currentTeacher.getFullName() != null)
+                        ? currentTeacher.getFullName()
+                        : "Giáo viên";
+                updateTeacherNameInUI(fallbackName);
+            } finally {
+                if (onComplete != null) onComplete.run();
             }
         }
     };
     worker.execute();
 }
+
+
+// HÀM CŨ (CHO CÁC NƠI KHÁC DÙNG)
+// private void loadTeacherModel(int teacherId) {
+//     loadTeacherModel(teacherId, null);
+// }
 
 private void updateTeacherNameInUI(String name) {
     if (teacherNameLabel != null) {
@@ -562,16 +600,33 @@ private void updateTeacherNameInUI(String name) {
         return Collections.emptyList();
     }
 
-    private Object firstNonNull(Map<String, Object> row, String... keys) {
-        if (row == null) return null;
-        for (String k : keys) {
-            if (k == null) continue;
-            Object v = row.get(k);
-            if (v == null) v = row.get(k.toLowerCase());
-            if (v != null) return v;
+    // private Object firstNonNull(Map<String, Object> row, String... keys) {
+    //     if (row == null) return null;
+    //     for (String k : keys) {
+    //         if (k == null) continue;
+    //         Object v = row.get(k);
+    //         if (v == null) v = row.get(k.toLowerCase());
+    //         if (v != null) return v;
+    //     }
+    //     return null;
+    // }
+    private Object firstNonNull(Map<String,Object> m, String... keys) {
+    if (m == null) return null;
+    for (String k : keys) {
+        if (k == null) continue;
+        // Thử exact match trước
+        Object v = m.get(k);
+        if (v != null) return v;
+        
+        // Thử case-insensitive
+        for (Map.Entry<String, Object> entry : m.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(k)) {
+                return entry.getValue();
+            }
         }
-        return null;
     }
+    return null;
+}
     
     // Button Renderer for table
     class ButtonRenderer extends JButton implements javax.swing.table.TableCellRenderer {

@@ -57,7 +57,7 @@ public class TeacherService {
         Map<String, Object> p = new HashMap<>();
         p.put("action", "get"); p.put("method", "SELECT");
         p.put("table", List.of("teacher", "classes"));
-        p.put("columns", List.of("teacher.ClassId", "classes.Name as ClassName"));
+        p.put("columns", List.of("teacher.ClassId", "teacher.Name","classes.Name as ClassName"));
         p.put("join", List.of(Map.of("type", "left", "on", List.of("teacher.ClassId = classes.Id"))));
         p.put("where", Map.of("teacher.Id", teacherId));
 
@@ -195,7 +195,11 @@ public class TeacherService {
     }
 
     public Teacher getTeacherById(int teacherId) {
-    if (teacherId <= 0) return null;
+    System.out.println("getTeacherById(" + teacherId + ") STARTED");
+    if (teacherId <= 0) {
+        System.out.println("getTeacherById: teacherId <= 0 → return null");
+        return null;
+    }
 
     Map<String, Object> p = new HashMap<>();
     p.put("action", "get");
@@ -206,22 +210,30 @@ public class TeacherService {
 
     try {
         Object resp = apiService.postApiGetList("/autoGet", p);
+        System.out.println("DEBUG RAW RESPONSE: " + resp);
+
         List<Map<String, Object>> rows = normalize(resp);
         if (rows != null && !rows.isEmpty()) {
             Map<String, Object> d = rows.get(0);
             Teacher t = new Teacher();
-            t.setId(toLong(d.get("id")));
-            t.setName((String) firstNonNull(d, "name", "Name")); // ← AN TOÀN VỚI CASE
-            t.setClassId(toLong(d.get("classId")));
-            System.out.println("DEBUG: Teacher Name loaded = " + t.getName());
+            t.setId(toLong(firstNonNull(d, "Id", "id")));
+            String name = String.valueOf(firstNonNull(d, "Name", "name", "FullName"));
+            t.setName(name != null && !name.trim().isEmpty() ? name.trim() : "Giáo viên");
+            t.setClassId(toLong(firstNonNull(d, "ClassId")));
+            
+            System.out.println("getTeacherById() SUCCESS → Name = " + t.getName());
             return t;
+        } else {
+            System.out.println("getTeacherById() → No data in response");
         }
     } catch (Exception e) {
-        System.err.println("ERROR: getTeacherById: " + e.getMessage());
+        System.err.println("ERROR in getTeacherById(): " + e.getMessage());
         e.printStackTrace();
     }
+    System.out.println("getTeacherById() → return null");
     return null;
 }
+
 
 // Helper methods
 private Long toLong(Object obj) {
@@ -238,13 +250,20 @@ private LocalDateTime toLocalDateTime(Object obj) {
 }
 
     private Object firstNonNull(Map<String,Object> m, String... keys) {
-        if (m == null) return null;
-        for (String k : keys) {
-            if (k == null) continue;
-            Object v = m.get(k);
-            if (v == null) v = m.get(k.toLowerCase());
-            if (v != null) return v;
+    if (m == null) return null;
+    for (String k : keys) {
+        if (k == null) continue;
+        // Thử exact match trước
+        Object v = m.get(k);
+        if (v != null) return v;
+        
+        // Thử case-insensitive
+        for (Map.Entry<String, Object> entry : m.entrySet()) {
+            if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(k)) {
+                return entry.getValue();
+            }
         }
-        return null;
     }
+    return null;
+}
 }
