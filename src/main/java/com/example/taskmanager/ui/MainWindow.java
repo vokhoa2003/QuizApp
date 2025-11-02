@@ -574,7 +574,7 @@ public class MainWindow extends JFrame {
     }
     public void showTeacherDashboard() {
     if (teacherDashboard == null) {
-        teacherDashboard = new TeacherDashboard(apiService, authService, currentTeacher, this);
+        teacherDashboard = new TeacherDashboard(apiService, authService, null, this);
         contentPanel.add(teacherDashboard, "TeacherDashboard"); // ← THÊM VÀO contentPanel
     } else {
         teacherDashboard.refreshTeacherClasses(); // TẢI LẠI DỮ LIỆU
