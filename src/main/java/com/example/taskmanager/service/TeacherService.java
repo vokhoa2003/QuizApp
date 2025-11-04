@@ -175,24 +175,36 @@ public class TeacherService {
     }
 
     @SuppressWarnings("unchecked")
-    private List<Map<String,Object>> normalize(Object resp) {
-        if (resp == null) return Collections.emptyList();
-        if (resp instanceof List) return (List<Map<String,Object>>) resp;
-        if (resp instanceof Map) {
-            Object d = ((Map) resp).get("data");
-            if (d instanceof List) return (List<Map<String,Object>>) d;
-            List<Map<String,Object>> list = new ArrayList<>();
-            for (Object k : ((Map)resp).keySet()) {
-                String ks = k == null ? "" : k.toString();
-                if (ks.matches("\\d+")) {
-                    Object val = ((Map)resp).get(k);
-                    if (val instanceof Map) list.add((Map<String,Object>) val);
-                }
-            }
-            if (!list.isEmpty()) return list;
-        }
+private List<Map<String,Object>> normalize(Object resp) {
+    if (resp == null) {
+        System.out.println("normalize: resp is null → return emptyList");
         return Collections.emptyList();
     }
+    if (resp instanceof List) {
+        return (List<Map<String,Object>>) resp;
+    }
+    if (resp instanceof Map) {
+        Object d = ((Map<?, ?>) resp).get("data");
+        if (d instanceof List) {
+            return (List<Map<String,Object>>) d;
+        }
+        List<Map<String,Object>> list = new ArrayList<>();
+        for (Object k : ((Map<?, ?>) resp).keySet()) {
+            String ks = k == null ? "" : k.toString();
+            if (ks.matches("\\d+")) {
+                Object val = ((Map<?, ?>) resp).get(k);
+                if (val instanceof Map) {
+                    list.add((Map<String,Object>) val);
+                }
+            }
+        }
+        if (!list.isEmpty()) {
+            return list;
+        }
+    }
+    System.out.println("normalize: cannot parse resp → return emptyList | resp=" + resp);
+    return Collections.emptyList(); // ← ĐÚNG: KHÔNG BAO GIỜ null
+}
 
     public Teacher getTeacherById(int teacherId) {
     System.out.println("getTeacherById(" + teacherId + ") STARTED");

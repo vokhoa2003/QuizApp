@@ -46,6 +46,7 @@ public class ClassDetailWindow extends JFrame {
     private String teacherName;
     private int classId;
     private MainWindow mainWindow;
+    private TeacherDashboard teacherDashboard;  
     
     private JTable studentTable;
     private DefaultTableModel tableModel;
@@ -57,13 +58,14 @@ public class ClassDetailWindow extends JFrame {
 
     
     public ClassDetailWindow(ApiService apiService, AuthService authService, 
-                            String className, String teacherName, int classId, MainWindow mainWindow) {
+                            String className, String teacherName, int classId, MainWindow mainWindow, TeacherDashboard teacherDashboard) {
         this.apiService = apiService;
         this.authService = authService;
         this.className = className;
         this.teacherName = teacherName;
         this.classId = classId; 
         this.mainWindow = mainWindow;
+        this.teacherDashboard = teacherDashboard;
 
         setTitle("Chi Tiết Lớp: " + className);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -238,7 +240,8 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
         backBtn.setPreferredSize(new Dimension(110, 35));
         backBtn.addActionListener(e -> {
     dispose();
-    mainWindow.showTeacherDashboard(); // GỌI HÀM TRONG MainWindow
+    teacherDashboard.refresh();
+    //mainWindow.showTeacherDashboard(); // GỌI HÀM TRONG MainWindow
 });
         leftPanel.add(backBtn);
         

@@ -42,6 +42,8 @@ public class Teacher {
     public LocalDateTime getCreateDate() { return createDate; }
     public LocalDateTime getUpdateDate() { return updateDate; }
 
+    public void setFullName(String fullName) { this.name = fullName; }
+    @JsonProperty("status")
     // Setters
     public void setId(Long id) { this.id = id; }
     public void setIdAccount(Long idAccount) { this.idAccount = idAccount; }

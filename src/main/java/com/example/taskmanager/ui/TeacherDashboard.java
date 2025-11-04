@@ -53,16 +53,19 @@ public class TeacherDashboard extends JFrame {
     private JLabel welcomeLabel;
     private JTable classTable;
     private DefaultTableModel tableModel;
+    // Trong TeacherDashboard.java
+private SwingWorker<Teacher, Void> teacherLoadWorker = null;
     
-    public TeacherDashboard(ApiService apiService, AuthService authService, Task teacher) {
+    public TeacherDashboard(ApiService apiService, AuthService authService, Teacher teacher) {
         this(apiService, authService, teacher, null);
     }
 
     //constructor mới với MainWindow
-    public TeacherDashboard(ApiService apiService, AuthService authService, Task teacher, MainWindow mainWindow) {
+    public TeacherDashboard(ApiService apiService, AuthService authService, Teacher teacher, MainWindow mainWindow) {
         this.apiService = apiService;
         this.authService = authService;
-        this.currentTeacher = teacher;
+        //this.currentTeacher = teacher;
+        this.currentTeacherModel = teacher;
         this.teacherService = new TeacherService(apiService); // init service
         this.mainWindow = mainWindow;
 
@@ -83,22 +86,26 @@ public class TeacherDashboard extends JFrame {
         setLocationRelativeTo(null);
         
         initUI();
-        int teacherId = currentTeacher != null && currentTeacher.getId() != null 
-    ? currentTeacher.getId().intValue() : 0;
+        // Resolve teacher id from the Task (and fallbacks) then load model and classes.
+    //     int teacherId = resolveTeacherIdFromTeacher();
 
-if (teacherId > 0) {
-    // LOAD TÊN TRƯỚC
-    loadTeacherModel(teacherId, () -> {
-        // SAU KHI CÓ TÊN → MỚI LOAD BẢNG
-        loadTeacherClasses();
-    });
-
-} else {
-    updateTeacherNameInUI("Giáo viên");
-    loadTeacherClasses();
-}
-        
-        setVisible(true);
+    // if (teacherId > 0) {
+    //     loadTeacherModel(teacherId, () -> {
+    //         SwingUtilities.invokeLater(() -> {
+    //             String name = currentTeacherModel != null && currentTeacherModel.getName() != null
+    //                 ? currentTeacherModel.getName().trim()
+    //                 : "Giáo viên";
+    //             updateTeacherNameInUI(name); // ← DÙNG name ĐÃ XỬ LÝ
+    //             loadTeacherClasses();
+    //         });
+    //     });
+    // } else {
+    //     updateTeacherNameInUI("Giáo viên");
+    //     loadTeacherClasses();
+    // }
+    refresh();
+         
+         setVisible(true);
     }
     
     private void initUI() {
@@ -206,7 +213,7 @@ if (teacherId > 0) {
         createExamBtn.addActionListener(e -> openQuizCreator());
         
         JButton refreshBtn = createSecondaryButton("🔄 Làm Mới");
-        refreshBtn.addActionListener(e -> loadTeacherClasses());
+        refreshBtn.addActionListener(e -> refresh());
         
         actionPanel.add(createExamBtn);
         actionPanel.add(refreshBtn);
@@ -352,10 +359,10 @@ if (teacherId > 0) {
                 List<Object[]> rows = new ArrayList<>();
                 try {
                     int teacherId = 0;
-                    if (currentTeacher != null) {
+                    if (currentTeacherModel != null) {
                         Long idLong = null;
                         try {
-                            idLong = currentTeacher.getId();
+                            idLong = currentTeacherModel.getId();
                         } catch (Throwable t) {
                             // ignore
                         }
@@ -420,12 +427,14 @@ if (teacherId > 0) {
     Object className = c.getOrDefault("ClassName", c.get("Name"));
     Object studentCount = c.getOrDefault("StudentCount", 0);
 
-    String nameDisplay = "Giáo viên";
-if (currentTeacherModel != null && currentTeacherModel.getName() != null) {
-    nameDisplay = currentTeacherModel.getName().trim();
-} else if (currentTeacher != null && currentTeacher.getFullName() != null) {
-    nameDisplay = currentTeacher.getFullName().trim();
-}
+    String nameDisplay = currentTeacherModel != null && currentTeacherModel.getName() != null
+    ? currentTeacherModel.getName().trim()
+    : "Giáo viên";
+
+// XÓA HOÀN TOÀN:
+// } else if (currentTeacher != null && currentTeacher.getFullName() != null) {
+//     nameDisplay = currentTeacher.getFullName().trim();
+// }
 
 rows.add(new Object[]{
     nameDisplay,
@@ -488,7 +497,7 @@ rows.add(new Object[]{
         return;
     }
 
-    new ClassDetailWindow(apiService, authService, className, teacherName, classId, this.mainWindow);
+    new ClassDetailWindow(apiService, authService, className, teacherName, classId, this.mainWindow, this);
 }
 
 public void refreshTeacherClasses() {
@@ -496,54 +505,78 @@ public void refreshTeacherClasses() {
     // GỌI LẠI HÀM loadTeacherClasses() HIỆN TẠI
     loadTeacherClasses();
 }
+
+private boolean teacherModelLoaded = false; // ĐÁNH DẤU ĐÃ LOAD TÊN
+
+public void refresh() {
+    int teacherId = resolveTeacherIdFromTeacher();
     
-private int resolveTeacherIdFromTask() {
-    if (currentTeacher == null || currentTeacher.getId() == null) return 0;
-    return currentTeacher.getId().intValue();
+    if (teacherId > 0) {
+        loadTeacherModel(teacherId, () -> {
+            SwingUtilities.invokeLater(() -> {
+                // CHỈ CẬP NHẬT TÊN SAU KHI API XONG
+                String name = (currentTeacherModel != null && 
+                              currentTeacherModel.getName() != null && 
+                              !currentTeacherModel.getName().trim().isEmpty())
+                    ? currentTeacherModel.getName().trim()
+                    : "Giáo viên";
+
+                updateTeacherNameInUI(name);  // CHỈ GỌI 1 LẦN
+                loadTeacherClasses();         // SAU KHI TÊN ĐÃ CẬP NHẬT
+            });
+        });
+    } else {
+        // KHÔNG GỌI updateTeacherNameInUI ở đây → tránh ghi đè
+        SwingUtilities.invokeLater(this::loadTeacherClasses);
+    }
+}
+    
+private int resolveTeacherIdFromTeacher() {
+    if (currentTeacherModel == null || currentTeacherModel.getIdAccount() == null) {
+        return 0;
+    }
+    // TRONG TRƯỜNG HỢP CỦA BẠN: teacher.Id = IdAccount → DÙNG ĐƯỢC
+    return currentTeacherModel.getIdAccount().intValue();
 }
 
 private void loadTeacherModel(int teacherId, Runnable onComplete) {
-    SwingWorker<Teacher, Void> worker = new SwingWorker<>() {
+    // CHỈ KIỂM TRA, KHÔNG HỦY
+    if (teacherLoadWorker != null && !teacherLoadWorker.isDone()) {
+        // Đang chạy → BỎ QUA, KHÔNG TẠO MỚI
+        return;
+    }
+
+    teacherLoadWorker = new SwingWorker<>() {
         @Override
         protected Teacher doInBackground() {
+            if (isCancelled()) return null; // ← AN TOÀN
             return teacherService.getTeacherById(teacherId);
         }
 
         @Override
-        protected void done() {
-            try {
-                Teacher teacher = get();
-                currentTeacherModel = teacher;
+protected void done() {
+    try {
+        Teacher teacher = get();
+        currentTeacherModel = teacher;
 
-                String name = null;
-                if (teacher != null && teacher.getName() != null && !teacher.getName().trim().isEmpty()) {
-                    name = teacher.getName().trim();
-                } else if (currentTeacher != null && currentTeacher.getFullName() != null && !currentTeacher.getFullName().trim().isEmpty()) {
-                    name = currentTeacher.getFullName().trim();
-                } else {
-                    name = "Giáo viên";
-                }
+        SwingUtilities.invokeLater(() -> {
+            String name = (teacher != null && teacher.getName() != null && !teacher.getName().trim().isEmpty())
+                ? teacher.getName().trim()
+                : "Giáo viên";
+            updateTeacherNameInUI(name);
+            System.out.println("DEBUG: Teacher Name loaded = " + name);
+        });
 
-                // Cập nhật header + welcome
-                updateTeacherNameInUI(name);
-                System.out.println("DEBUG: Teacher Name loaded = " + name);
-
-            } catch (Exception e) {
-                e.printStackTrace();
-                currentTeacherModel = null;
-
-                String fallbackName = (currentTeacher != null && currentTeacher.getFullName() != null)
-                        ? currentTeacher.getFullName()
-                        : "Giáo viên";
-                updateTeacherNameInUI(fallbackName);
-            } finally {
-                if (onComplete != null) onComplete.run();
-            }
-        }
-    };
-    worker.execute();
+    } catch (Exception e) {
+        e.printStackTrace();
+        SwingUtilities.invokeLater(() -> updateTeacherNameInUI("Giáo viên"));
+    } finally {
+        if (onComplete != null) onComplete.run();
+    }
 }
-
+    };
+    teacherLoadWorker.execute();
+}
 
 // HÀM CŨ (CHO CÁC NƠI KHÁC DÙNG)
 // private void loadTeacherModel(int teacherId) {
@@ -551,12 +584,16 @@ private void loadTeacherModel(int teacherId, Runnable onComplete) {
 // }
 
 private void updateTeacherNameInUI(String name) {
+    String displayName = name != null && !name.trim().isEmpty() ? name.trim() : "Giáo viên";
+    
     if (teacherNameLabel != null) {
-        teacherNameLabel.setText("Người dùng " + name);
+        teacherNameLabel.setText(" " + displayName);
     }
     if (welcomeLabel != null) {
-        welcomeLabel.setText("Xin chào, " + name + "!");
+        welcomeLabel.setText("Xin chào, " + displayName + "!");
     }
+    
+    System.out.println("UI UPDATED: " + displayName);
 }
     private void logout() {
         int confirm = JOptionPane.showConfirmDialog(this,
@@ -711,7 +748,7 @@ private void updateTeacherNameInUI(String name) {
         
         SwingUtilities.invokeLater(() -> {
             // Mock teacher data
-            Task teacher = new Task();
+            Teacher teacher = new Teacher();
             teacher.setFullName("Nguyễn Văn A");
             
             new TeacherDashboard(null, null, teacher, null);

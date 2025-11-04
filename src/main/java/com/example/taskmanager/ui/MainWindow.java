@@ -40,6 +40,7 @@ import javax.swing.plaf.basic.BasicButtonUI;
 
 import com.example.taskmanager.auth.GoogleLoginHelper;
 import com.example.taskmanager.model.Task;
+import com.example.taskmanager.model.Teacher;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -67,6 +68,7 @@ public class MainWindow extends JFrame {
     private QuizAppSwing quizAppSwing;
     private TeacherDashboard teacherDashboard;
     private Task currentTeacher;
+    private Teacher currentTeacherModel;
 
     
     // Layout
@@ -424,11 +426,23 @@ public class MainWindow extends JFrame {
                             else if (userRole != null && userRole.equals("teacher") && userStatus != null && userStatus.equals("Active")) {
                                 // Mở giao diện TeacherDashboard cho giáo viên
                                 // Tạo đối tượng Task từ userInfo
-                                Task teacherTask = new Task();
+                                Teacher teacherTask = new Teacher();
                                 teacherTask.setFullName(userInfo.getName());
-                                teacherTask.setEmail(userInfo.getEmail());
-                                // Đóng MainWindow
-                                // MainWindow.this.dispose();
+                                // LẤY account.id TỪ JWT → gán vào IdAccount
+    String token = authService.getAccessToken();
+    if (token != null) {
+        try {
+            String[] parts = token.split("\\.");
+            String payload = new String(java.util.Base64.getUrlDecoder().decode(parts[1]));
+            com.fasterxml.jackson.databind.JsonNode json = new com.fasterxml.jackson.databind.ObjectMapper().readTree(payload);
+            Long accountId = json.path("data").path("id").asLong(0);
+            
+            teacherTask.setIdAccount(accountId); // ĐÚNG: gán vào IdAccount
+            System.out.println("DEBUG: JWT account.id = " + accountId + " → setIdAccount()");
+        } catch (Exception e) {
+            System.err.println("ERROR: parse JWT thất bại: " + e.getMessage());
+        }
+    }
                                 MainWindow.this.setVisible(false);  // Ẩn mainWindow thay vì dispose()
                                 
                                 TeacherDashboard teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask, MainWindow.this);
@@ -573,14 +587,25 @@ public class MainWindow extends JFrame {
         // taskPanel.updateFonts(scaleFactor);
     }
     public void showTeacherDashboard() {
-    if (teacherDashboard == null) {
-        teacherDashboard = new TeacherDashboard(apiService, authService, currentTeacher, this);
-        contentPanel.add(teacherDashboard, "TeacherDashboard"); // ← THÊM VÀO contentPanel
-    } else {
-        teacherDashboard.refreshTeacherClasses(); // TẢI LẠI DỮ LIỆU
-        teacherDashboard.setVisible(true);
+    if (teacherDashboard == null || !teacherDashboard.isDisplayable()) {
+        // Tạo mới nếu chưa có hoặc đã bị dispose
+        Teacher teacherTask = new Teacher();
+        String token = authService.getAccessToken();
+        if (token != null) {
+            int accountId = authService.getUserIdFromToken(token);
+            teacherTask.setIdAccount((long) accountId);
+        }
+        teacherDashboard = new TeacherDashboard(apiService, authService, teacherTask, this);
     }
-    cardLayout.show(contentPanel, "TeacherDashboard");
+
+    // ẨN MainWindow → HIỆN TeacherDashboard
+    setVisible(false);
+    teacherDashboard.setVisible(true);
+    teacherDashboard.toFront();
+    teacherDashboard.requestFocus();
+    
+    // GỌI REFRESH CHỈ 1 LẦN
+    teacherDashboard.refresh();
 }
     // Main method for testing
     public static void main(String[] args) {
