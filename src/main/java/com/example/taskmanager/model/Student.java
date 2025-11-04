@@ -1,7 +1,8 @@
 package com.example.taskmanager.model;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Student {
     @JsonProperty("Id")
@@ -26,7 +27,6 @@ public class Student {
     public Student() {}
 
     public Student(Long idAccount, String name, Long classId) {
-        //this.id = id;
         this.idAccount = idAccount;
         this.name = name;
         this.classId = classId;
