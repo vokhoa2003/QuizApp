@@ -59,6 +59,7 @@ public class ExamDetailWindow extends JFrame {
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(1100, 750);
         setLocationRelativeTo(null);
+        System.out.println("DEBUG: Opening ExamDetailWindow for examId=" + examId + ", studentId=" + studentId);
         
         initUI();
         loadExamDetail();
