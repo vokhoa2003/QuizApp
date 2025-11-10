@@ -28,9 +28,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 import com.example.taskmanager.model.Task;
@@ -38,7 +36,6 @@ import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.example.taskmanager.service.ExamService;
 import com.example.taskmanager.service.StudentInfoService;
-import com.formdev.flatlaf.FlatLightLaf;
 
 public class StudentDashboard extends JFrame {
     private ApiService apiService;
@@ -486,6 +483,8 @@ public class StudentDashboard extends JFrame {
                         "exams.ExamName",
                         "exams.NumberQuestion",
                         "exams.Description",
+                        "exams.PeriodId",
+                        "exams.TimeLimit",
                         "exams.PublishDate",
                         "exams.ExpireDate",
                         "exams.ClassId",
@@ -567,6 +566,20 @@ public class StudentDashboard extends JFrame {
         }
 
         String studentEmail = currentStudent.getEmail();
+
+        // Resolve studentId once (fallback) để so sánh với exam_results.StudentId nếu cần
+        Integer resolvedStudentId = null;
+        try {
+            StudentInfoService sis = new StudentInfoService(apiService);
+            List<Map<String, Object>> profile = sis.fetchProfileByEmail(studentEmail);
+            if (profile != null && !profile.isEmpty()) {
+                Object sid = profile.get(0).getOrDefault("StudentId", profile.get(0).get("Id"));
+                if (sid instanceof Number) resolvedStudentId = ((Number) sid).intValue();
+                else if (sid != null) resolvedStudentId = Integer.parseInt(sid.toString());
+            }
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
         
         for (Map<String, Object> exam : exams) {
             try {
@@ -599,24 +612,27 @@ public class StudentDashboard extends JFrame {
                     
                     // Kiểm tra xem học sinh đã làm bài chưa
                     final Integer finalExamId = examId;
+                    final Integer finalResolvedStudentId = resolvedStudentId;
+                    // Robust matching: support multiple possible keys/casing, log mismatch for debug
                     boolean hasResult = results.stream().anyMatch(r -> {
-                        Object rExamId = r.get("ExamId");
-                        Object rStudentEmail = r.get("StudentEmail");
-                        
-                        boolean examMatch = false;
-                        if (rExamId instanceof Number) {
-                            examMatch = finalExamId.equals(((Number) rExamId).intValue());
-                        }
-                        
-                        boolean studentMatch = studentEmail != null && studentEmail.equals(rStudentEmail);
-                        
-                        return examMatch && studentMatch;
-                    });
+                        Integer rEid = safeGetInt(r, "ExamId", "exam_results.ExamId", "exam_id", "examid", "examId");
+                        if (rEid == null || !finalExamId.equals(rEid)) return false;
 
-                    // Xác định action: nếu đã có kết quả => "Xem Chi Tiết"
-                    // nếu chưa làm và đã quá hạn => "Hết hạn", nếu chưa làm và còn hạn => "Làm Kiểm Tra"
-                    String action = computeExamAction(publishDate, expireDate, hasResult);
-                    processedExam.put("Action", action);
+                        // try email keys (ignore case)
+                        String rEmail = safeGetString(r, "StudentEmail", "account.email", "student.email", "email");
+                        if (studentEmail != null && rEmail != null && studentEmail.equalsIgnoreCase(rEmail)) return true;
+
+                        // try student id keys
+                        Integer rSid = safeGetInt(r, "StudentId", "exam_results.StudentId", "student.Id", "studentid");
+                        if (finalResolvedStudentId != null && rSid != null && finalResolvedStudentId.equals(rSid)) return true;
+
+                        return false;
+                    });
+                    if (!hasResult) {
+                        System.out.println("DEBUG: No matching exam_results for examId=" + finalExamId + " student=" + studentEmail + ". Sample results=" + (results.isEmpty() ? "[]": results.stream().limit(5).toList()));
+                    }
+
+                    processedExam.put("Action", computeExamAction(publishDate, expireDate, hasResult));
                     processedExams.add(processedExam);
                 }
             } catch (Exception e) {
@@ -649,16 +665,62 @@ public class StudentDashboard extends JFrame {
         return (publicDate == null || now.after(parseDate(publicDate))) && (expireDate == null || now.before(parseDate(expireDate)));
     }
 
+    // private Date parseDate(String dateStr) {
+    //     try {
+    //         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    //         return sdf.parse(dateStr);
+    //     } catch (ParseException e) {
+    //         e.printStackTrace();
+    //         return null;
+    //     }
+    // }
     private Date parseDate(String dateStr) {
-        try {
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
-            return sdf.parse(dateStr);
-        } catch (ParseException e) {
-            e.printStackTrace();
-            return null;
+        if (dateStr == null) return null;
+        dateStr = dateStr.trim();
+        if (dateStr.isEmpty()) return null;
+
+        // handle pure epoch seconds or milliseconds (e.g. "1630000000" or "1630000000000")
+        if (dateStr.matches("^\\d{10}$") || dateStr.matches("^\\d{13}$")) {
+            try {
+                long v = Long.parseLong(dateStr);
+                if (dateStr.length() == 10) v *= 1000L;
+                return new Date(v);
+            } catch (NumberFormatException ignored) { /* fallback to patterns below */ }
         }
+
+        // normalize common variants
+        dateStr = dateStr.replace('T', ' ').replaceAll("Z$", "").trim();
+
+        // try multiple common patterns (includes dd/MM/yyyy HH:mm like "10/11/2025 10:46")
+        List<String> patterns = List.of(
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd HH:mm",
+            "dd/MM/yyyy HH:mm:ss",
+            "dd/MM/yyyy HH:mm",
+            "dd/MM/yyyy",
+            "yyyy/MM/dd HH:mm:ss",
+            "yyyy/MM/dd HH:mm"
+        );
+
+        for (String p : patterns) {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat(p);
+                sdf.setLenient(false);
+                return sdf.parse(dateStr);
+            } catch (ParseException ignored) {
+                // try next pattern
+            }
     }
-    
+
+    // final fallback: try parsing without strict patterns
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            return sdf.parse(dateStr);
+        } catch (ParseException ignored) {}
+
+        return null;
+    }
+
     private void displayExams(List<Map<String, Object>> exams) {
         examsPanel.removeAll();
         examsPanel.setLayout(new BoxLayout(examsPanel, BoxLayout.Y_AXIS));
@@ -957,23 +1019,6 @@ public void refreshCurrentClassExams() {
             mainWindow.showLoginPanel();
         }
     }
-    
-    public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(new FlatLightLaf());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        
-        SwingUtilities.invokeLater(() -> {
-            // Mock student data
-            Task student = new Task();
-            student.setFullName("Nguyễn Văn B");
-            student.setEmail("student@example.com");
-            
-            new StudentDashboard(null, null, student, null, null);
-        });
-    }
 
     // ✅ Helper method: Format date đẹp hơn
     private String formatDate(String dateStr) {
@@ -1195,5 +1240,33 @@ public void refreshCurrentClassExams() {
         });
 
         return card;
+    }
+
+    private Integer safeGetInt(Map<String,Object> m, String... keys) {
+        if (m == null) return null;
+        for (String k : keys) {
+            if (k == null) continue;
+            Object v = m.get(k);
+            if (v == null) {
+                // try lowercase key fallback
+                v = m.get(k.toLowerCase());
+            }
+            if (v instanceof Number) return ((Number)v).intValue();
+            if (v instanceof String) {
+                try { return Integer.parseInt(((String)v).trim()); } catch (Exception ignored) {}
+            }
+        }
+        return null;
+    }
+
+    private String safeGetString(Map<String,Object> m, String... keys) {
+        if (m == null) return null;
+        for (String k : keys) {
+            if (k == null) continue;
+            Object v = m.get(k);
+            if (v == null) v = m.get(k.toLowerCase());
+            if (v != null) return v.toString();
+        }
+        return null;
     }
 }

@@ -72,7 +72,7 @@ public class StudentInfoService {
 
             params.put("join", joinList);
             params.put("columns", List.of(
-                "account.id", "account.FullName", "account.email", "account.GoogleID",
+                "account.id", "account.FullName", "account.email",
                 "student.Id as StudentId", "student.Name as StudentName", "classes.Id as ClassId", "classes.Name as ClassName"
             ));
 

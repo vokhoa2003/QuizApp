@@ -41,11 +41,9 @@ import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
-import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.example.taskmanager.service.StudentInfoService;
-import com.google.api.services.oauth2.model.Userinfo;
 
 /**
  *
@@ -105,25 +103,14 @@ public class QuizAppSwing extends JFrame {
         this.numberQuestion = numberQuestion;
         this.studentDashboard = studentDashboard;
         
-        // ✅ Lấy email từ authService
-        try {
-            this.studentEmail = (String) authService.getClass().getMethod("getUserEmail").invoke(authService);
-            System.out.println("📧 Student email: " + studentEmail);
-        } catch (Exception e) {
-            System.err.println("⚠️ Cannot get user email from authService: " + e.getMessage());
-        }
-        
-        // ✅ Lấy StudentId từ email
-        if (studentEmail != null && !studentEmail.isEmpty()) {
-            this.studentId = getStudentIdByEmail(studentEmail);
-            System.out.println("👤 Student ID: " + studentId);
-            
-            if (studentId <= 0) {
-                JOptionPane.showMessageDialog(null,
-                    "⚠️ Không tìm thấy thông tin học sinh!\nEmail: " + studentEmail,
-                    "Cảnh báo",
-                    JOptionPane.WARNING_MESSAGE);
-            }
+        // Try to get accountId from authService (preferred)
+        Integer accountId = authService.getUserIdFromToken(authService.getAccessToken());
+        System.out.println("🔑 Resolved accountId: " + accountId);
+
+        if (accountId != null && accountId > 0) {
+            this.studentId = getStudentIdByAccountId(accountId);
+            this.studentEmail = authService.extractEmailFromToken(authService.getAccessToken());
+            System.out.println("👤 Student ID (from accountId): " + studentId);
         }
         
         System.out.println("🎯 QuizAppSwing initialized:");
@@ -131,7 +118,7 @@ public class QuizAppSwing extends JFrame {
         System.out.println("   ClassId: " + classId);
         System.out.println("   NumberQuestion: " + numberQuestion);
         System.out.println("   StudentId: " + studentId);
-        System.out.println("   Email: " + studentEmail);
+        System.out.println("   Email: " + this.studentEmail);
 
         setTitle("Bài kiểm tra trắc nghiệm");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
@@ -161,7 +148,7 @@ public class QuizAppSwing extends JFrame {
         infoPanel.add(Box.createVerticalStrut(10));
         
         // ✅ Sử dụng studentEmail đã lấy ở trên
-        List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileByEmail(studentEmail);
+        List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileById(accountId);
         System.out.println("Loading student exam data..." + studentExamData);
         if (studentExamData == null) studentExamData = List.of(new HashMap<>());
         
@@ -239,6 +226,67 @@ public class QuizAppSwing extends JFrame {
         startTimer();
         loadQuestionsAndAnswersFromAPI();
         setVisible(true);
+    }
+
+
+    // Try multiple reflection names to obtain accountId from authService
+    private Integer resolveAccountIdFromAuthService() {
+        if (authService == null) return null;
+        String[] candidates = new String[] {
+            "getAccountId", "getUserId", "getId", "getAccountID", "getUserAccountId", "getResolvedAccountId"
+        };
+        for (String name : candidates) {
+            try {
+                var m = authService.getClass().getMethod(name);
+                Object v = m.invoke(authService);
+                if (v == null) continue;
+                if (v instanceof Number) return ((Number) v).intValue();
+                if (v instanceof String) {
+                    try { return Integer.parseInt(((String)v).trim()); } catch (Exception ignored) {}
+                }
+            } catch (NoSuchMethodException nsme) {
+                // ignore - try next
+            } catch (Exception ex) {
+                System.err.println("⚠️ resolveAccountIdFromAuthService failed on " + name + ": " + ex.getMessage());
+            }
+        }
+        // try field fallback
+        try {
+            var f = authService.getClass().getField("accountId");
+            Object v = f.get(authService);
+            if (v instanceof Number) return ((Number) v).intValue();
+            if (v instanceof String) return Integer.parseInt(((String)v).trim());
+        } catch (Exception ignore) {}
+        return null;
+    }
+
+    // Resolve StudentId using StudentInfoService.fetchProfileById(accountId)
+    private int getStudentIdByAccountId(int accountId) {
+        try {
+            List<Map<String, Object>> profiles = studentInfoService.fetchProfileById(accountId);
+            System.out.println("📥 fetchProfileById response: " + profiles);
+            if (profiles == null || profiles.isEmpty()) return -1;
+            // prefer profile with matching classId
+            Map<String,Object> chosen = null;
+            for (Map<String,Object> p : profiles) {
+                Integer sid = getFirstInteger(p, "StudentId", "student.Id", "Id", "id");
+                Integer cid = getFirstInteger(p, "ClassId", "classes.Id", "ClassId");
+                if (sid != null && sid > 0) {
+                    if (cid != null && cid == this.classId) {
+                        chosen = p;
+                        break;
+                    }
+                    if (chosen == null) chosen = p;
+                }
+            }
+            if (chosen == null) return -1;
+            Integer sid = getFirstInteger(chosen, "StudentId", "student.Id", "Id", "id");
+            System.out.println("ℹ️ Chosen studentId from accountId: " + sid + " (classId=" + getFirstInteger(chosen, "ClassId", "classes.Id") + ")");
+            return sid != null ? sid : -1;
+        } catch (Exception e) {
+            System.err.println("❌ getStudentIdByAccountId error: " + e.getMessage());
+            return -1;
+        }
     }
 
     // ------------------------- Render UI -------------------------
@@ -472,29 +520,25 @@ public class QuizAppSwing extends JFrame {
             where.put("account.email", email);
             params.put("where", where);
             
-            System.out.println("📡 Getting StudentId for email: " + email);
+            System.out.println("📡 Getting StudentId for email: " + email + " payload=" + params);
             
             List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-            
-            System.out.println("📥 Response: " + result);
+            System.out.println("📥 getStudentIdByEmail response: " + result);
             
             if (result != null && !result.isEmpty()) {
-                Object studentIdObj = result.get(0).get("StudentId");
-                if (studentIdObj == null) {
-                    studentIdObj = result.get(0).get("student.Id");
+                Map<String,Object> row = result.get(0);
+                // robust lookup: try multiple keys
+                Integer sid = null;
+                Object o;
+                o = row.get("StudentId"); if (o == null) o = row.get("student.Id"); if (o == null) o = row.get("id"); if (o == null) o = row.get("Id");
+                if (o instanceof Number) sid = ((Number)o).intValue();
+                else if (o != null) {
+                    try { sid = Integer.parseInt(o.toString()); } catch (Exception ignored) {}
                 }
-                if (studentIdObj == null) {
-                    studentIdObj = result.get(0).get("Id");
-                }
-                
-                if (studentIdObj instanceof Number) {
-                    int id = ((Number) studentIdObj).intValue();
-                    System.out.println("✅ Found StudentId: " + id);
-                    return id;
-                }
+                if (sid != null && sid > 0) return sid;
             }
             
-            System.err.println("⚠️ Student not found for email: " + email);
+            System.err.println("⚠️ Student not found for email: " + email + " -> response=" + result);
             return -1;
             
         } catch (Exception e) {
@@ -556,6 +600,19 @@ public class QuizAppSwing extends JFrame {
     // ✅ Method mới: Tính điểm và lưu vào exam_results
     private void saveExamResult() {
         try {
+            // ensure studentId is valid
+            if (studentId <= 0 && studentEmail != null && !studentEmail.isEmpty()) {
+                int resolved = getStudentIdByEmail(studentEmail);
+                if (resolved > 0) {
+                    studentId = resolved;
+                    System.out.println("ℹ️ Resolved studentId from email: " + studentId);
+                }
+            }
+            if (studentId <= 0) {
+                System.err.println("❌ Aborting saveExamResult: invalid studentId=" + studentId);
+                return;
+            }
+
             int correctCount = countCorrectAnswersByAttempt(attemptId);
             double score = totalQuestions > 0 ? Math.round((correctCount * 10.0 / totalQuestions) * 100.0) / 100.0 : 0.0;
 
@@ -563,7 +620,7 @@ public class QuizAppSwing extends JFrame {
 
             Map<String, Object> resultRecord = new HashMap<>();
             resultRecord.put("ExamId", examId);
-            resultRecord.put("StudentId", studentId);
+            resultRecord.put("StudentId", studentId); // IMPORTANT: explicit StudentId
             resultRecord.put("AttemptId", attemptId);
             resultRecord.put("Score", score);
             resultRecord.put("SubmittedDate", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
@@ -573,6 +630,9 @@ public class QuizAppSwing extends JFrame {
             params.put("method", "UPSERT");
             params.put("table", "exam_results");
             params.put("data", List.of(resultRecord));
+
+            // debug log payload before sending
+            System.out.println("🔁 saveExamResult payload = " + params);
 
             List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
             System.out.println("✅ Saved exam result: " + response);
@@ -1026,13 +1086,19 @@ public class QuizAppSwing extends JFrame {
 
     // Cập nhật trạng thái attempt -> submitted
     private void markAttemptSubmitted() {
-        if (attemptId == null) return;
+        if (attemptId == null) {
+            System.err.println("⚠️ markAttemptSubmitted: attemptId is null");
+            return;
+        }
         try {
+            String now = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date());
             Map<String, Object> rec = new HashMap<>();
+            // gửi cả 2 key "id" và "Id" để tương thích với nhiều backend
             rec.put("id", attemptId);
+            rec.put("Id", attemptId);
             rec.put("Status", "submitted");
-            rec.put("SubmitTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
-            rec.put("EndTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            rec.put("SubmitTime", now);
+            rec.put("EndTime", now);
 
             Map<String, Object> params = new HashMap<>();
             params.put("action", "update");
@@ -1040,10 +1106,20 @@ public class QuizAppSwing extends JFrame {
             params.put("table", "exam_attempts");
             params.put("data", List.of(rec));
 
+            System.out.println("🔁 markAttemptSubmitted - sending UPDATE params: " + params);
             List<Map<String, Object>> resp = apiService.postApiGetList("/autoUpdate", params);
-            System.out.println("🧾 markAttemptSubmitted resp: " + resp);
+            System.out.println("🧾 markAttemptSubmitted UPDATE resp: " + resp);
+
+            // Fallback: một số API cần UPSERT để thực sự ghi đè/insert
+            if (resp == null || resp.isEmpty()) {
+                System.out.println("⚠️ markAttemptSubmitted: UPDATE returned empty, retrying with UPSERT");
+                params.put("method", "UPSERT");
+                resp = apiService.postApiGetList("/autoUpdate", params);
+                System.out.println("🧾 markAttemptSubmitted UPSERT resp: " + resp);
+            }
         } catch (Exception e) {
             System.err.println("⚠️ markAttemptSubmitted error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
