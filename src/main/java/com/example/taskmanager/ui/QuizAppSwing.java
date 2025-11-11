@@ -153,7 +153,7 @@ public class QuizAppSwing extends JFrame {
         if (studentExamData == null) studentExamData = List.of(new HashMap<>());
         
         infoPanel.add(new JLabel("Họ và tên: " + studentExamData.stream()
-                .map(m -> m.get("FullName"))
+                .map(m -> m.get("StudentName"))
                 .filter(Objects::nonNull)
                 .map(Object::toString)
                 .findFirst().orElse("N/A")));
