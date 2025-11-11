@@ -7,9 +7,6 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -22,7 +19,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
@@ -30,7 +26,6 @@ import javax.swing.table.JTableHeader;
 
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
-import com.example.taskmanager.service.StudentInfoService;
 
 public class StudentExamListWindow extends JFrame {
     private ApiService apiService;
@@ -58,7 +53,7 @@ public class StudentExamListWindow extends JFrame {
         setLocationRelativeTo(null);
         
         initUI();
-        loadExamList();
+        //loadExamList();
         
         setVisible(true);
     }
@@ -154,7 +149,7 @@ public class StudentExamListWindow extends JFrame {
         tableTitle.setForeground(new Color(0x1F2937));
         
         JButton refreshBtn = createActionButton("🔄 Làm Mới");
-        refreshBtn.addActionListener(e -> loadExamList());
+        //refreshBtn.addActionListener(e -> loadExamList());
         
         titleBar.add(tableTitle, BorderLayout.WEST);
         titleBar.add(refreshBtn, BorderLayout.EAST);
@@ -249,37 +244,37 @@ public class StudentExamListWindow extends JFrame {
         return btn;
     }
     
-    private void loadExamList() {
-        SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
-            @Override
-            protected List<Map<String, Object>> doInBackground() {
-                try {
-                    StudentInfoService sis = new StudentInfoService(apiService);
-                    // studentId được truyền vào constructor của cửa sổ này
-                    List<Map<String, Object>> profile = sis.fetchProfileByAccountId(studentId);
-                    // Từ profile trích exams / classes tùy cấu trúc API của bạn
-                    // Ví dụ trả về list chứa account/student/classes; xử lý thêm để lấy danh sách bài kiểm tra
-                    return profile;
-                } catch (Exception ex) {
-                    ex.printStackTrace();
-                    return Collections.emptyList();
-                }
-            }
+    // private void loadExamList() {
+    //     SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
+    //         @Override
+    //         protected List<Map<String, Object>> doInBackground() {
+    //             try {
+    //                 StudentInfoService sis = new StudentInfoService(apiService);
+    //                 // studentId được truyền vào constructor của cửa sổ này
+    //                 List<Map<String, Object>> profile = sis.fetchProfileByAccountId(studentId);
+    //                 // Từ profile trích exams / classes tùy cấu trúc API của bạn
+    //                 // Ví dụ trả về list chứa account/student/classes; xử lý thêm để lấy danh sách bài kiểm tra
+    //                 return profile;
+    //             } catch (Exception ex) {
+    //                 ex.printStackTrace();
+    //                 return Collections.emptyList();
+    //             }
+    //         }
             
-            @Override
-            protected void done() {
-                try {
-                    List<Map<String, Object>> data = get();
-                    // TODO: chuyển data -> model bảng (tùy cấu trúc API)
-                    System.out.println("✅ StudentExamListWindow profile: " + data);
-                    // hiện tại vẫn giữ bảng/renders hiện có; cần map fields tương ứng
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-        };
-        worker.execute();
-    }
+    //         @Override
+    //         protected void done() {
+    //             try {
+    //                 List<Map<String, Object>> data = get();
+    //                 // TODO: chuyển data -> model bảng (tùy cấu trúc API)
+    //                 System.out.println("✅ StudentExamListWindow profile: " + data);
+    //                 // hiện tại vẫn giữ bảng/renders hiện có; cần map fields tương ứng
+    //             } catch (Exception e) {
+    //                 e.printStackTrace();
+    //             }
+    //         }
+    //     };
+    //     worker.execute();
+    // }
     
     private void openExamDetail(int row) {
         Object examIdObj = tableModel.getValueAt(row, 5);
