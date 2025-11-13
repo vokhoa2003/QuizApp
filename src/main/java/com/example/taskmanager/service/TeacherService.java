@@ -217,8 +217,8 @@ private List<Map<String,Object>> normalize(Object resp) {
     p.put("action", "get");
     p.put("method", "SELECT");
     p.put("table", "teacher");
-    p.put("columns", List.of("Id", "Name", "ClassId"));
-    p.put("where", Map.of("Id", teacherId));
+    p.put("columns", List.of("IdAccount", "Name", "ClassId"));
+    p.put("where", Map.of("IdAccount", teacherId));
 
     try {
         Object resp = apiService.postApiGetList("/autoGet", p);
@@ -228,7 +228,7 @@ private List<Map<String,Object>> normalize(Object resp) {
         if (rows != null && !rows.isEmpty()) {
             Map<String, Object> d = rows.get(0);
             Teacher t = new Teacher();
-            t.setId(toLong(firstNonNull(d, "Id", "id")));
+            t.setIdAccount(toLong(firstNonNull(d, "IdAccount", "idaccount")));
             String name = String.valueOf(firstNonNull(d, "Name", "name", "FullName"));
             t.setName(name != null && !name.trim().isEmpty() ? name.trim() : "Giáo viên");
             t.setClassId(toLong(firstNonNull(d, "ClassId")));

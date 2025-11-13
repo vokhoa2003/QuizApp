@@ -15,6 +15,8 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -43,7 +45,10 @@ import javax.swing.border.LineBorder;
 
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
+import com.example.taskmanager.service.ExamService;
 import com.example.taskmanager.service.StudentInfoService;
+
+
 
 /**
  *
@@ -59,19 +64,22 @@ public class QuizAppSwing extends JFrame {
     private int perPage = 10;
     private int totalQuestions;
     private Timer timer;
-    private int duration = 15 * 60;
+    private int duration;
     private List<Question> questions = new ArrayList<>();
     private ApiService apiService;
     private AuthService authService;
     private StudentInfoService studentInfoService;
+    private ExamService examService;
     private int examId = -1;
     private int classId = -1;
     private int numberQuestion = 0;
+    private int periodId = -1;
     private int studentId = -1; // ✅ Thêm field để lưu StudentId
     private String studentEmail = null; // ✅ Thêm field để lưu email
     private Integer attemptId = null; // ✅ Attempt hiện tại
     private Timer autoSubmitTimer = null; // Timer để tự nộp theo EndTime
     private StudentDashboard studentDashboard;  // Thêm reference đến MainWindow
+
 
     // ------------------------- Question Class -------------------------
     private static class Question {
@@ -91,10 +99,11 @@ public class QuizAppSwing extends JFrame {
     // ------------------------- Constructor -------------------------
     // Nếu cần constructor không truyền exam/class/number: sử dụng overload này
     public QuizAppSwing(ApiService apiService, AuthService authService) {
-        this(apiService, authService, -1, -1, 0, null);
+        
+        this(apiService, authService, -1, -1, 0, 0, 0, null);
     }
 
-    public QuizAppSwing(ApiService apiService, AuthService authService, int examId, int classId, int numberQuestion, StudentDashboard studentDashboard) {
+    public QuizAppSwing(ApiService apiService, AuthService authService, int examId, int classId, int numberQuestion, int timeLimit, int periodId, StudentDashboard studentDashboard) {
         this.apiService = apiService;
         this.authService = authService;
         this.studentInfoService = new StudentInfoService(apiService);
@@ -102,6 +111,8 @@ public class QuizAppSwing extends JFrame {
         this.classId = classId;
         this.numberQuestion = numberQuestion;
         this.studentDashboard = studentDashboard;
+        this.periodId = periodId;
+        this.examService = new ExamService(apiService);
         
         // Try to get accountId from authService (preferred)
         Integer accountId = authService.getUserIdFromToken(authService.getAccessToken());
@@ -117,6 +128,8 @@ public class QuizAppSwing extends JFrame {
         System.out.println("   ExamId: " + examId);
         System.out.println("   ClassId: " + classId);
         System.out.println("   NumberQuestion: " + numberQuestion);
+        System.out.println("   TimeLimit (minutes): " + timeLimit);
+        System.out.println("   PeriodId: " + periodId);
         System.out.println("   StudentId: " + studentId);
         System.out.println("   Email: " + this.studentEmail);
 
@@ -147,13 +160,13 @@ public class QuizAppSwing extends JFrame {
         infoPanel.add(new JLabel("Thông tin người làm bài:", SwingConstants.CENTER));
         infoPanel.add(Box.createVerticalStrut(10));
         
-        // ✅ Sử dụng studentEmail đã lấy ở trên
+        // ✅ Sử dụng accountId đã lấy ở trên
         List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileById(accountId);
         System.out.println("Loading student exam data..." + studentExamData);
         if (studentExamData == null) studentExamData = List.of(new HashMap<>());
         
         infoPanel.add(new JLabel("Họ và tên: " + studentExamData.stream()
-                .map(m -> m.get("FullName"))
+                .map(m -> m.get("StudentName"))
                 .filter(Objects::nonNull)
                 .map(Object::toString)
                 .findFirst().orElse("N/A")));
@@ -167,8 +180,8 @@ public class QuizAppSwing extends JFrame {
                 .filter(Objects::nonNull)
                 .map(Object::toString)
                 .findFirst().orElse("N/A")));
-        infoPanel.add(new JLabel("Ngày tháng: "));
-        infoPanel.add(new JLabel("Thời gian: "));
+        infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
+        infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));
         infoPanel.add(Box.createVerticalGlue());
         add(infoPanel, BorderLayout.WEST);
 
@@ -194,7 +207,7 @@ public class QuizAppSwing extends JFrame {
         timeLabel.setForeground(Color.BLUE);
         timerPanel.add(timeLabel);
         
-        timerLabel = new JLabel("15:00");
+        timerLabel = new JLabel("");
         timerLabel.setFont(new Font("Segoe UI", Font.BOLD, 24));
         timerLabel.setForeground(Color.RED);
         timerPanel.add(timerLabel);
@@ -223,8 +236,48 @@ public class QuizAppSwing extends JFrame {
 
         add(sidebar, BorderLayout.EAST);
 
-        startTimer();
-        loadQuestionsAndAnswersFromAPI();
+
+        List<Map<String, Object>> examAttempts = examService.fetchExamAttemptsByExamAndStudent(examId, studentId);
+        if (examAttempts != null && !examAttempts.isEmpty()) {
+            Map<String, Object> latestAttempt = examAttempts.get(0);
+
+            Object attemptIdObj = latestAttempt.get("id");
+            if (attemptIdObj instanceof Number) {
+                this.attemptId = ((Number) attemptIdObj).intValue();
+                System.out.println("✅ Resolved existing AttemptId: " + this.attemptId);
+            }
+
+            // Lấy chuỗi EndTime từ nhiều key khả dĩ
+            String endTimeStr = getFirstString(latestAttempt, "EndTime", "end_time", "endtime", "End_Time");
+            if (endTimeStr == null || endTimeStr.isEmpty() || "null".equalsIgnoreCase(endTimeStr)) {
+                System.out.println("ℹ️ EndTime không xác định cho attempt " + this.attemptId + " — sử dụng duration mặc định");
+                this.duration = (timeLimit > 0) ? timeLimit * 60 : this.duration;
+            } else {
+                try {
+                    // Định dạng MySQL chuẩn
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    Date endDate = sdf.parse(endTimeStr);
+                    long remainingSec = (endDate.getTime() - System.currentTimeMillis()) / 1000;
+                    if (remainingSec > 0) {
+                        this.duration = (int) remainingSec;
+                        System.out.println("⏱️ Remaining seconds for attempt " + this.attemptId + " = " + this.duration);
+                    } else {
+                        // EndTime đã qua -> đặt 0 (sẽ nộp nếu cần)
+                        this.duration = 0;
+                        System.out.println("⌛ EndTime đã qua cho attempt " + this.attemptId + " (remainingSec=" + remainingSec + ")");
+                    }
+                } catch (Exception ex) {
+                    System.err.println("⚠️ Lỗi parse EndTime: " + ex.getMessage() + " -> sử dụng duration mặc định");
+                    this.duration = (timeLimit > 0) ? timeLimit * 60 : this.duration;
+                }
+            }
+            startTimer();
+            loadBackUpExamRealTime(this.attemptId);
+        } else {
+            this.duration = (timeLimit > 0) ? timeLimit * 60 : 0; 
+            startTimer();
+            loadQuestionsAndAnswersFromAPI();
+        }
         setVisible(true);
     }
 
@@ -369,7 +422,138 @@ public class QuizAppSwing extends JFrame {
         }
         navPanel.repaint();
     }
+    // -----------------------Load Back up exam real time----------
+    private void loadBackUpExamRealTime(int attemptId) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "get");
+        params.put("method", "SELECT");
+        
+        params.put("table", List.of("questions", "exam_answers", "answers"));
+        
+        params.put("columns", List.of(
+            "questions.id as QuestionId",
+            "questions.Question as QuestionText",
+            "questions.ClassId",
+            "answers.id as AnswerId",
+            "answers.Answer as AnswerText",
+            "answers.IsCorrect"
+        ));
 
+        List<Map<String, Object>> joins = new ArrayList<>();
+            
+            Map<String, Object> join1 = new HashMap<>();
+            join1.put("type", "inner");
+            join1.put("on", List.of("questions.Id = exam_answers.QuestionId"));
+            joins.add(join1);
+            
+            Map<String, Object> join2 = new HashMap<>();
+            join2.put("type", "inner");
+            join2.put("on", List.of("questions.Id = answers.QuestionId"));
+            joins.add(join2);
+        
+        params.put("join", joins);
+
+        Map<String, Object> where = new HashMap<>();
+            where.put("exam_answers.StudentId", studentId);
+            where.put("exam_answers.AttemptId", attemptId);
+            params.put("where", where);
+        
+        //params.put("order", "RAND()");
+        
+        if (numberQuestion > 0) {
+            params.put("limit", numberQuestion * 4);
+        }
+        
+        System.out.println("📡 Loading questions with params: " + params);
+        
+        List<Map<String, Object>> apiData = apiService.postApiGetList("/autoGet", params);
+        
+        System.out.println("📦 API Response: " + (apiData != null ? apiData.size() + " rows" : "null"));
+
+        if (apiData == null || apiData.isEmpty()) {
+            System.err.println("⚠️ No questions found!");
+            JOptionPane.showMessageDialog(this, 
+                "Không tìm thấy back up cho bài kiểm tra!", 
+                "Lỗi", 
+                JOptionPane.ERROR_MESSAGE);
+            questions.clear();
+            totalQuestions = 0;
+            renderQuestions();
+            return;
+        }
+
+        if (!apiData.isEmpty()) {
+            System.out.println("📋 Sample data: " + apiData.get(0));
+        }
+
+        Map<Integer, String> questionTextMap = new LinkedHashMap<>();
+        Map<Integer, List<String>> optionsMap = new HashMap<>();
+        Map<Integer, List<Integer>> answerIdMap = new HashMap<>();
+
+        for (Map<String, Object> item : apiData) {
+            Integer questionId = getFirstInteger(item, "QuestionId");
+            Integer answerId = getFirstInteger(item, "AnswerId");
+            String questionText = getFirstString(item, "QuestionText", "Question");
+            String answerText = getFirstString(item, "AnswerText", "Answer");
+
+            if (questionId == null || questionText == null || answerText == null || answerId == null) {
+                System.err.println("⚠️ Skipping invalid row: " + item);
+                continue;
+            }
+
+            System.out.println("✅ Processing Q" + questionId + ": " + questionText.substring(0, Math.min(30, questionText.length())) + "... | A" + answerId);
+
+            questionTextMap.putIfAbsent(questionId, questionText);
+            optionsMap.computeIfAbsent(questionId, k -> new ArrayList<>()).add(answerText);
+            answerIdMap.computeIfAbsent(questionId, k -> new ArrayList<>()).add(answerId);
+        }
+
+        questions.clear();
+        for (Map.Entry<Integer, String> e : questionTextMap.entrySet()) {
+            int qId = e.getKey();
+            List<String> opts = optionsMap.get(qId);
+            List<Integer> aids = answerIdMap.get(qId);
+            
+            System.out.println("✅ Adding question Q" + qId + " with " + opts.size() + " answers");
+            
+            questions.add(new Question(qId, e.getValue(), opts, aids));
+        }
+ 
+        // Randomize question order before applying numberQuestion limit
+        Collections.shuffle(questions);
+        if (numberQuestion > 0 && questions.size() > numberQuestion) {
+            questions = new ArrayList<>(questions.subList(0, numberQuestion));
+        }
+ 
+        totalQuestions = questions.size();
+        System.out.println("✅ Final: Loaded " + totalQuestions + " questions");
+
+        // ✅ Đảm bảo có Attempt và prefill exam_answers trước khi render
+        ensureAttemptAndPrefill();
+
+        // ✅ Khôi phục các lựa chọn đã lưu theo AttemptId
+        loadPreviousSelections();
+
+        navPanel.removeAll();
+        for (int i = 1; i <= totalQuestions; i++) {
+            final int index = i;
+            JButton btn = new JButton(String.valueOf(i));
+            btn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            btn.setPreferredSize(new Dimension(40, 40));
+            btn.setBackground(new Color(220, 220, 220));
+            btn.addActionListener(e -> {
+                currentPage = (int) Math.ceil((double) index / perPage);
+                renderQuestions();
+            });
+            navPanel.add(btn);
+        }
+        navPanel.revalidate();
+        navPanel.repaint();
+
+        System.out.println("🎨 Rendering questions...");
+        renderQuestions();
+    }
+    // ------------------------------------------------------------
     // ------------------------- Load API -------------------------
     private void loadQuestionsAndAnswersFromAPI() {
         Map<String, Object> params = new HashMap<>();
@@ -548,7 +732,7 @@ public class QuizAppSwing extends JFrame {
         }
     }
 
-    // ✅ Method mới: Lấy IsCorrect từ bảng answers (GIỮ NGUYÊN - đúng rồi)
+    // ✅ Method mới: Lấy IsCorrect từ bảng answers 
     private Integer getIsCorrectFromAnswer(int questionId, int answerId) {
         try {
             Map<String, Object> params = new HashMap<>();
@@ -619,7 +803,7 @@ public class QuizAppSwing extends JFrame {
             System.out.println("📊 Score: " + correctCount + "/" + totalQuestions + " = " + score + " điểm");
 
             Map<String, Object> resultRecord = new HashMap<>();
-            resultRecord.put("ExamId", examId);
+            //resultRecord.put("ExamId", examId);
             resultRecord.put("StudentId", studentId); // IMPORTANT: explicit StudentId
             resultRecord.put("AttemptId", attemptId);
             resultRecord.put("Score", score);
@@ -839,7 +1023,17 @@ public class QuizAppSwing extends JFrame {
             record.put("ExamId", examId);
             record.put("StudentId", studentId);
             record.put("Status", "in_progress");
-            record.put("StartTime", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            // Lấy thời điểm hiện tại
+            LocalDateTime startTime = LocalDateTime.now();
+
+            // Tính endTime bằng cách cộng số phút
+            LocalDateTime endTime = startTime.plusSeconds(duration);
+
+            // Format theo dạng yyyy-MM-dd HH:mm:ss
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+
+            record.put("StartTime", startTime.format(formatter));
+            record.put("EndTime", endTime.format(formatter));
 
             Map<String, Object> params = new HashMap<>();
             params.put("action", "update");
