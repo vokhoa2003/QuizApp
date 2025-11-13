@@ -228,7 +228,7 @@ private List<Map<String,Object>> normalize(Object resp) {
         if (rows != null && !rows.isEmpty()) {
             Map<String, Object> d = rows.get(0);
             Teacher t = new Teacher();
-            t.setIdAccount(toLong(firstNonNull(d, "IdAccount", "idaccount")));
+            t.setIdAccount(toLong(firstNonNull(d, "IdAccount", "idAccount", "AccountId")));
             String name = String.valueOf(firstNonNull(d, "Name", "name", "FullName"));
             t.setName(name != null && !name.trim().isEmpty() ? name.trim() : "Giáo viên");
             t.setClassId(toLong(firstNonNull(d, "ClassId")));

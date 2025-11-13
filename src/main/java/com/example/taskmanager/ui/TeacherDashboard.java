@@ -506,8 +506,6 @@ public void refreshTeacherClasses() {
     loadTeacherClasses();
 }
 
-private boolean teacherModelLoaded = false; // ĐÁNH DẤU ĐÃ LOAD TÊN
-
 public void refresh() {
     int teacherId = resolveTeacherIdFromTeacher();
     

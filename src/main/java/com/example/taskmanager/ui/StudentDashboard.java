@@ -136,7 +136,7 @@ public class StudentDashboard extends JFrame {
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         rightPanel.setOpaque(false);
         
-        studentNameLabel = new JLabel("👤 " + (currentStudent != null ? currentStudent.getFullName() : "Học sinh"));
+        studentNameLabel = new JLabel((currentStudent != null ? currentStudent.getFullName() : "Học sinh"));
         studentNameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         studentNameLabel.setForeground(Color.WHITE);
         rightPanel.add(studentNameLabel);
@@ -157,7 +157,7 @@ public class StudentDashboard extends JFrame {
         panel.setPreferredSize(new Dimension(380, 0));
         
         // Title
-        JLabel titleLabel = new JLabel("📚 Các Lớp Học Của Tôi");
+        JLabel titleLabel = new JLabel("Các Lớp Học Của Tôi");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
         titleLabel.setForeground(new Color(0x1F2937));
         panel.add(titleLabel, BorderLayout.NORTH);
@@ -182,7 +182,7 @@ public class StudentDashboard extends JFrame {
         panel.setBackground(new Color(0xF8F9FA));
         
         // Title
-        examsTitle = new JLabel("📝 Chọn một lớp để xem bài kiểm tra");
+        examsTitle = new JLabel("Chọn một lớp để xem bài kiểm tra");
         examsTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         examsTitle.setForeground(new Color(0x6B7280));
         panel.add(examsTitle, BorderLayout.NORTH);
@@ -457,7 +457,7 @@ public class StudentDashboard extends JFrame {
     }
     
     private void loadClassExams(Integer classId, String className) {
-        examsTitle.setText("📝 Bài Kiểm Tra - " + className);
+        examsTitle.setText("Bài Kiểm Tra - " + className);
         examsPanel.removeAll();
 
         // Loading indicator
@@ -804,12 +804,12 @@ public class StudentDashboard extends JFrame {
         nameLabel.setForeground(new Color(0x1F2937));
         nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        JLabel publishLabel = new JLabel("📅 Công bố: " + publishDate);
+        JLabel publishLabel = new JLabel("Công bố: " + publishDate);
         publishLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         publishLabel.setForeground(new Color(0x6B7280));
         publishLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        JLabel expireLabel = new JLabel("⏰ Hết hạn: " + expireDate);
+        JLabel expireLabel = new JLabel("Hết hạn: " + expireDate);
         expireLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         expireLabel.setForeground(new Color(0x9CA3AF));
         expireLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -1206,19 +1206,19 @@ public void refreshCurrentClassExams() {
         nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
         nameLabel.setForeground(new Color(0x1F2937));
 
-        JLabel teacherLabel = new JLabel("👨‍🏫 " + (teacherName != null ? teacherName : "Đang cập nhật"));
+        JLabel teacherLabel = new JLabel(teacherName != null ? teacherName : "Đang cập nhật");
         teacherLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         teacherLabel.setForeground(new Color(0x6B7280));
 
-        JLabel studentLabel = new JLabel("👥 " + studentCount + " học sinh");
-        studentLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        studentLabel.setForeground(new Color(0x9CA3AF));
+        // JLabel studentLabel = new JLabel("👥 " + studentCount + " học sinh");
+        // studentLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        // studentLabel.setForeground(new Color(0x9CA3AF));
 
         infoPanel.add(nameLabel);
         infoPanel.add(Box.createVerticalStrut(4));
         infoPanel.add(teacherLabel);
         infoPanel.add(Box.createVerticalStrut(2));
-        infoPanel.add(studentLabel);
+        //infoPanel.add(studentLabel);
 
         card.add(infoPanel, BorderLayout.CENTER);
 
