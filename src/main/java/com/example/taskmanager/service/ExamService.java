@@ -66,15 +66,14 @@ public class ExamService {
             params.put("method", "SELECT");
             
             // Join exam_results với student và account
-            params.put("table", List.of("exam_results", "student", "account", "exam_attempts"));
+            params.put("table", List.of("exam_results", "student", "account"));
             
             params.put("columns", List.of(
-                "exam_attempts.ExamId",
+                "exam_results.ExamId",
                 "exam_results.StudentId",
                 "exam_results.Score",
                 "exam_results.SubmittedDate",
-                "account.email as StudentEmail",
-                "exam_attempts.Id as AttemptId"
+                "account.email as StudentEmail"
             ));
             
             // Join conditions
@@ -89,11 +88,6 @@ public class ExamService {
             join2.put("type", "inner");
             join2.put("on", List.of("student.IdAccount = account.id"));
             joins.add(join2);
-
-            Map<String, Object> join3 = new HashMap<>();
-            join3.put("type", "inner");
-            join3.put("on", List.of("exam_results.AttemptId = exam_attempts.Id"));
-            joins.add(join3);
             
             params.put("join", joins);
             
@@ -112,62 +106,6 @@ public class ExamService {
             
         } catch (Exception e) {
             System.err.println("❌ Error fetching exam results: " + e.getMessage());
-            e.printStackTrace();
-            return Collections.emptyList();
-        }
-    }
-
-    public List<Map<String, Object>> fetchExamAttempt(int studentId) {
-        try {
-            Map<String, Object> params = new HashMap<>();
-            params.put("action", "get");
-            params.put("method", "SELECT");
-            params.put("table", "exam_attempts");
-            params.put("columns", List.of(
-                "Id",
-                "ExamId",
-                "StudentId",
-                "AttemptDate"
-            ));
-            
-            // WHERE: Lọc theo ExamId và StudentId
-            Map<String, Object> where = new HashMap<>();
-            where.put("StudentId", studentId);
-            params.put("where", where);
-            
-            System.out.println("📡 Fetching exam attempts with params: " + params);
-            
-            List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-            
-            System.out.println("✅ Fetched " + (result != null ? result.size() : 0) + "StudentId: " + studentId);
-            
-            return result != null ? result : Collections.emptyList();
-            
-        } catch (Exception e) {
-            System.err.println("❌ Error fetching exam attempts: " + e.getMessage());
-            e.printStackTrace();
-            return Collections.emptyList();
-        }
-
-    }
-    public List<Map<String, Object>> fetchExamAttemptsByExamAndStudent(int examId, int studentId) {
-        try {
-            Map<String, Object> params = new HashMap<>();
-            params.put("action", "get");
-            params.put("method", "SELECT");
-            params.put("columns", List.of("id", "Status", "StartTime", "EndTime", "SubmitTime"));
-            Map<String, Object> where = new HashMap<>();
-            where.put("ExamId", examId);
-            where.put("StudentId", studentId);
-            params.put("where", where);
-            params.put("order", "id DESC");
-            params.put("limit", 10);
-            params.put("table", "exam_attempts");
-            System.out.println("📡 fetchExamAttemptsByExamAndStudent payload=" + params);
-            List<Map<String, Object>> resp = apiService.postApiGetList("/autoGet", params);
-            return resp != null ? resp : Collections.emptyList();
-        } catch (Exception e) {
-            System.err.println("❌ fetchExamAttemptsByExamAndStudent error: " + e.getMessage());
             e.printStackTrace();
             return Collections.emptyList();
         }

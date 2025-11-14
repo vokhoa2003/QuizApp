@@ -859,7 +859,6 @@ public class StudentDashboard extends JFrame {
         actionButton.addActionListener(e -> {
             if ("Xem Chi Tiết".equals(action)) {
                 // Mở cửa sổ xem chi tiết: lấy studentId và score, rồi mở ExamDetailWindow
-                
                 openExamDetailForStudent(examId);
             } else {
                 // ✅ Kiểm tra thời gian trước khi vào thi
@@ -919,7 +918,7 @@ public class StudentDashboard extends JFrame {
                     params.put("action", "get");
                     params.put("method", "SELECT");
                     params.put("table", List.of("exams"));
-                    params.put("columns", List.of("id", "ClassId", "NumberQuestion", "PeriodId", "TimeLimit", "PublishDate", "ExpireDate"));
+                    params.put("columns", List.of("id", "ClassId", "NumberQuestion", "PublishDate", "ExpireDate"));
                     
                     Map<String, Object> where = new HashMap<>();
                     where.put("id", examId);
@@ -952,24 +951,18 @@ public class StudentDashboard extends JFrame {
                     // Lấy ClassId và NumberQuestion
                     Object classIdObj = examInfo.get("ClassId");
                     Object numberQuestionObj = examInfo.get("NumberQuestion");
-                    Object periodIdObj = examInfo.get("PeriodId");
-                    Object timeLimitObj = examInfo.get("TimeLimit");
                     
                     int classId = (classIdObj instanceof Number) ? ((Number) classIdObj).intValue() : 0;
                     int numberQuestion = (numberQuestionObj instanceof Number) ? ((Number) numberQuestionObj).intValue() : 0;
-                    int periodId = (periodIdObj instanceof Number) ? ((Number) periodIdObj).intValue() : 0;
-                    int timeLimit = (timeLimitObj instanceof Number) ? ((Number) timeLimitObj).intValue() : 0;
                     
                     System.out.println("🎯 Starting exam:");
                     System.out.println("   ExamId: " + examId);
                     System.out.println("   ClassId: " + classId);
                     System.out.println("   NumberQuestion: " + numberQuestion);
-                    System.out.println("   PeriodId: " + periodId);
-                    System.out.println("   TimeLimit: " + timeLimit);
                     
                     StudentDashboard.this.setVisible(false);  // Ẩn thay vì dispose()
                     // ✅ Mở QuizAppSwing với đầy đủ thông tin
-                    new QuizAppSwing(apiService, authService, examId, classId, numberQuestion, timeLimit, periodId, StudentDashboard.this);
+                    new QuizAppSwing(apiService, authService, examId, classId, numberQuestion, StudentDashboard.this);
                     //dispose(); // Đóng dashboard
                     
                     
