@@ -1,6 +1,8 @@
 package com.example.taskmanager.service;
 
 import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.net.ProxySelector;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -47,6 +49,7 @@ public class AuthService {
         
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(apiConfig.getConnectTimeout()))
+                .proxy(ProxySelector.of(new InetSocketAddress("localhost", 8080))) 
                 .build();
                 
         loadTokenFromPreferences();
