@@ -4,9 +4,11 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ProxySelector;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -21,9 +23,6 @@ import com.example.taskmanager.security.EncryptionUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.oauth2.model.Userinfo;
-
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 
 public class AuthService {
     private final HttpClient httpClient;
