@@ -29,7 +29,8 @@ public class TeacherService {
     // === LẤY TỪ exams ===
     try {
         Map<String, Object> p = new HashMap<>();
-        p.put("action", "get"); p.put("method", "SELECT");
+        p.put("action", "get"); 
+        p.put("method", "SELECT");
         p.put("table", List.of("exams", "classes"));
         p.put("columns", List.of("DISTINCT classes.Id as ClassId", "classes.Name as ClassName"));
         p.put("join", List.of(Map.of("type", "inner", "on", List.of("exams.ClassId = classes.Id"))));
@@ -55,7 +56,8 @@ public class TeacherService {
     // === LẤY TỪ teacher.ClassId ===
     try {
         Map<String, Object> p = new HashMap<>();
-        p.put("action", "get"); p.put("method", "SELECT");
+        p.put("action", "get"); 
+        p.put("method", "SELECT");
         p.put("table", List.of("teacher", "classes"));
         p.put("columns", List.of("teacher.ClassId", "teacher.Name","classes.Name as ClassName"));
         p.put("join", List.of(Map.of("type", "left", "on", List.of("teacher.ClassId = classes.Id"))));
@@ -228,7 +230,7 @@ private List<Map<String,Object>> normalize(Object resp) {
         if (rows != null && !rows.isEmpty()) {
             Map<String, Object> d = rows.get(0);
             Teacher t = new Teacher();
-            t.setIdAccount(toLong(firstNonNull(d, "IdAccount", "idAccount", "AccountId")));
+            t.setIdAccount(toLong(firstNonNull(d, "IdAccount", "idaccount")));
             String name = String.valueOf(firstNonNull(d, "Name", "name", "FullName"));
             t.setName(name != null && !name.trim().isEmpty() ? name.trim() : "Giáo viên");
             t.setClassId(toLong(firstNonNull(d, "ClassId")));
