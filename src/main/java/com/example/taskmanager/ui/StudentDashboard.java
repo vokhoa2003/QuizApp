@@ -129,10 +129,14 @@ public class StudentDashboard extends JFrame {
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         rightPanel.setOpaque(false);
         
-        studentNameLabel = new JLabel("👤 " + (currentStudent != null ? currentStudent.getFullName() : "Học sinh"));
+        studentNameLabel = new JLabel((currentStudent != null ? currentStudent.getFullName() : "Học sinh"));
         studentNameLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         studentNameLabel.setForeground(Color.WHITE);
         rightPanel.add(studentNameLabel);
+
+        JButton refreshBtn = createStyledButton("Làm mới", new Color(0x10B981), new Color(0x059669));
+    refreshBtn.addActionListener(e -> refreshPage());
+    rightPanel.add(refreshBtn);
         
         JButton logoutBtn = createStyledButton("Đăng xuất", new Color(0xEF4444), new Color(0xDC2626));
         logoutBtn.addActionListener(e -> logout());
@@ -149,7 +153,7 @@ public class StudentDashboard extends JFrame {
         panel.setBackground(new Color(0xF8F9FA));
         panel.setPreferredSize(new Dimension(380, 0));
         
-        JLabel titleLabel = new JLabel("📚 Các Lớp Học Của Tôi");
+        JLabel titleLabel = new JLabel("Các Lớp Học Của Tôi");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
         titleLabel.setForeground(new Color(0x1F2937));
         panel.add(titleLabel, BorderLayout.NORTH);
@@ -172,7 +176,7 @@ public class StudentDashboard extends JFrame {
         JPanel panel = new JPanel(new BorderLayout(0, 15));
         panel.setBackground(new Color(0xF8F9FA));
         
-        examsTitle = new JLabel("📝 Chọn một lớp để xem bài kiểm tra");
+        examsTitle = new JLabel("Chọn một lớp để xem bài kiểm tra");
         examsTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         examsTitle.setForeground(new Color(0x6B7280));
         panel.add(examsTitle, BorderLayout.NORTH);
@@ -528,7 +532,7 @@ public class StudentDashboard extends JFrame {
     }
     
     private void loadClassExams(Integer classId, String className) {
-        examsTitle.setText("📝 Bài Kiểm Tra - " + className);
+        examsTitle.setText("Bài Kiểm Tra - " + className);
         examsPanel.removeAll();
 
         JLabel loadingLabel = new JLabel("Đang tải...");
@@ -867,12 +871,12 @@ public class StudentDashboard extends JFrame {
         nameLabel.setForeground(new Color(0x1F2937));
         nameLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        JLabel publishLabel = new JLabel("📅 Công bố: " + publishDate);
+        JLabel publishLabel = new JLabel("Công bố: " + publishDate);
         publishLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         publishLabel.setForeground(new Color(0x6B7280));
         publishLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        JLabel expireLabel = new JLabel("⏰ Hết hạn: " + expireDate);
+        JLabel expireLabel = new JLabel("Hết hạn: " + expireDate);
         expireLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         expireLabel.setForeground(new Color(0x9CA3AF));
         expireLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -1269,11 +1273,11 @@ public void refreshCurrentClassExams() {
         nameLabel.setFont(new Font("Segoe UI", Font.BOLD, 15));
         nameLabel.setForeground(new Color(0x1F2937));
 
-        JLabel teacherLabel = new JLabel("👨‍🏫 " + (teacherName != null ? teacherName : "Đang cập nhật"));
+        JLabel teacherLabel = new JLabel((teacherName != null ? teacherName : "Đang cập nhật"));
         teacherLabel.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         teacherLabel.setForeground(new Color(0x6B7280));
 
-        JLabel studentLabel = new JLabel("👥 " + studentCount + " học sinh");
+        JLabel studentLabel = new JLabel(studentCount + " học sinh");
         studentLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         studentLabel.setForeground(new Color(0x9CA3AF));
 
@@ -1311,6 +1315,45 @@ public void refreshCurrentClassExams() {
 
         return card;
     }
+    /**
+ * Làm mới toàn bộ trang - reload classes và exams
+ */
+private void refreshPage() {
+    System.out.println("🔄 Refreshing page...");
+    
+    // Reset trạng thái
+    selectedClassName = null;
+    currentClassId = null;
+    
+    // Clear panels
+    classesPanel.removeAll();
+    examsPanel.removeAll();
+    
+    // Reset exams panel về trạng thái ban đầu
+    examsTitle.setText("Chọn một lớp để xem bài kiểm tra");
+    JLabel emptyLabel = new JLabel("Chọn một lớp học bên trái để xem các bài kiểm tra");
+    emptyLabel.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+    emptyLabel.setForeground(new Color(0x9CA3AF));
+    emptyLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+    examsPanel.add(Box.createVerticalGlue());
+    examsPanel.add(emptyLabel);
+    examsPanel.add(Box.createVerticalGlue());
+    
+    // Repaint
+    classesPanel.revalidate();
+    classesPanel.repaint();
+    examsPanel.revalidate();
+    examsPanel.repaint();
+    
+    // Reload classes
+    loadStudentClasses();
+    
+    // Hiển thị thông báo
+    JOptionPane.showMessageDialog(this,
+        "Đã làm mới trang thành công!",
+        "Thông báo",
+        JOptionPane.INFORMATION_MESSAGE);
+}
 
     private Integer safeGetInt(Map<String,Object> m, String... keys) {
         if (m == null) return null;

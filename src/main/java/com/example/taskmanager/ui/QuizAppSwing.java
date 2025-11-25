@@ -153,37 +153,50 @@ public class QuizAppSwing extends JFrame {
 
         // --------- LEFT: Thông tin người làm bài ---------
         JPanel infoPanel = new JPanel();
-        infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
-        infoPanel.setBackground(Color.WHITE);
-        infoPanel.setPreferredSize(new Dimension(180, getHeight()));
-        infoPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
-        infoPanel.add(new JLabel("Thông tin người làm bài:", SwingConstants.CENTER));
-        infoPanel.add(Box.createVerticalStrut(10));
-        
-        // ✅ Sử dụng accountId đã lấy ở trên
-        List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileById(accountId);
-        System.out.println("Loading student exam data..." + studentExamData);
-        if (studentExamData == null) studentExamData = List.of(new HashMap<>());
-        
-        infoPanel.add(new JLabel("Họ và tên: " + studentExamData.stream()
-                .map(m -> m.get("StudentName"))
-                .filter(Objects::nonNull)
-                .map(Object::toString)
-                .findFirst().orElse("N/A")));
-        infoPanel.add(new JLabel("Lớp: " + studentExamData.stream()
-                .map(m -> m.get("ClassName"))
-                .filter(Objects::nonNull)
-                .map(Object::toString)
-                .findFirst().orElse("N/A")));
-        infoPanel.add(new JLabel("Môn: " + studentExamData.stream()
-                .map(m -> m.get("ExamName"))
-                .filter(Objects::nonNull)
-                .map(Object::toString)
-                .findFirst().orElse("N/A")));
-        infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now().format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
-        infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));
-        infoPanel.add(Box.createVerticalGlue());
-        add(infoPanel, BorderLayout.WEST);
+infoPanel.setLayout(new BoxLayout(infoPanel, BoxLayout.Y_AXIS));
+infoPanel.setBackground(Color.WHITE);
+infoPanel.setPreferredSize(new Dimension(180, getHeight()));
+infoPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
+infoPanel.add(new JLabel("Thông tin người làm bài:", SwingConstants.CENTER));
+infoPanel.add(Box.createVerticalStrut(10));
+
+// ✅ SỬ DỤNG StudentInfoService đã được cập nhật
+List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileById(accountId);
+System.out.println("Loading student exam data..." + studentExamData);
+
+if (studentExamData == null || studentExamData.isEmpty()) {
+    studentExamData = List.of(new HashMap<>());
+}
+
+// ✅ Tìm profile phù hợp với classId hiện tại
+Map<String, Object> chosenProfile = null;
+for (Map<String, Object> profile : studentExamData) {
+    Integer cid = getFirstInteger(profile, "ClassId", "classes.Id");
+    if (cid != null && cid == this.classId) {
+        chosenProfile = profile;
+        System.out.println("✅ Found matching class profile: ClassId=" + cid);
+        break;
+    }
+    if (chosenProfile == null) {
+        chosenProfile = profile; // Fallback to first profile
+    }
+}
+
+if (chosenProfile == null) {
+    chosenProfile = new HashMap<>();
+}
+
+String studentName = getFirstString(chosenProfile, "StudentName", "student.Name", "Name");
+String className = getFirstString(chosenProfile, "ClassName", "classes.Name");
+
+infoPanel.add(new JLabel("Họ và tên: " + (studentName != null ? studentName : "N/A")));
+infoPanel.add(new JLabel("Lớp: " + (className != null ? className : "N/A")));
+infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề thi #" + examId : "N/A")));
+infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now()
+    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
+infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));
+infoPanel.add(Box.createVerticalGlue());
+add(infoPanel, BorderLayout.WEST);
 
         // --------- CENTER: Câu hỏi ---------
         questionPanel = new JPanel();
@@ -315,32 +328,49 @@ public class QuizAppSwing extends JFrame {
 
     // Resolve StudentId using StudentInfoService.fetchProfileById(accountId)
     private int getStudentIdByAccountId(int accountId) {
-        try {
-            List<Map<String, Object>> profiles = studentInfoService.fetchProfileById(accountId);
-            System.out.println("📥 fetchProfileById response: " + profiles);
-            if (profiles == null || profiles.isEmpty()) return -1;
-            // prefer profile with matching classId
-            Map<String,Object> chosen = null;
-            for (Map<String,Object> p : profiles) {
-                Integer sid = getFirstInteger(p, "StudentId", "student.Id", "Id", "id");
-                Integer cid = getFirstInteger(p, "ClassId", "classes.Id", "ClassId");
-                if (sid != null && sid > 0) {
-                    if (cid != null && cid == this.classId) {
-                        chosen = p;
-                        break;
-                    }
-                    if (chosen == null) chosen = p;
-                }
-            }
-            if (chosen == null) return -1;
-            Integer sid = getFirstInteger(chosen, "StudentId", "student.Id", "Id", "id");
-            System.out.println("ℹ️ Chosen studentId from accountId: " + sid + " (classId=" + getFirstInteger(chosen, "ClassId", "classes.Id") + ")");
-            return sid != null ? sid : -1;
-        } catch (Exception e) {
-            System.err.println("❌ getStudentIdByAccountId error: " + e.getMessage());
+    try {
+        // ✅ GỌI fetchProfileById từ StudentInfoService (đã được cập nhật)
+        List<Map<String, Object>> profiles = studentInfoService.fetchProfileById(accountId);
+        System.out.println("📥 fetchProfileById response: " + profiles);
+        
+        if (profiles == null || profiles.isEmpty()) {
+            System.err.println("⚠️ No student found for accountId: " + accountId);
             return -1;
         }
+        
+        // Ưu tiên profile có ClassId trùng với classId hiện tại
+        Map<String, Object> chosen = null;
+        for (Map<String, Object> p : profiles) {
+            Integer sid = getFirstInteger(p, "StudentId", "student.Id", "Id", "id");
+            Integer cid = getFirstInteger(p, "ClassId", "classes.Id");
+            
+            if (sid != null && sid > 0) {
+                if (cid != null && cid == this.classId) {
+                    chosen = p;
+                    System.out.println("✅ Found matching class: StudentId=" + sid + ", ClassId=" + cid);
+                    break;
+                }
+                if (chosen == null) chosen = p;
+            }
+        }
+        
+        if (chosen == null) {
+            System.err.println("⚠️ No valid student profile found");
+            return -1;
+        }
+        
+        Integer sid = getFirstInteger(chosen, "StudentId", "student.Id", "Id", "id");
+        Integer cid = getFirstInteger(chosen, "ClassId", "classes.Id");
+        
+        System.out.println("ℹ️ Resolved: StudentId=" + sid + ", ClassId=" + cid);
+        return sid != null ? sid : -1;
+        
+    } catch (Exception e) {
+        System.err.println("❌ getStudentIdByAccountId error: " + e.getMessage());
+        e.printStackTrace();
+        return -1;
     }
+}
 
     // ------------------------- Render UI -------------------------
     private void renderQuestions() {
@@ -680,57 +710,77 @@ public class QuizAppSwing extends JFrame {
 
     // ✅ Method mới: Lấy StudentId từ email
     private int getStudentIdByEmail(String email) {
-        try {
-            Map<String, Object> params = new HashMap<>();
-            params.put("action", "get");
-            params.put("method", "SELECT");
-            
-            // Join student với account
-            params.put("table", List.of("student", "account"));
-            
-            params.put("columns", List.of(
-                "student.Id as StudentId",
-                "account.email"
-            ));
-            
-            // Join condition
-            Map<String, Object> join = new HashMap<>();
-            join.put("type", "inner");
-            join.put("on", List.of("student.IdAccount = account.id"));
-            params.put("join", List.of(join));
-            
-            // WHERE: Lọc theo email
-            Map<String, Object> where = new HashMap<>();
-            where.put("account.email", email);
-            params.put("where", where);
-            
-            System.out.println("📡 Getting StudentId for email: " + email + " payload=" + params);
-            
-            List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-            System.out.println("📥 getStudentIdByEmail response: " + result);
-            
-            if (result != null && !result.isEmpty()) {
-                Map<String,Object> row = result.get(0);
-                // robust lookup: try multiple keys
-                Integer sid = null;
-                Object o;
-                o = row.get("StudentId"); if (o == null) o = row.get("student.Id"); if (o == null) o = row.get("id"); if (o == null) o = row.get("Id");
-                if (o instanceof Number) sid = ((Number)o).intValue();
-                else if (o != null) {
-                    try { sid = Integer.parseInt(o.toString()); } catch (Exception ignored) {}
+    try {
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "get");
+        params.put("method", "SELECT");
+        
+        // JOIN: account -> student -> student_class
+        params.put("table", List.of("account", "student", "student_class"));
+        
+        params.put("columns", List.of(
+            "student.Id as StudentId",
+            "account.email",
+            "student_class.ClassId"
+        ));
+        
+        // JOIN conditions
+        List<Map<String, Object>> joins = new ArrayList<>();
+        
+        // account -> student
+        Map<String, Object> join1 = new HashMap<>();
+        join1.put("type", "inner");
+        join1.put("on", List.of("account.id = student.IdAccount"));
+        joins.add(join1);
+        
+        // student -> student_class
+        Map<String, Object> join2 = new HashMap<>();
+        join2.put("type", "inner");
+        join2.put("on", List.of("student.Id = student_class.StudentId"));
+        joins.add(join2);
+        
+        params.put("join", joins);
+        
+        // WHERE: filter by email
+        Map<String, Object> where = new HashMap<>();
+        where.put("account.email", email);
+        params.put("where", where);
+        
+        System.out.println("📡 getStudentIdByEmail params: " + params);
+        
+        List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+        System.out.println("📥 getStudentIdByEmail response: " + result);
+        
+        if (result != null && !result.isEmpty()) {
+            // Ưu tiên record có ClassId trùng
+            Map<String, Object> chosen = null;
+            for (Map<String, Object> row : result) {
+                Integer cid = getFirstInteger(row, "ClassId", "student_class.ClassId");
+                if (cid != null && cid == this.classId) {
+                    chosen = row;
+                    break;
                 }
-                if (sid != null && sid > 0) return sid;
+                if (chosen == null) chosen = row;
             }
             
-            System.err.println("⚠️ Student not found for email: " + email + " -> response=" + result);
-            return -1;
-            
-        } catch (Exception e) {
-            System.err.println("❌ Error getting student ID: " + e.getMessage());
-            e.printStackTrace();
-            return -1;
+            if (chosen != null) {
+                Integer sid = getFirstInteger(chosen, "StudentId", "student.Id", "Id", "id");
+                if (sid != null && sid > 0) {
+                    System.out.println("✅ Found StudentId=" + sid + " for email=" + email);
+                    return sid;
+                }
+            }
         }
+        
+        System.err.println("⚠️ Student not found for email: " + email);
+        return -1;
+        
+    } catch (Exception e) {
+        System.err.println("❌ getStudentIdByEmail error: " + e.getMessage());
+        e.printStackTrace();
+        return -1;
     }
+}
 
     // ✅ Method mới: Lấy IsCorrect từ bảng answers 
     private Integer getIsCorrectFromAnswer(int questionId, int answerId) {

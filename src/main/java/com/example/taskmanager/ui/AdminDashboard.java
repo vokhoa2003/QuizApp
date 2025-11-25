@@ -241,7 +241,7 @@ headerPanel.add(leftPanel, BorderLayout.WEST);
         gbc.gridx = 0;
         gbc.gridy = 0;
         JPanel userManagementCard = createDashboardCard(
-            "👥 Quản Lý Người Dùng",
+            "Quản Lý Người Dùng",
             "Quản lý thông tin tài khoản, phân quyền và trạng thái người dùng",
             PRIMARY_COLOR,
             e -> openUserManagement()
@@ -252,7 +252,7 @@ headerPanel.add(leftPanel, BorderLayout.WEST);
         gbc.gridx = 1;
         gbc.gridy = 0;
         JPanel courseManagementCard = createDashboardCard(
-            "📚 Quản Lý Khóa/Môn Học",
+            "Quản Lý Khóa/Môn Học",
             "Tạo và quản lý các khóa học, môn học trong hệ thống",
             new Color(34, 197, 94),
             e -> openCourseManagement()
@@ -263,7 +263,7 @@ headerPanel.add(leftPanel, BorderLayout.WEST);
         gbc.gridx = 0;
         gbc.gridy = 1;
         JPanel statisticsCard = createDashboardCard(
-            "📊 Thống Kê Hệ Thống",
+            "Thống Kê Hệ Thống",
             "Xem báo cáo và thống kê về người dùng, khóa học",
             new Color(251, 146, 60),
             e -> {} // TODO: Implement statistics
@@ -274,7 +274,7 @@ headerPanel.add(leftPanel, BorderLayout.WEST);
         gbc.gridx = 1;
         gbc.gridy = 1;
         JPanel settingsCard = createDashboardCard(
-            "⚙️ Cài Đặt Hệ Thống",
+            "Cài Đặt Hệ Thống",
             "Cấu hình và tùy chỉnh các thiết lập của hệ thống",
             new Color(168, 85, 247),
             e -> {} // TODO: Implement settings

@@ -178,24 +178,52 @@ public class CourseManagementPanel extends JFrame {
         JPanel bar = new JPanel(new BorderLayout());
         bar.setOpaque(false);
         bar.setBorder(new EmptyBorder(10, 15, 10, 15));
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+    leftPanel.setOpaque(false);
+    JButton backBtn = new JButton("← Quay lại");
+    backBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+    backBtn.setForeground(PRIMARY);
+    backBtn.setBorderPainted(false);
+    backBtn.setContentAreaFilled(false);
+    backBtn.setFocusPainted(false);
+    backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    backBtn.addActionListener(e -> goBackToAdminDashboard());
+    backBtn.addMouseListener(new MouseAdapter() {
+        public void mouseEntered(MouseEvent e) { 
+            backBtn.setForeground(PRIMARY.brighter()); 
+        }
+        public void mouseExited(MouseEvent e) { 
+            backBtn.setForeground(PRIMARY); 
+        }
+    });
 
         JLabel title = new JLabel("Quản Lý Lớp Học");
         title.setFont(new Font("Segoe UI", Font.BOLD, 16));
         title.setForeground(TEXT);
-        bar.add(title, BorderLayout.WEST);
+        leftPanel.add(backBtn);
+    leftPanel.add(Box.createHorizontalStrut(5));
+    leftPanel.add(new JLabel("|"));
+    leftPanel.add(Box.createHorizontalStrut(5));
+    leftPanel.add(title);
+    
+    bar.add(leftPanel, BorderLayout.WEST);
 
         JPanel controls = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         controls.setOpaque(false);
         JButton min = controlBtn("–", e -> setState(Frame.ICONIFIED));
-        JButton close = controlBtn("×", e -> {
-            setVisible(false);
-            if (adminDashboard != null) adminDashboard.setVisible(true);
-        });
-        controls.add(min); controls.add(close);
+        JButton close = controlBtn("×", e -> goBackToAdminDashboard());
+    controls.add(min); 
+    controls.add(close);
         bar.add(controls, BorderLayout.EAST);
 
         return bar;
     }
+    private void goBackToAdminDashboard() {
+    setVisible(false);
+    if (adminDashboard != null) {
+        adminDashboard.setVisible(true);
+    }
+}
 
     private JButton controlBtn(String text, ActionListener action) {
         JButton b = new JButton(text);
@@ -400,41 +428,180 @@ public class CourseManagementPanel extends JFrame {
     }
 
     private void viewClassMembers() {
-        int row = classTable.getSelectedRow();
-        if (row < 0) {
-            msg("Vui lòng chọn lớp để xem thành viên!", "Thông báo");
-            return;
-        }
-        ClassRoom selectedClass = allClasses.get(row);
-
-        JDialog d = new JDialog(this, "Thành Viên Lớp: " + selectedClass.getName(), true);
-        d.setSize(900, 600);
-        d.setLocationRelativeTo(this);
-
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-
-        // Giáo viên
-        List<Teacher> teachers = allTeachers.stream()
-                .filter(t -> t.getClassId() != null && t.getClassId().equals(selectedClass.getId()))
-                .collect(Collectors.toList());
-        JTable teacherTable = createMemberTable(teachers, true);
-        JScrollPane teacherScroll = new JScrollPane(teacherTable);
-        JPanel teacherPanel = createMemberPanel(teacherScroll, selectedClass.getId(), true);
-        tabs.addTab("Giáo Viên (" + teachers.size() + ")", teacherPanel);
-
-        // Học sinh
-        List<Student> students = allStudents.stream()
-                .filter(s -> s.getClassId() != null && s.getClassId().equals(selectedClass.getId()))
-                .collect(Collectors.toList());
-        JTable studentTable = createMemberTable(students, false);
-        JScrollPane studentScroll = new JScrollPane(studentTable);
-        JPanel studentPanel = createMemberPanel(studentScroll, selectedClass.getId(), false);
-        tabs.addTab("Học Sinh (" + students.size() + ")", studentPanel);
-
-        d.add(tabs);
-        d.setVisible(true);
+    int row = classTable.getSelectedRow();
+    if (row < 0) {
+        msg("Vui lòng chọn lớp để xem thành viên!", "Thông báo");
+        return;
     }
+    ClassRoom selectedClass = allClasses.get(row);
+
+    JDialog d = new JDialog(this, "Thành Viên Lớp: " + selectedClass.getName(), true);
+    d.setSize(900, 600);
+    d.setLocationRelativeTo(this);
+
+    JTabbedPane tabs = new JTabbedPane();
+    tabs.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+    // ✅ Giáo viên - JOIN qua teacher_class
+    List<Teacher> teachers = getTeachersByClassId(selectedClass.getId());
+    JTable teacherTable = createMemberTable(teachers, true);
+    JScrollPane teacherScroll = new JScrollPane(teacherTable);
+    JPanel teacherPanel = createMemberPanel(teacherScroll, selectedClass.getId(), true, teachers);
+    tabs.addTab("Giáo Viên (" + teachers.size() + ")", teacherPanel);
+
+    // ✅ Học sinh - JOIN qua student_class
+    List<Student> students = getStudentsByClassId(selectedClass.getId());
+    JTable studentTable = createMemberTable(students, false);
+    JScrollPane studentScroll = new JScrollPane(studentTable);
+    JPanel studentPanel = createMemberPanel(studentScroll, selectedClass.getId(), false, students);
+    tabs.addTab("Học Sinh (" + students.size() + ")", studentPanel);
+
+    d.add(tabs);
+    d.setVisible(true);
+}
+
+/**
+ * Lấy danh sách giáo viên của lớp qua bảng teacher_class
+ */
+private List<Teacher> getTeachersByClassId(Long classId) {
+    try {
+        // Gọi API với JOIN teacher_class và teacher
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put("action", "get");
+        params.put("method", "SELECT");
+        params.put("table", java.util.List.of("teacher_class", "teacher"));
+        params.put("columns", java.util.List.of(
+            "teacher.Id",
+            "teacher.IdAccount",
+            "teacher.Name",
+            "teacher.CreateDate",
+            "teacher.UpdateDate"
+        ));
+        
+        // JOIN
+        java.util.Map<String, Object> join = new java.util.HashMap<>();
+        join.put("type", "INNER");
+        join.put("on", java.util.List.of("teacher_class.TeacherId = teacher.Id"));
+        params.put("join", java.util.List.of(join));
+        
+        // WHERE
+        java.util.Map<String, Object> where = new java.util.HashMap<>();
+        where.put("teacher_class.ClassId", classId);
+        params.put("where", where);
+        
+        System.out.println("DEBUG: Fetching teachers for classId=" + classId);
+        
+        // Gọi API
+        List<java.util.Map<String, Object>> results = apiService.postApiGetList("/autoGet", params);
+        
+        if (results == null || results.isEmpty()) {
+            System.out.println("No teachers found for class " + classId);
+            return new ArrayList<>();
+        }
+        
+        // Map kết quả sang Teacher objects
+        List<Teacher> teachers = new ArrayList<>();
+        for (java.util.Map<String, Object> row : results) {
+            Teacher t = new Teacher();
+            
+            Object id = row.get("Id");
+            if (id instanceof Number) t.setId(((Number) id).longValue());
+            
+            Object idAccount = row.get("IdAccount");
+            if (idAccount instanceof Number) t.setIdAccount(((Number) idAccount).longValue());
+            
+            Object name = row.get("Name");
+            if (name != null) t.setName(name.toString());
+            
+            Object createDate = row.get("CreateDate");
+            if (createDate instanceof LocalDateTime) t.setCreateDate((LocalDateTime) createDate);
+            
+            Object updateDate = row.get("UpdateDate");
+            if (updateDate instanceof LocalDateTime) t.setUpdateDate((LocalDateTime) updateDate);
+            
+            teachers.add(t);
+        }
+        
+        System.out.println("✅ Found " + teachers.size() + " teachers for class " + classId);
+        return teachers;
+        
+    } catch (Exception e) {
+        e.printStackTrace();
+        msg("Lỗi tải danh sách giáo viên: " + e.getMessage(), "Lỗi");
+        return new ArrayList<>();
+    }
+}
+/**
+ * Lấy danh sách học sinh của lớp qua bảng student_class
+ */
+private List<Student> getStudentsByClassId(Long classId) {
+    try {
+        // Gọi API với JOIN student_class và student
+        java.util.Map<String, Object> params = new java.util.HashMap<>();
+        params.put("action", "get");
+        params.put("method", "SELECT");
+        params.put("table", java.util.List.of("student_class", "student"));
+        params.put("columns", java.util.List.of(
+            "student.Id",
+            "student.IdAccount",
+            "student.Name",
+            "student.CreateDate",
+            "student.UpdateDate"
+        ));
+        
+        // JOIN
+        java.util.Map<String, Object> join = new java.util.HashMap<>();
+        join.put("type", "INNER");
+        join.put("on", java.util.List.of("student_class.StudentId = student.Id"));
+        params.put("join", java.util.List.of(join));
+        
+        // WHERE
+        java.util.Map<String, Object> where = new java.util.HashMap<>();
+        where.put("student_class.ClassId", classId);
+        params.put("where", where);
+        
+        System.out.println("DEBUG: Fetching students for classId=" + classId);
+        
+        // Gọi API
+        List<java.util.Map<String, Object>> results = apiService.postApiGetList("/autoGet", params);
+        
+        if (results == null || results.isEmpty()) {
+            System.out.println("No students found for class " + classId);
+            return new ArrayList<>();
+        }
+        
+        // Map kết quả sang Student objects
+        List<Student> students = new ArrayList<>();
+        for (java.util.Map<String, Object> row : results) {
+            Student s = new Student();
+            
+            Object id = row.get("Id");
+            if (id instanceof Number) s.setId(((Number) id).longValue());
+            
+            Object idAccount = row.get("IdAccount");
+            if (idAccount instanceof Number) s.setIdAccount(((Number) idAccount).longValue());
+            
+            Object name = row.get("Name");
+            if (name != null) s.setName(name.toString());
+            
+            Object createDate = row.get("CreateDate");
+            if (createDate instanceof LocalDateTime) s.setCreateDate((LocalDateTime) createDate);
+            
+            Object updateDate = row.get("UpdateDate");
+            if (updateDate instanceof LocalDateTime) s.setUpdateDate((LocalDateTime) updateDate);
+            
+            students.add(s);
+        }
+        
+        System.out.println("✅ Found " + students.size() + " students for class " + classId);
+        return students;
+        
+    } catch (Exception e) {
+        e.printStackTrace();
+        msg("Lỗi tải danh sách học sinh: " + e.getMessage(), "Lỗi");
+        return new ArrayList<>();
+    }
+}
 
     private JTable createMemberTable(List<?> members, boolean isTeacher) {
         String[] cols = isTeacher ?
@@ -456,71 +623,154 @@ public class CourseManagementPanel extends JFrame {
         return table;
     }
 
-    private JPanel createMemberPanel(JScrollPane scroll, Long classId, boolean isTeacher) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(CARD);
-        panel.setBorder(new EmptyBorder(15, 15, 15, 15));
+    private JPanel createMemberPanel(JScrollPane scroll, Long classId, boolean isTeacher, List<?> currentMembers) {
+    JPanel panel = new JPanel(new BorderLayout());
+    panel.setBackground(CARD);
+    panel.setBorder(new EmptyBorder(15, 15, 15, 15));
 
-        JPanel top = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        top.setOpaque(false);
-        JButton addBtn = btn("Thêm " + (isTeacher ? "GV" : "HS"), SUCCESS, e -> addMember(classId, isTeacher));
-        top.add(addBtn);
-        panel.add(top, BorderLayout.NORTH);
-        panel.add(scroll, BorderLayout.CENTER);
-        return panel;
-    }
+    JPanel top = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    top.setOpaque(false);
+    JButton addBtn = btn("Thêm " + (isTeacher ? "GV" : "HS"), SUCCESS, 
+        e -> addMemberToClass(classId, isTeacher, currentMembers));
+    top.add(addBtn);
+    panel.add(top, BorderLayout.NORTH);
+    panel.add(scroll, BorderLayout.CENTER);
+    return panel;
+}
 
-    private void addMember(Long classId, boolean isTeacher) {
-        JDialog dialog = new JDialog(this, "Thêm " + (isTeacher ? "Giáo Viên" : "Học Sinh"), true);
-        dialog.setSize(500, 300);
-        dialog.setLocationRelativeTo(this);
+    /**
+ * Thêm giáo viên/học sinh vào lớp qua bảng teacher_class hoặc student_class
+ */
+private void addMemberToClass(Long classId, boolean isTeacher, List<?> currentMembers) {
+    JDialog dialog = new JDialog(this, "Thêm " + (isTeacher ? "Giáo Viên" : "Học Sinh") + " vào lớp", true);
+    dialog.setSize(500, 250);
+    dialog.setLocationRelativeTo(this);
 
-        JPanel p = new JPanel(new GridBagLayout());
-        p.setBackground(CARD);
-        p.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(BORDER, 1),
-                new EmptyBorder(25, 25, 25, 25)
-        ));
+    JPanel p = new JPanel(new GridBagLayout());
+    p.setBackground(CARD);
+    p.setBorder(BorderFactory.createCompoundBorder(
+            BorderFactory.createLineBorder(BORDER, 1),
+            new EmptyBorder(25, 25, 25, 25)
+    ));
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.weightx = 1.0;
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(10, 10, 10, 10);
+    gbc.fill = GridBagConstraints.HORIZONTAL;
+    gbc.weightx = 1.0;
 
-        JTextField nameField = field(p, "Tên " + (isTeacher ? "GV" : "HS"), gbc, 0, "");
-        JTextField accountIdField = field(p, "ID Tài khoản", gbc, 1, "");
+    // Chỉ cần nhập ID của Teacher hoặc Student (đã tồn tại)
+    JTextField memberIdField = field(p, (isTeacher ? "ID Giáo Viên" : "ID Học Sinh"), gbc, 0, "");
 
-        JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        btns.setBackground(BG);
-        JButton save = btn("Lưu", SUCCESS, e -> {
-            String name = nameField.getText().trim();
-            String idStr = accountIdField.getText().trim();
-            if (name.isEmpty() || idStr.isEmpty()) {
-                msg("Vui lòng nhập đầy đủ!", "Lỗi");
-                return;
+    JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+    btns.setBackground(BG);
+    JButton save = btn("Thêm vào lớp", SUCCESS, e -> {
+        String idStr = memberIdField.getText().trim();
+        if (idStr.isEmpty()) {
+            msg("Vui lòng nhập ID!", "Lỗi");
+            return;
+        }
+        try {
+            Long memberId = Long.parseLong(idStr);
+            
+            // Gọi API thêm vào bảng trung gian
+            if (isTeacher) {
+                addTeacherToClass(memberId, classId);
+            } else {
+                addStudentToClass(memberId, classId);
             }
+            dialog.dispose();
+        } catch (NumberFormatException ex) {
+            msg("ID phải là số!", "Lỗi");
+        }
+    });
+    JButton cancel = btn("Hủy", TEXT_LIGHT, e -> dialog.dispose());
+    btns.add(save); btns.add(cancel);
+
+    dialog.setLayout(new BorderLayout());
+    dialog.add(p, BorderLayout.CENTER);
+    dialog.add(btns, BorderLayout.SOUTH);
+    dialog.setVisible(true);
+}
+
+/**
+ * Thêm giáo viên vào lớp (INSERT vào teacher_class)
+ */
+private void addTeacherToClass(Long teacherId, Long classId) {
+    new SwingWorker<Boolean, Void>() {
+        @Override
+        protected Boolean doInBackground() throws Exception {
+            java.util.Map<String, Object> params = new java.util.HashMap<>();
+            params.put("action", "create");
+            params.put("method", "INSERT");
+            params.put("table", "teacher_class");
+            
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("TeacherId", teacherId);
+            data.put("ClassId", classId);
+            data.put("EnrollDate", LocalDateTime.now());
+            params.put("data", data);
+            
+            // ✅ Sửa thành postApiGetList hoặc kiểm tra API
+            List<java.util.Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+            return result != null; // Nếu không null thì thành công
+        }
+        
+        @Override
+        protected void done() {
             try {
-                Long idAccount = Long.parseLong(idStr);
-                if (isTeacher) {
-                    Teacher t = new Teacher(idAccount, name, classId);
-                    createTeacher(t);
+                if (get()) {
+                    msg("Thêm giáo viên vào lớp thành công!", "Thành công");
+                    loadData();
                 } else {
-                    Student s = new Student(idAccount, name, classId);
-                    createStudent(s);
+                    msg("Thêm thất bại!", "Lỗi");
                 }
-                dialog.dispose();
-            } catch (NumberFormatException ex) {
-                msg("ID tài khoản phải là số!", "Lỗi");
+            } catch (Exception e) {
+                e.printStackTrace();
+                msg("Lỗi: " + e.getMessage(), "Lỗi");
             }
-        });
-        JButton cancel = btn("Hủy", TEXT_LIGHT, e -> dialog.dispose());
-        btns.add(save); btns.add(cancel);
+        }
+    }.execute();
+}
 
-        dialog.setLayout(new BorderLayout());
-        dialog.add(p, BorderLayout.CENTER);
-        dialog.add(btns, BorderLayout.SOUTH);
-        dialog.setVisible(true);
-    }
+/**
+ * Thêm học sinh vào lớp (INSERT vào student_class)
+ */
+private void addStudentToClass(Long studentId, Long classId) {
+    new SwingWorker<Boolean, Void>() {
+        @Override
+        protected Boolean doInBackground() throws Exception {
+            java.util.Map<String, Object> params = new java.util.HashMap<>();
+            params.put("action", "create");
+            params.put("method", "INSERT");
+            params.put("table", "student_class");
+            
+            java.util.Map<String, Object> data = new java.util.HashMap<>();
+            data.put("StudentId", studentId);
+            data.put("ClassId", classId);
+            data.put("EnrollDate", LocalDateTime.now());
+            params.put("data", data);
+            
+            // ✅ Sửa thành postApiGetList
+            List<java.util.Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+            return result != null;
+        }
+        
+        @Override
+        protected void done() {
+            try {
+                if (get()) {
+                    msg("Thêm học sinh vào lớp thành công!", "Thành công");
+                    loadData();
+                } else {
+                    msg("Thêm thất bại!", "Lỗi");
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+                msg("Lỗi: " + e.getMessage(), "Lỗi");
+            }
+        }
+    }.execute();
+}
 
     // CRUD Methods
     private void createClass(ClassRoom c) { saveClass(c, "Thêm lớp thành công!", false); }

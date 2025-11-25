@@ -120,7 +120,7 @@ public class ExamDetailWindow extends JFrame {
         backBtn.addActionListener(e -> dispose());
         leftPanel.add(backBtn);
         
-        JLabel titleLabel = new JLabel("📋 Chi Tiết Bài Kiểm Tra");
+        JLabel titleLabel = new JLabel("Chi Tiết Bài Kiểm Tra");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
         titleLabel.setForeground(Color.WHITE);
         leftPanel.add(titleLabel);
@@ -135,17 +135,17 @@ public class ExamDetailWindow extends JFrame {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
         
-        JLabel examLabel = new JLabel("📝 Bài kiểm tra: " + examName);
+        JLabel examLabel = new JLabel("Bài kiểm tra: " + examName);
         examLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
         examLabel.setForeground(new Color(0x1F2937));
         examLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        JLabel studentLabel = new JLabel("👤 Học sinh: " + studentName);
+        JLabel studentLabel = new JLabel("Học sinh: " + studentName);
         studentLabel.setFont(new Font("Segoe UI", Font.PLAIN, 16));
         studentLabel.setForeground(new Color(0x6B7280));
         studentLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        scoreLabel = new JLabel(String.format("⭐ Điểm số: %.1f/10", finalScore));
+        scoreLabel = new JLabel(String.format("Điểm số: %.1f/10", finalScore));
         scoreLabel.setFont(new Font("Segoe UI", Font.BOLD, 18));
         scoreLabel.setForeground(getScoreColor(finalScore));
         scoreLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -576,9 +576,9 @@ public class ExamDetailWindow extends JFrame {
         }
 
         int wrong = totalQuestions - correctCount - unansweredCount;
-        summaryLabel.setText(String.format("✅ Đúng: %d | ❌ Sai: %d | ⏳ Chưa làm: %d (Tổng: %d câu)", correctCount, wrong, unansweredCount, totalQuestions));
+        summaryLabel.setText(String.format("Đúng: %d | Sai: %d | Chưa làm: %d (Tổng: %d câu)", correctCount, wrong, unansweredCount, totalQuestions));
         double score = totalQuestions > 0 ? Math.round((correctCount * 10.0 / totalQuestions) * 10.0) / 10.0 : 0.0;
-        scoreLabel.setText(String.format("⭐ Điểm số: %.1f/10", score));
+        scoreLabel.setText(String.format("Điểm số: %.1f/10", score));
         scoreLabel.setForeground(getScoreColor(score));
 
         questionsContainer.revalidate();
@@ -671,11 +671,11 @@ public class ExamDetailWindow extends JFrame {
 
         JLabel resultLabel;
         if (studentAnswerId == null) {
-            resultLabel = new JLabel("⏳ Chưa làm");
+            resultLabel = new JLabel("Chưa làm");
             resultLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
             resultLabel.setForeground(new Color(0x6B7280)); // gray
         } else {
-            resultLabel = new JLabel(isCorrect ? "✅ Đúng" : "❌ Sai");
+            resultLabel = new JLabel(isCorrect ? "Đúng" : "Sai");
             resultLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
             resultLabel.setForeground(isCorrect ? new Color(0x059669) : new Color(0xDC2626));
         }
