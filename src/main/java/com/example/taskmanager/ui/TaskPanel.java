@@ -536,7 +536,7 @@ public class TaskPanel extends JFrame {
             u.setBirthDate(bd instanceof LocalDate ? (LocalDate) bd : null);
 
             if (isEdit) {
-                u.setUpdateDate(LocalDateTime.now());
+                
                 updateUser(u);
             } else {
                 u.setCreateDate(LocalDateTime.now());

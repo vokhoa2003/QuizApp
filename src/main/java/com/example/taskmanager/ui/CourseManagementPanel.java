@@ -22,7 +22,9 @@ import java.awt.event.MouseMotionAdapter;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import javax.swing.BorderFactory;
@@ -372,28 +374,32 @@ public class CourseManagementPanel extends JFrame {
         JPanel btns = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btns.setBackground(BG);
         JButton save = btn("Lưu", SUCCESS, e -> {
-            if (name.getText().trim().isEmpty()) {
-                msg("Tên lớp không được để trống!", "Lỗi");
-                return;
-            }
-            // TẠO MỚI LUÔN → TRÁNH GỬI createDate CŨ
+    if (name.getText().trim().isEmpty()) {
+        msg("Tên lớp không được để trống!", "Lỗi");
+        return;
+    }
+    
     ClassRoom c = new ClassRoom();
     c.setName(name.getText().trim());
     c.setDescription(desc.getText().trim());
-    c.setUpdateDate(LocalDateTime.now());
-
+    
     if (edit) {
-        c.setId(classObj.getId()); // Chỉ gửi Id
-        // KHÔNG GỌI setCreateDate()
+        c.setId(classObj.getId());
+        // ✅ KHÔNG set CreateDate khi edit
+        // ✅ Set UpdateDate với định dạng chuẩn
+        c.setUpdateDate(LocalDateTime.now());
     } else {
-        c.setCreateDate(LocalDateTime.now());
+        // Khi tạo mới, set cả CreateDate và UpdateDate
+        LocalDateTime now = LocalDateTime.now();
+        c.setCreateDate(now);
+        c.setUpdateDate(now);
     }
 
     if (edit) updateClass(c); 
     else createClass(c);
     
     d.dispose();
-        });
+});
         JButton cancel = btn("Hủy", TEXT_LIGHT, e -> d.dispose());
         btns.add(save); btns.add(cancel);
 
@@ -699,30 +705,45 @@ private void addTeacherToClass(Long teacherId, Long classId) {
     new SwingWorker<Boolean, Void>() {
         @Override
         protected Boolean doInBackground() throws Exception {
-            java.util.Map<String, Object> params = new java.util.HashMap<>();
-            params.put("action", "create");
-            params.put("method", "INSERT");
-            params.put("table", "teacher_class");
-            
-            java.util.Map<String, Object> data = new java.util.HashMap<>();
-            data.put("TeacherId", teacherId);
-            data.put("ClassId", classId);
-            data.put("EnrollDate", LocalDateTime.now());
-            params.put("data", data);
-            
-            // ✅ Sửa thành postApiGetList hoặc kiểm tra API
-            List<java.util.Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-            return result != null; // Nếu không null thì thành công
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "multiInsert");
+
+            List<Map<String, Object>> operations = new ArrayList<>();
+            Map<String, Object> operation = new HashMap<>();
+            operation.put("table", "teacher_class");
+
+            // ĐÚNG: phải dùng key "rows" và là List<Map<...>>
+            List<Map<String, Object>> rows = new ArrayList<>();
+            Map<String, Object> row = new HashMap<>();
+            row.put("TeacherId", teacherId);
+            row.put("ClassId", classId);
+            row.put("EnrollDate", LocalDateTime.now().toString()); // PHP dễ parse hơn nếu là string
+            rows.add(row);
+
+            operation.put("rows", rows);  // ← ĐÂY LÀ KEY BẮT BUỘC
+            operations.add(operation);
+
+            params.put("operations", operations);
+
+            System.out.println("DEBUG multiInsert request: " + params);
+
+            List<Map<String, Object>> result = apiService.postApiGetList("/multiInsert", params);
+
+            if (result != null && !result.isEmpty()) {
+                Map<String, Object> first = result.get(0);
+                return "success".equals(first.get("status"));
+            }
+            return false;
         }
-        
+
         @Override
         protected void done() {
             try {
-                if (get()) {
+                if (Boolean.TRUE.equals(get())) {
                     msg("Thêm giáo viên vào lớp thành công!", "Thành công");
-                    loadData();
+                    loadData(); // refresh lại danh sách lớp + thành viên
                 } else {
-                    msg("Thêm thất bại!", "Lỗi");
+                    msg("Thêm thất bại! Kiểm tra ID giáo viên hoặc lớp.", "Lỗi");
                 }
             } catch (Exception e) {
                 e.printStackTrace();
@@ -739,26 +760,33 @@ private void addStudentToClass(Long studentId, Long classId) {
     new SwingWorker<Boolean, Void>() {
         @Override
         protected Boolean doInBackground() throws Exception {
-            java.util.Map<String, Object> params = new java.util.HashMap<>();
-            params.put("action", "create");
-            params.put("method", "INSERT");
-            params.put("table", "student_class");
-            
-            java.util.Map<String, Object> data = new java.util.HashMap<>();
-            data.put("StudentId", studentId);
-            data.put("ClassId", classId);
-            data.put("EnrollDate", LocalDateTime.now());
-            params.put("data", data);
-            
-            // ✅ Sửa thành postApiGetList
-            List<java.util.Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-            return result != null;
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "multiInsert");
+
+            List<Map<String, Object>> operations = new ArrayList<>();
+            Map<String, Object> op = new HashMap<>();
+            op.put("table", "student_class");
+
+            List<Map<String, Object>> rows = new ArrayList<>();
+            Map<String, Object> row = new HashMap<>();
+            row.put("StudentId", studentId);
+            row.put("ClassId", classId);
+            row.put("EnrollDate", LocalDateTime.now().toString());
+            rows.add(row);
+
+            op.put("rows", rows);
+            operations.add(op);
+            params.put("operations", operations);
+
+            List<Map<String, Object>> result = apiService.postApiGetList("/multiInsert", params);
+
+            return result != null && !result.isEmpty() && "success".equals(result.get(0).get("status"));
         }
-        
+
         @Override
         protected void done() {
             try {
-                if (get()) {
+                if (Boolean.TRUE.equals(get())) {
                     msg("Thêm học sinh vào lớp thành công!", "Thành công");
                     loadData();
                 } else {
