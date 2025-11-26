@@ -421,7 +421,10 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
             Map<String, Object> payload = new HashMap<>();
             payload.put("method", "SELECT");
             payload.put("action", "get");
-            payload.put("table", List.of("student", "account", "classes"));
+            
+            // 4 BẢNG: student → account, student → student_class → classes
+            payload.put("table", List.of("student", "account", "student_class", "classes"));
+            
             payload.put("columns", List.of(
                 "student.Id as StudentId",
                 "account.FullName",
@@ -429,8 +432,9 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                 "classes.Name as ClassName"
             ));
 
-            // JOIN 1: student → account
-            // JOIN 2: student → classes
+            // JOIN 1: student → account (lấy tên từ account)
+            // JOIN 2: student → student_class (quan hệ student-class)
+            // JOIN 3: student_class → classes (lấy tên lớp)
             List<Map<String, Object>> joins = new ArrayList<>();
             joins.add(Map.of(
                 "type", "inner",
@@ -438,13 +442,17 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
             ));
             joins.add(Map.of(
                 "type", "inner",
-                "on", List.of("student.ClassId = classes.Id")
+                "on", List.of("student.Id = student_class.StudentId")
+            ));
+            joins.add(Map.of(
+                "type", "inner",
+                "on", List.of("student_class.ClassId = classes.Id")
             ));
             payload.put("join", joins);
 
-            // WHERE: chỉ lấy học sinh của lớp classId
+            // WHERE: lọc theo classId trong bảng student_class
             Map<String, Object> where = new HashMap<>();
-            where.put("student.ClassId", classId);
+            where.put("student_class.ClassId", classId);
             payload.put("where", where);
 
             System.out.println("DEBUG: loadStudentData payload = " + payload);
@@ -456,7 +464,10 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                 rows.add(new Object[]{
                     row.get("StudentId"),
                     row.get("FullName") != null ? row.get("FullName") : row.get("StudentName"),
-                    row.get("ClassName")
+                    row.get("ClassName"),
+                    0,  // Số bài đã làm (TODO: tính sau)
+                    0.0, // Điểm TB (TODO: tính sau)
+                    ""   // Placeholder cho button
                 });
             }
             return rows;
@@ -468,14 +479,24 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                 List<Object[]> data = get();
                 SwingUtilities.invokeLater(() -> {
                     studentTableModel.setRowCount(0);
+                    int stt = 1;
                     for (Object[] row : data) {
-                        studentTableModel.addRow(row);
+                        // Thêm cột STT vào đầu
+                        Object[] rowWithSTT = new Object[row.length + 1];
+                        rowWithSTT[0] = stt++;
+                        System.arraycopy(row, 0, rowWithSTT, 1, row.length);
+                        studentTableModel.addRow(rowWithSTT);
                     }
                     studentCountLabel.setText("Tổng số học sinh: " + data.size());
                     System.out.println("UI: Loaded " + data.size() + " students");
                 });
             } catch (Exception e) {
                 e.printStackTrace();
+                SwingUtilities.invokeLater(() -> 
+                    JOptionPane.showMessageDialog(ClassDetailWindow.this, 
+                        "Lỗi khi tải danh sách học sinh: " + e.getMessage(),
+                        "Lỗi", JOptionPane.ERROR_MESSAGE)
+                );
             }
         }
     };
@@ -636,11 +657,19 @@ private String formatDate(Object dateObj) {
 }
     
     private void openExamDetail(int row) {
-        String studentName = (String) tableModel.getValueAt(row, 1);
-        int studentId = (int) tableModel.getValueAt(row, 0);
-        
-        new StudentExamListWindow(apiService, authService, studentId, studentName, className);
+    Object studentIdObj = studentTableModel.getValueAt(row, 1); // StudentId
+    String studentName = (String) studentTableModel.getValueAt(row, 2); // FullName
+    
+    int studentId = 0;
+    if (studentIdObj instanceof Number) {
+        studentId = ((Number) studentIdObj).intValue();
+    } else if (studentIdObj != null) {
+        studentId = Integer.parseInt(studentIdObj.toString());
     }
+    
+    // ← TRUYỀN THÊM classId VÀO CONSTRUCTOR
+    new StudentExamListWindow(apiService, authService, studentId, studentName, className, classId);
+}
 
     private void openExamDetailForExam(int examId, String examName) {
         JOptionPane.showMessageDialog(this,
@@ -708,7 +737,7 @@ private String formatDate(Object dateObj) {
         
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
-            setText("📋 Xem Bài Thi");
+            setText("Xem Chi Tiết");
             return this;
         }
     }
