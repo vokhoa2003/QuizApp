@@ -8,9 +8,9 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 
@@ -29,13 +29,12 @@ import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
-import javax.swing.Timer;
 
-import com.example.taskmanager.model.Student;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 
@@ -489,6 +488,7 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                     }
                     studentCountLabel.setText("Tổng số học sinh: " + data.size());
                     System.out.println("UI: Loaded " + data.size() + " students");
+                    System.out.println("load student info: "+ data);
                 });
             } catch (Exception e) {
                 e.printStackTrace();

@@ -28,13 +28,13 @@ public class AuthService {
     private final ApiConfig apiConfig;
     private final Preferences preferences;
     private String userEmail; // Lưu email người dùng sau khi đăng nhập
-    
+
     private String accessToken;
     private String refreshToken;
     private String lastLoginRole; // Thêm để lưu role từ response
     private LocalDateTime expiryTime;
     private String lastLoginResponse; // Thêm để lưu response từ /app_login
-    
+
     private static final String PREF_ACCESS_TOKEN = "access_token";
     private static final String PREF_REFRESH_TOKEN = "refresh_token";
     private static final String PREF_EXPIRY_TIME = "expiry_time";
@@ -43,14 +43,14 @@ public class AuthService {
         this.apiConfig = ApiConfig.getInstance();
         this.objectMapper = new ObjectMapper();
         this.preferences = Preferences.userNodeForPackage(AuthService.class);
-        
+
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(apiConfig.getConnectTimeout()))
                 .build();
-                
+
         loadTokenFromPreferences();
     }
-    
+
     private void loadTokenFromPreferences() {
         String encryptedAccessToken = preferences.get(PREF_ACCESS_TOKEN, null);
         String encryptedRefreshToken = preferences.get(PREF_REFRESH_TOKEN, null);
@@ -79,23 +79,21 @@ public class AuthService {
         }
         return accessToken;
     }
-    
-    
-    private boolean refreshAccessToken() {
+
+    public boolean refreshAccessToken() {
         try {
             String authHeader = "Basic " + Base64.getEncoder().encodeToString(
-                    (apiConfig.getClientId() + ":" + apiConfig.getClientSecret()).getBytes()
-            );
-            
+                    (apiConfig.getClientId() + ":" + apiConfig.getClientSecret()).getBytes());
+
             Map<String, String> params = new HashMap<>();
             params.put("grant_type", "refresh_token");
             params.put("refresh_token", refreshToken);
-            
+
             String formData = params.entrySet().stream()
                     .map(e -> e.getKey() + "=" + e.getValue())
                     .reduce((a, b) -> a + "&" + b)
                     .orElse("");
-            
+
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/refresh_token"))
                     .header("Authorization", authHeader)
@@ -124,35 +122,62 @@ public class AuthService {
             return false;
         }
     }
-    
-    private void processTokenResponse(JsonNode jsonNode) {
-        this.accessToken = jsonNode.get("refresh_token").asText();
-        this.refreshToken = jsonNode.get("refresh_token").asText();
-        int expiresIn = jsonNode.get("expires_in").asInt(3600);
-        this.expiryTime = LocalDateTime.now().plusSeconds(expiresIn - 300);
+
+    private void processTokenResponse(com.fasterxml.jackson.databind.JsonNode json) throws java.io.IOException {
+        if (json == null) {
+            throw new java.io.IOException("Empty token response from auth server");
+        }
+
+        // use .path(...) to avoid NullPointerException (returns MissingNode instead of
+        // null)
+        String accessToken = json.path("access_token").asText(null);
+        String refreshToken = json.path("refresh_token").asText(null);
+        String tokenType = json.path("token_type").asText(null);
+        Integer expiresIn = json.path("expires_in").isNumber() ? json.path("expires_in").intValue() : null;
+
+        // If access_token missing -> build informative exception (API may return error
+        // fields)
+        if (accessToken == null || accessToken.isEmpty()) {
+            String err = json.path("error").asText(null);
+            String errDesc = json.path("error_description").asText(null);
+            throw new java.io.IOException("Invalid token response: access_token missing. error=" + err
+                    + ", description=" + errDesc + ", raw=" + json.toString());
+        }
+
+        // Persist tokens / set state (example fields; keep existing logic)
+        this.accessToken = accessToken;
+        if (refreshToken != null && !refreshToken.isEmpty()) {
+            this.refreshToken = refreshToken;
+        }
+        if (expiresIn != null) {
+            //this.tokenExpiry = java.time.Instant.now().plusSeconds(expiresIn);
+            this.expiryTime = LocalDateTime.now().plusSeconds(expiresIn);
+        }
         saveTokenToPreferences();
     }
-    
+
     public void logout() {
         this.accessToken = null;
         this.refreshToken = null;
         this.expiryTime = null;
-        
+
         preferences.remove(PREF_ACCESS_TOKEN);
         preferences.remove(PREF_REFRESH_TOKEN);
         preferences.remove(PREF_EXPIRY_TIME);
-        
+
         try {
             GoogleLoginHelper.clearStoredTokens();
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-    
+
     public boolean isLoggedIn() {
         return (accessToken != null && expiryTime != null && LocalDateTime.now().isBefore(expiryTime));
     }
+
     private String csrfToken; // add field to persist token per instance
+
     public boolean loginWithGoogle(Userinfo userInfo) {
         try {
             if (userInfo == null || userInfo.getEmail() == null || userInfo.getId() == null) {
@@ -224,6 +249,7 @@ public class AuthService {
         this.csrfToken = t;
         return t;
     }
+
     public int getUserIdFromToken(String token) {
         try {
             String[] tokenParts = token.split("\\.");
@@ -240,6 +266,7 @@ public class AuthService {
             return -1;
         }
     }
+
     private String extractRoleFromToken(String token) {
         try {
             String[] tokenParts = token.split("\\.");
@@ -256,6 +283,7 @@ public class AuthService {
             return null;
         }
     }
+
     public String extractEmailFromToken(String token) {
         try {
             String[] tokenParts = token.split("\\.");
@@ -272,12 +300,15 @@ public class AuthService {
             return null;
         }
     }
+
     public String getLastLoginRole() {
         return lastLoginRole;
     }
+
     public String getLastLoginResponse() {
         return lastLoginResponse;
     }
+
     public String getUserEmail() {
         // Lấy từ token đã decode hoặc session hiện tại
         // Ví dụ:
