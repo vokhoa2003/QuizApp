@@ -24,21 +24,9 @@ public class Task {
     private String answer;
     private String accountStatus;
 
-    // Dữ liệu động từ API
-    private Map<String, Object> extraFields;
 
-    @JsonAnySetter
-    public void setExtraField(String key, Object value) {
-        if (extraFields == null) {
-            // Khởi tạo nếu chưa có
-            extraFields = new java.util.HashMap<>();
-        }
-        extraFields.put(key, value);
-    }
 
-    public Map<String, Object> getExtraFields() {
-        return extraFields;
-    }
+ 
 
     // Getters và setters cho các trường chính
     public Long getId() { return id; }
@@ -74,14 +62,6 @@ public class Task {
     @JsonProperty("identityNumber")
     public String getIdentityNumber() { return identityNumber; }
     public void setIdentityNumber(String identityNumber) { this.identityNumber = identityNumber; }
-
-    //--------------------------------------
-    @JsonProperty("question")
-    public String getQuestion() { return question; }
-    public void setQuestion(String question) { this.question = question; }
-    @JsonProperty("answer")
-    public String getAnswer() { return answer; }
-    public void setAnswer(String answer) { this.answer = answer; }
 
     // Khóa lại những trường không dùng (comment lại)
 //    private String accountStatus;

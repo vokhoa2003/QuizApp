@@ -152,20 +152,40 @@ public class TaskPanel extends JFrame {
         JPanel titleBar = new JPanel(new BorderLayout());
         titleBar.setOpaque(false);
         titleBar.setBorder(new EmptyBorder(10, 15, 10, 15));
-
+        JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+    leftPanel.setOpaque(false);
+    JButton backBtn = new JButton("← Quay lại");
+    backBtn.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+    backBtn.setForeground(PRIMARY_COLOR);
+    backBtn.setBorderPainted(false);
+    backBtn.setContentAreaFilled(false);
+    backBtn.setFocusPainted(false);
+    backBtn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+    backBtn.addActionListener(e -> goBackToAdminDashboard());
+    backBtn.addMouseListener(new MouseAdapter() {
+        public void mouseEntered(MouseEvent e) { 
+            backBtn.setForeground(PRIMARY_COLOR.brighter()); 
+        }
+        public void mouseExited(MouseEvent e) { 
+            backBtn.setForeground(PRIMARY_COLOR); 
+        }
+    });
         JLabel titleLabel = new JLabel("Quản Lý Người Dùng");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 16));
         titleLabel.setForeground(TEXT_PRIMARY);
-        titleBar.add(titleLabel, BorderLayout.WEST);
+        leftPanel.add(backBtn);
+    leftPanel.add(Box.createHorizontalStrut(5));
+    leftPanel.add(new JLabel("|"));
+    leftPanel.add(Box.createHorizontalStrut(5));
+    leftPanel.add(titleLabel);
+    
+        titleBar.add(leftPanel, BorderLayout.WEST);
 
         JPanel controlPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         controlPanel.setOpaque(false);
 
         JButton minimizeBtn = createControlButton("–", e -> setState(Frame.ICONIFIED));
-        JButton closeBtn = createControlButton("×", e -> {
-            setVisible(false);
-            if (adminDashboard != null) adminDashboard.setVisible(true);
-        });
+        JButton closeBtn = createControlButton("×", e -> goBackToAdminDashboard());
 
         controlPanel.add(minimizeBtn);
         controlPanel.add(closeBtn);
@@ -173,6 +193,12 @@ public class TaskPanel extends JFrame {
 
         return titleBar;
     }
+    private void goBackToAdminDashboard() {
+    setVisible(false);
+    if (adminDashboard != null) {
+        adminDashboard.setVisible(true);
+    }
+}
 
     private JButton createControlButton(String text, ActionListener action) {
         JButton btn = new JButton(text);
@@ -260,6 +286,7 @@ public class TaskPanel extends JFrame {
         editButton = createModernButton("Edit User", WARNING_COLOR, "edit");
         deleteButton = createModernButton("Delete User", DANGER_COLOR, "delete");
         searchButton = createModernButton("Search", PRIMARY_COLOR, "search");
+        //JButton backButton = createModernButton("← Quay lại", new Color(100, 116, 139), "back");
         logoutButton = createModernButton("Logout", TEXT_SECONDARY, "logout");
 
         refreshButton.addActionListener(e -> refreshUsers());
@@ -267,6 +294,12 @@ public class TaskPanel extends JFrame {
         editButton.addActionListener(e -> handleEditAction());
         deleteButton.addActionListener(e -> handleDeleteAction());
         searchButton.addActionListener(e -> showSearchDialog());
+    //     backButton.addActionListener(e -> {
+    //     setVisible(false);  // Ẩn TaskPanel
+    //     if (adminDashboard != null) {
+    //         adminDashboard.setVisible(true);  // Hiện AdminDashboard
+    //     }
+    // });
         logoutButton.addActionListener(e -> {
             authService.logout();
             setVisible(false);
@@ -279,6 +312,8 @@ public class TaskPanel extends JFrame {
         panel.add(deleteButton);
         panel.add(searchButton);
         panel.add(Box.createHorizontalStrut(10));
+    //     panel.add(backButton);
+    // panel.add(Box.createHorizontalStrut(10));
         panel.add(logoutButton);
 
         return panel;
@@ -501,7 +536,7 @@ public class TaskPanel extends JFrame {
             u.setBirthDate(bd instanceof LocalDate ? (LocalDate) bd : null);
 
             if (isEdit) {
-                u.setUpdateDate(LocalDateTime.now());
+                
                 updateUser(u);
             } else {
                 u.setCreateDate(LocalDateTime.now());

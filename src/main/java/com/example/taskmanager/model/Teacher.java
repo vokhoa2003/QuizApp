@@ -1,7 +1,6 @@
 package com.example.taskmanager.model;
 
 import java.time.LocalDateTime;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 public class Teacher {
@@ -14,9 +13,6 @@ public class Teacher {
     @JsonProperty("Name")
     private String name;
 
-    @JsonProperty("ClassId")
-    private Long classId;
-
     @JsonProperty("CreateDate")
     private LocalDateTime createDate;
 
@@ -26,11 +22,10 @@ public class Teacher {
     // Constructors
     public Teacher() {}
 
-    // DÙNG KHI THÊM MỚI (cần idAccount)
-    public Teacher(Long idAccount, String name, Long classId) {
+    // Constructor cho thêm mới (không cần classId nữa)
+    public Teacher(Long idAccount, String name) {
         this.idAccount = idAccount;
         this.name = name;
-        this.classId = classId;
         this.createDate = LocalDateTime.now();
         this.updateDate = LocalDateTime.now();
     }
@@ -39,17 +34,14 @@ public class Teacher {
     public Long getId() { return id; }
     public Long getIdAccount() { return idAccount; }
     public String getName() { return name; }
-    public Long getClassId() { return classId; }
     public LocalDateTime getCreateDate() { return createDate; }
     public LocalDateTime getUpdateDate() { return updateDate; }
 
-    public void setFullName(String fullName) { this.name = fullName; }
-    @JsonProperty("status")
     // Setters
     public void setId(Long id) { this.id = id; }
     public void setIdAccount(Long idAccount) { this.idAccount = idAccount; }
     public void setName(String name) { this.name = name; }
-    public void setClassId(Long classId) { this.classId = classId; }
+    public void setFullName(String fullName) { this.name = fullName; }
     public void setCreateDate(LocalDateTime createDate) { this.createDate = createDate; }
     public void setUpdateDate(LocalDateTime updateDate) { this.updateDate = updateDate; }
 }

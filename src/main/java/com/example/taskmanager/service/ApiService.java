@@ -12,6 +12,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateDeserializer;
 import com.fasterxml.jackson.datatype.jsr310.deser.LocalDateTimeDeserializer;
 import java.time.format.DateTimeFormatter;
@@ -45,11 +46,21 @@ public class ApiService {
         objectMapper.configure(MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES, true);
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
-        // Register JavaTimeModule and a LocalDateTime deserializer with expected pattern
-        JavaTimeModule javaTimeModule = new JavaTimeModule();
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(dtf));
-        objectMapper.registerModule(javaTimeModule);
+        // ✅ Register JavaTimeModule với cả Serializer và Deserializer
+    JavaTimeModule javaTimeModule = new JavaTimeModule();
+    
+    // Deserializer (JSON → Java) - đã có sẵn
+    DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+    javaTimeModule.addDeserializer(LocalDateTime.class, new LocalDateTimeDeserializer(dtf));
+    
+    // ✅ Serializer (Java → JSON) - THÊM DÒNG NÀY
+    javaTimeModule.addSerializer(LocalDateTime.class, 
+        new com.fasterxml.jackson.datatype.jsr310.ser.LocalDateTimeSerializer(dtf));
+
+    objectMapper.registerModule(javaTimeModule);
+
+    objectMapper.disable(com.fasterxml.jackson.databind.SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    
 
         // keep existing date acceptance setting
         this.objectMapper.configure(DeserializationFeature.ACCEPT_EMPTY_STRING_AS_NULL_OBJECT, true);
@@ -186,51 +197,83 @@ public class ApiService {
     }
 
     public boolean updateUser(Task user) {
-        try {
-            // Chuyển đổi Task thành Map và thêm csrf_token
-            Map<String, Object> data = objectMapper.convertValue(user, new TypeReference<Map<String, Object>>() {});
-            data.put("csrf_token", csrfToken);
-            // Đảm bảo CreateDate và updateDate là chuỗi
-            if (user.getCreateDate() != null) {
-                data.put("createDate", user.getCreateDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            }
-            if (user.getUpdateDate() != null) {
-                data.put("updateDate", user.getUpdateDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
-            }
-            if (user.getBirthDate() != null) {
-                data.put("birthDate", user.getBirthDate().format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
-            }
-            String requestBody = objectMapper.writeValueAsString(data);
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
-                    .header("Authorization", "Bearer " + authService.getAccessToken())
-                    .header("Content-Type", "application/json")
-                    .header("Cookie", "csrf_token=" + csrfToken)
-                    .header("X-CSRF-Token", csrfToken)
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            System.out.println("API Response: " + response.statusCode());
-            //System.out.println("Request body: " + requestBody);
-
-            if (response.statusCode() == 200) {
-                JsonNode jsonNode = objectMapper.readTree(response.body());
-                if (jsonNode.has("status") && "success".equals(jsonNode.get("status").asText())) {
-                    System.out.println("CẬP NHẬT THÀNH CÔNG");
-                    return true;
-                } else {
-                    System.err.println("Error: " + (jsonNode.has("message") ? jsonNode.get("message").asText() : "Unknown error"));
-                    return false;
-                }
-            } else {
-                System.err.println("Error creating user: " + response.statusCode() + " - " + response.body());
-            }
-        } catch (IOException | InterruptedException e) {
-            e.printStackTrace();
+    try {
+        Map<String, Object> data = new HashMap<>();
+        data.remove("updateDate");
+        data.remove("UpdateDate");
+        data.remove("createDate");
+        data.remove("CreateDate");
+        
+        // ✅ QUAN TRỌNG: KHÔNG gửi "id" trong body
+        // Backend dùng id làm WHERE condition, không phải data update
+        
+        // ✅ CHỈ GỬI CÁC FIELD CẦN UPDATE (KHÔNG BAO GỒM id)
+        data.put("email", user.getEmail());
+        data.put("FullName", user.getFullName());
+        data.put("role", user.getRole());
+        data.put("Status", user.getStatus());
+        data.put("Phone", user.getPhone());
+        data.put("Address", user.getAddress());
+        data.put("IdentityNumber", user.getIdentityNumber());
+        
+        // ✅ Format BirthDate
+        if (user.getBirthDate() != null) {
+            data.put("BirthDate", user.getBirthDate()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd")));
         }
-        return false;
+        
+        // // ✅ UpdateDate
+        // data.put("UpdateDate", LocalDateTime.now()
+        //     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        
+        // ✅ Metadata cho backend
+        data.put("table", "account");  // Backend cần biết update table nào
+        data.put("action", "AdminUpdate");
+        data.put("csrf_token", csrfToken);
+        
+        // ✅ GỬI Id RIÊNG BIỆT - Backend dùng làm WHERE condition
+        data.put("id", user.getId());  // Backend sẽ filter ra khỏi $data, dùng cho WHERE
+        
+        String requestBody = objectMapper.writeValueAsString(data);
+        
+        System.out.println("📤 UPDATE User Request: " + requestBody);
+        
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
+                .header("Authorization", "Bearer " + authService.getAccessToken())
+                .header("Content-Type", "application/json; charset=UTF-8")
+                .header("Cookie", "csrf_token=" + csrfToken)
+                .header("X-CSRF-Token", csrfToken)
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody, 
+                    java.nio.charset.StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, 
+            HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+        
+        System.out.println("📥 UPDATE User Response (" + response.statusCode() + "): " 
+            + response.body());
+
+        if (response.statusCode() == 200) {
+            JsonNode jsonNode = objectMapper.readTree(response.body());
+            if (jsonNode.has("status") && "success".equals(jsonNode.get("status").asText())) {
+                System.out.println("✅ CẬP NHẬT USER THÀNH CÔNG");
+                return true;
+            } else {
+                System.err.println("❌ Error: " + (jsonNode.has("message") 
+                    ? jsonNode.get("message").asText() : "Unknown error"));
+                return false;
+            }
+        } else {
+            System.err.println("❌ HTTP Error: " + response.statusCode() 
+                + " - " + response.body());
+        }
+    } catch (IOException | InterruptedException e) {
+        System.err.println("❌ Exception in updateUser: " + e.getMessage());
+        e.printStackTrace();
     }
+    return false;
+}
     public boolean deleteUser(Long userId) {
         try {
             // Tạo Map chứa dữ liệu, bao gồm id và csrf_token
@@ -405,13 +448,61 @@ public boolean createStudent(Student student) {
 // ========================================
 
 public boolean updateClass(ClassRoom classRoom) {
-    Map<String, Object> data = objectMapper.convertValue(classRoom, Map.class);
-    // BẮT BUỘC LOẠI BỎ createDate
-    data.remove("CreateDate");
-    data.remove("createDate");
-    data.put("table", "classes");
-    data.put("action", "update");
-    return postAndCheckSuccess("/AdminUpdate", data);
+    try {
+        // ✅ KHÔNG dùng objectMapper.convertValue vì nó convert tất cả thành String
+        Map<String, Object> data = new HashMap<>();
+        
+        // ✅ GỬI ĐÚNG TYPE: Long cho Id, String cho Name/Description
+        data.put("Id", classRoom.getId());  // Long → JSON number
+        data.put("Name", classRoom.getName());
+        data.put("Description", classRoom.getDescription());
+        
+        // ✅ Format UpdateDate
+        if (classRoom.getUpdateDate() != null) {
+            data.put("UpdateDate", classRoom.getUpdateDate()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        } else {
+            data.put("UpdateDate", LocalDateTime.now()
+                .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
+        }
+        
+        data.put("table", "classes");
+        data.put("action", "AdminUpdate");
+        data.put("csrf_token", csrfToken);
+        
+        String requestBody = objectMapper.writeValueAsString(data);
+        
+        System.out.println("📤 UPDATE Request: " + requestBody);
+        
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
+                .header("Authorization", "Bearer " + authService.getAccessToken())
+                .header("Content-Type", "application/json; charset=UTF-8")
+                .header("Cookie", "csrf_token=" + csrfToken)
+                .header("X-CSRF-Token", csrfToken)
+                .POST(HttpRequest.BodyPublishers.ofString(requestBody, java.nio.charset.StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, 
+            HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+        
+        System.out.println("📥 UPDATE Response (" + response.statusCode() + "): " + response.body());
+
+        if (response.statusCode() == 200) {
+            JsonNode json = objectMapper.readTree(response.body());
+            
+            if (json.has("status") && "success".equals(json.get("status").asText())) {
+                System.out.println("✅ CẬP NHẬT THÀNH CÔNG");
+                return true;
+            } else if (json.has("message")) {
+                System.err.println("❌ Lỗi từ API: " + json.get("message").asText());
+            }
+        }
+    } catch (Exception e) {
+        System.err.println("❌ Exception: " + e.getMessage());
+        e.printStackTrace();
+    }
+    return false;
 }
 
 public boolean updateTeacher(Teacher teacher) {

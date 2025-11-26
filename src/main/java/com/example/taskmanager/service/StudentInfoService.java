@@ -15,78 +15,130 @@ public class StudentInfoService {
 
     // Lấy profile (account + student + class) theo email
     public List<Map<String, Object>> fetchProfileByEmail(String email) {
-        if (email == null || email.isEmpty()) return Collections.emptyList();
-        try {
-            Map<String, Object> params = new HashMap<>();
-            params.put("action", "get");
-            params.put("method", "SELECT");
-            params.put("table", List.of("account", "student", "classes"));
+    if (email == null || email.isEmpty()) return Collections.emptyList();
 
-            List<Map<String, Object>> joinList = new ArrayList<>();
-            Map<String, Object> j1 = new HashMap<>();
-            j1.put("type", "inner");
-            j1.put("on", List.of("account.id = student.IdAccount"));
-            joinList.add(j1);
+    try {
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "get");
+        params.put("method", "SELECT");
 
-            Map<String, Object> j2 = new HashMap<>();
-            j2.put("type", "inner");
-            j2.put("on", List.of("student.ClassId = classes.Id"));
-            joinList.add(j2);
+        // Bảng chính: account → student → student_class → classes
+        params.put("table", List.of("account", "student", "student_class", "classes"));
 
-            params.put("join", joinList);
-            params.put("columns", List.of(
-                "account.id", "account.FullName", "account.email", "account.GoogleID",
-                "student.Id as StudentId", "student.Name as StudentName", "classes.Id as ClassId", "classes.Name as ClassName"
-            ));
+        // JOIN đúng thứ tự
+        List<Map<String, Object>> joinList = new ArrayList<>();
 
-            Map<String, Object> where = new HashMap<>();
-            where.put("account.email", email);
-            params.put("where", where);
+        // account → student
+        Map<String, Object> j1 = new HashMap<>();
+        j1.put("type", "INNER");
+        j1.put("on", List.of("account.id = student.IdAccount"));
+        joinList.add(j1);
 
-            List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-            return result != null ? result : Collections.emptyList();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return Collections.emptyList();
-        }
+        // student → student_class
+        Map<String, Object> j2 = new HashMap<>();
+        j2.put("type", "INNER");
+        j2.put("on", List.of("student.Id = student_class.StudentId"));
+        joinList.add(j2);
+
+        // student_class → classes
+        Map<String, Object> j3 = new HashMap<>();
+        j3.put("type", "INNER");
+        j3.put("on", List.of("student_class.ClassId = classes.Id"));
+        joinList.add(j3);
+
+        params.put("join", joinList);
+
+        params.put("columns", List.of(
+            "account.id as AccountId",
+            "account.FullName",
+            "account.email",
+            "account.GoogleID",
+            "student.Id as StudentId",           // Quan trọng: có StudentId
+            "student.Name as StudentName",
+            "classes.Id as ClassId",
+            "classes.Name as ClassName",
+            "student_class.EnrollDate"
+        ));
+
+        Map<String, Object> where = new HashMap<>();
+        where.put("account.email", email);
+        params.put("where", where);
+
+        System.out.println("? fetchProfileByEmail params: " + params);
+
+        List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+        System.out.println("? fetchProfileByEmail result: " + result);
+
+        return result != null ? result : Collections.emptyList();
+
+    } catch (Exception ex) {
+        ex.printStackTrace();
+        return Collections.emptyList();
     }
+}
 
     // (renamed) Lấy profile (account + student + class) theo account id (từ token)
     public List<Map<String, Object>> fetchProfileById(int accountId) {
-        try {
-            Map<String, Object> params = new HashMap<>();
-            params.put("action", "get");
-            params.put("method", "SELECT");
-            params.put("table", List.of("account", "student", "classes"));
+    try {
+        Map<String, Object> params = new HashMap<>();
+        params.put("action", "get");
+        params.put("method", "SELECT");
+        
+        // ✅ QUAN TRỌNG: JOIN qua bảng student_class
+        params.put("table", List.of("account", "student", "student_class", "classes"));
 
-            List<Map<String, Object>> joinList = new ArrayList<>();
-            Map<String, Object> j1 = new HashMap<>();
-            j1.put("type", "inner");
-            j1.put("on", List.of("account.id = student.IdAccount"));
-            joinList.add(j1);
+        List<Map<String, Object>> joinList = new ArrayList<>();
+        
+        // Join 1: account -> student
+        Map<String, Object> j1 = new HashMap<>();
+        j1.put("type", "inner");
+        j1.put("on", List.of("account.id = student.IdAccount"));
+        joinList.add(j1);
 
-            Map<String, Object> j2 = new HashMap<>();
-            j2.put("type", "inner");
-            j2.put("on", List.of("student.ClassId = classes.Id"));
-            joinList.add(j2);
+        // ✅ Join 2: student -> student_class (THAY ĐỔI CHÍNH)
+        Map<String, Object> j2 = new HashMap<>();
+        j2.put("type", "inner");
+        j2.put("on", List.of("student.Id = student_class.StudentId"));
+        joinList.add(j2);
+        
+        // ✅ Join 3: student_class -> classes (MỚI THÊM)
+        Map<String, Object> j3 = new HashMap<>();
+        j3.put("type", "inner");
+        j3.put("on", List.of("student_class.ClassId = classes.Id"));
+        joinList.add(j3);
 
-            params.put("join", joinList);
-            params.put("columns", List.of(
-                "account.id", "account.FullName", "account.email",
-                "student.Id as StudentId", "student.Name as StudentName", "classes.Id as ClassId", "classes.Name as ClassName"
-            ));
+        params.put("join", joinList);
+        
+        params.put("columns", List.of(
+            "account.id as AccountId",
+            "account.FullName",
+            "account.email",
+            "student.Id as StudentId",
+            "student.Name as StudentName",
+            "classes.Id as ClassId",
+            "classes.Name as ClassName",
+            "student_class.EnrollDate"  // ✅ Thêm ngày đăng ký (nếu cần)
+        ));
 
-            Map<String, Object> where = new HashMap<>();
-            where.put("account.id", accountId);
-            params.put("where", where);
+        Map<String, Object> where = new HashMap<>();
+        where.put("account.id", accountId);
+        params.put("where", where);
 
-            List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-            return result != null ? result : Collections.emptyList();
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return Collections.emptyList();
-        }
+        System.out.println("📡 fetchProfileById params: " + params);
+        
+        List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+        
+        System.out.println("📥 fetchProfileById result: " + 
+            (result != null ? result.size() + " records" : "null"));
+        
+        return result != null ? result : Collections.emptyList();
+        
+    } catch (Exception ex) {
+        System.err.println("❌ fetchProfileById error: " + ex.getMessage());
+        ex.printStackTrace();
+        return Collections.emptyList();
     }
+}
 
     // Lấy danh sách lớp học của học sinh theo email (kèm giáo viên)
     public List<Map<String, Object>> fetchStudentClassesByEmail(String email) {
