@@ -7,6 +7,12 @@ import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -16,9 +22,12 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
@@ -33,19 +42,21 @@ public class StudentExamListWindow extends JFrame {
     private String studentName;
     private int studentId;
     private String className;
+    private int classId;
     
     private JTable examTable;
     private DefaultTableModel tableModel;
     private JLabel studentInfoLabel;
     private JLabel totalExamsLabel;
-    
+    private Map<Integer, Integer> rowToExamIdMap = new HashMap<>();
     public StudentExamListWindow(ApiService apiService, AuthService authService,
-                                 int studentId, String studentName, String className) {
+                                 int studentId, String studentName, String className, int classId) {
         this.apiService = apiService;
         this.authService = authService;
         this.studentId = studentId;
         this.studentName = studentName;
         this.className = className;
+        this.classId = classId;
         
         setTitle("Danh Sách Bài Kiểm Tra - " + studentName);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
@@ -53,7 +64,7 @@ public class StudentExamListWindow extends JFrame {
         setLocationRelativeTo(null);
         
         initUI();
-        //loadExamList();
+        loadExamList();  // ← BẬT LẠI
         
         setVisible(true);
     }
@@ -104,7 +115,7 @@ public class StudentExamListWindow extends JFrame {
         backBtn.addActionListener(e -> dispose());
         leftPanel.add(backBtn);
         
-        JLabel titleLabel = new JLabel("📝 Danh Sách Bài Kiểm Tra");
+        JLabel titleLabel = new JLabel("Danh Sách Bài Kiểm Tra");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
         titleLabel.setForeground(Color.WHITE);
         leftPanel.add(titleLabel);
@@ -119,7 +130,7 @@ public class StudentExamListWindow extends JFrame {
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
         panel.setOpaque(false);
         
-        studentInfoLabel = new JLabel("👤 Học sinh: " + studentName + " | Lớp: " + className);
+        studentInfoLabel = new JLabel("Học sinh: " + studentName + " | Lớp: " + className);
         studentInfoLabel.setFont(new Font("Segoe UI", Font.BOLD, 20));
         studentInfoLabel.setForeground(new Color(0x1F2937));
         studentInfoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -144,12 +155,12 @@ public class StudentExamListWindow extends JFrame {
         JPanel titleBar = new JPanel(new BorderLayout());
         titleBar.setOpaque(false);
         
-        JLabel tableTitle = new JLabel("📊 Các Bài Đã Làm");
+        JLabel tableTitle = new JLabel("Các Bài Đã Làm");
         tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         tableTitle.setForeground(new Color(0x1F2937));
         
         JButton refreshBtn = createActionButton("🔄 Làm Mới");
-        //refreshBtn.addActionListener(e -> loadExamList());
+        refreshBtn.addActionListener(e -> loadExamList());  // ← BẬT LẠI
         
         titleBar.add(tableTitle, BorderLayout.WEST);
         titleBar.add(refreshBtn, BorderLayout.EAST);
@@ -244,49 +255,317 @@ public class StudentExamListWindow extends JFrame {
         return btn;
     }
     
-    // private void loadExamList() {
-    //     SwingWorker<List<Map<String, Object>>, Void> worker = new SwingWorker<>() {
-    //         @Override
-    //         protected List<Map<String, Object>> doInBackground() {
-    //             try {
-    //                 StudentInfoService sis = new StudentInfoService(apiService);
-    //                 // studentId được truyền vào constructor của cửa sổ này
-    //                 List<Map<String, Object>> profile = sis.fetchProfileByAccountId(studentId);
-    //                 // Từ profile trích exams / classes tùy cấu trúc API của bạn
-    //                 // Ví dụ trả về list chứa account/student/classes; xử lý thêm để lấy danh sách bài kiểm tra
-    //                 return profile;
-    //             } catch (Exception ex) {
-    //                 ex.printStackTrace();
-    //                 return Collections.emptyList();
-    //             }
-    //         }
+    // ========== LOAD DANH SÁCH BÀI THI CỦA HỌC SINH ==========
+    // ========== LOAD DANH SÁCH BÀI THI GIỐNG PHP ==========
+    // ========== LOAD DANH SÁCH BÀI THI GIỐNG PHP ==========
+    private void loadExamList() {
+    SwingWorker<List<Object[]>, Void> worker = new SwingWorker<>() {
+        @Override
+        protected List<Object[]> doInBackground() throws Exception {
+            List<Object[]> rows = new ArrayList<>();
             
-    //         @Override
-    //         protected void done() {
-    //             try {
-    //                 List<Map<String, Object>> data = get();
-    //                 // TODO: chuyển data -> model bảng (tùy cấu trúc API)
-    //                 System.out.println("✅ StudentExamListWindow profile: " + data);
-    //                 // hiện tại vẫn giữ bảng/renders hiện có; cần map fields tương ứng
-    //             } catch (Exception e) {
-    //                 e.printStackTrace();
-    //             }
-    //         }
-    //     };
-    //     worker.execute();
-    // }
+            try {
+                // ====================================================================
+                // BỎ BƯỚC 1 - DÙNG classId TRUYỀN VÀO TRỰC TIẾP
+                // ====================================================================
+                System.out.println("DEBUG: Using classId=" + classId + " for student=" + studentId);
+                
+                // ====================================================================
+                // BƯỚC 2: Lấy TẤT CẢ EXAM của lớp CỤ THỂ (giống PHP)
+                // ====================================================================
+                Map<String, Object> examPayload = new HashMap<>();
+                examPayload.put("method", "SELECT");
+                examPayload.put("action", "get");
+                examPayload.put("table", "exams");
+                examPayload.put("columns", List.of("id", "ExamName", "NumberQuestion", "TimeLimit", "PublishDate", "ExpireDate"));
+                Map<String, Object> examWhere = new HashMap<>();
+                examWhere.put("ClassId", classId);  // ← LỌC THEO classId CỤ THỂ
+                examPayload.put("where", examWhere);
+                Map<String, String> orderBy = new HashMap<>();
+                orderBy.put("PublishDate", "DESC");
+                examPayload.put("orderBy", orderBy);
+                
+                Object examResp = apiService.postApiGetList("/autoGet", examPayload);
+                List<Map<String, Object>> exams = normalizeApiList(examResp);
+                
+                System.out.println("DEBUG: Found " + exams.size() + " exams for class " + classId);
+                
+                // ====================================================================
+                // BƯỚC 3: Với mỗi exam, kiểm tra xem học sinh CỤ THỂ có làm hay không
+                // ====================================================================
+                for (Map<String, Object> exam : exams) {
+                    int examId = 0;
+                    Object examIdObj = firstNonNull(exam, "id", "Id");
+                    if (examIdObj instanceof Number) {
+                        examId = ((Number) examIdObj).intValue();
+                    } else if (examIdObj != null) {
+                        try { examId = Integer.parseInt(examIdObj.toString()); } catch (Exception ignored) {}
+                    }
+                    
+                    if (examId <= 0) continue;
+                    
+                    String examName = "Chưa rõ";
+                    Object nameObj = firstNonNull(exam, "ExamName");
+                    if (nameObj != null) {
+                        String name = nameObj.toString().trim();
+                        if (!name.isEmpty() && !name.equalsIgnoreCase("null")) {
+                            examName = name;
+                        }
+                    }
+                    
+                    System.out.println("DEBUG: Processing exam - ID=" + examId + ", Name='" + examName + "'");
+                    
+                    // ----------------------------------------------------------------
+                    // Tìm exam_attempts (Status='submitted') CỦA HỌC SINH CỤ THỂ
+                    // ----------------------------------------------------------------
+                    Map<String, Object> attemptPayload = new HashMap<>();
+                    attemptPayload.put("method", "SELECT");
+                    attemptPayload.put("action", "get");
+                    attemptPayload.put("table", "exam_attempts");
+                    attemptPayload.put("columns", List.of("id", "ExamId", "StudentId", "StartTime", "SubmitTime", "Status"));
+                    Map<String, Object> attemptWhere = new HashMap<>();
+                    attemptWhere.put("ExamId", examId);
+                    attemptWhere.put("StudentId", studentId);  // ← LỌC THEO studentId
+                    attemptWhere.put("Status", "submitted");
+                    attemptPayload.put("where", attemptWhere);
+                    Map<String, String> attemptOrder = new HashMap<>();
+                    attemptOrder.put("SubmitTime", "DESC");
+                    attemptPayload.put("orderBy", attemptOrder);
+                    attemptPayload.put("limit", 1);
+                    
+                    Object attemptResp = apiService.postApiGetList("/autoGet", attemptPayload);
+                    List<Map<String, Object>> attempts = normalizeApiList(attemptResp);
+                    
+                    if (attempts.isEmpty()) {
+                        // KHÔNG CÓ ATTEMPT → "Chưa làm"
+                        Object[] notStartedRow = new Object[5];
+                        notStartedRow[0] = examName;
+                        notStartedRow[1] = "Chưa làm";
+                        notStartedRow[2] = null;
+                        notStartedRow[3] = "Chưa làm";
+                        notStartedRow[4] = examId;
+                        rows.add(notStartedRow);
+                        continue;
+                    }
+                    
+                    // CÓ ATTEMPT → Tìm exam_results
+                    Map<String, Object> attempt = attempts.get(0);
+                    int attemptId = 0;
+                    Object aidObj = firstNonNull(attempt, "id");
+                    if (aidObj instanceof Number) {
+                        attemptId = ((Number) aidObj).intValue();
+                    } else if (aidObj != null) {
+                        try { attemptId = Integer.parseInt(aidObj.toString()); } catch (Exception ignored) {}
+                    }
+                    
+                    if (attemptId <= 0) {
+                        Object[] noAttemptRow = new Object[5];
+                        noAttemptRow[0] = examName;
+                        noAttemptRow[1] = "Chưa làm";
+                        noAttemptRow[2] = null;
+                        noAttemptRow[3] = "Chưa làm";
+                        noAttemptRow[4] = examId;
+                        rows.add(noAttemptRow);
+                        continue;
+                    }
+                    
+                    Map<String, Object> resultPayload = new HashMap<>();
+                    resultPayload.put("method", "SELECT");
+                    resultPayload.put("action", "get");
+                    resultPayload.put("table", "exam_results");
+                    resultPayload.put("columns", List.of("id", "AttemptId", "Score", "SubmittedDate"));
+                    Map<String, Object> resultWhere = new HashMap<>();
+                    resultWhere.put("AttemptId", attemptId);
+                    resultPayload.put("where", resultWhere);
+                    
+                    Object resultResp = apiService.postApiGetList("/autoGet", resultPayload);
+                    List<Map<String, Object>> results = normalizeApiList(resultResp);
+                    
+                    if (results.isEmpty()) {
+                        // CÓ ATTEMPT NHƯNG KHÔNG CÓ RESULT
+                        Object[] noResultRow = new Object[5];
+                        noResultRow[0] = examName;
+                        noResultRow[1] = "Chưa làm";
+                        noResultRow[2] = null;
+                        noResultRow[3] = "Chưa làm";
+                        noResultRow[4] = examId;
+                        rows.add(noResultRow);
+                        continue;
+                    }
+                    
+                    // CÓ RESULT → Thêm vào danh sách
+                    Map<String, Object> result = results.get(0);
+                    
+                    double score = 0.0;
+                    Object scoreObj = firstNonNull(result, "Score");
+                    if (scoreObj instanceof Number) {
+                        score = ((Number) scoreObj).doubleValue();
+                    } else if (scoreObj != null) {
+                        try { score = Double.parseDouble(scoreObj.toString()); } catch (Exception ignored) {}
+                    }
+                    
+                    String submitDate = formatDate(firstNonNull(result, "SubmittedDate"));
+                    
+                    Object[] completedRow = new Object[5];
+                    completedRow[0] = examName;
+                    completedRow[1] = submitDate;
+                    completedRow[2] = score;
+                    completedRow[3] = "Đã chấm";
+                    completedRow[4] = examId;
+                    rows.add(completedRow);
+                }
+                
+                System.out.println("DEBUG: Total rows=" + rows.size() + " for class=" + classId);
+                
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                System.err.println("ERROR in loadExamList: " + ex.getMessage());
+            }
+            
+            return rows;
+        }
+        
+        @Override
+        protected void done() {
+            try {
+                List<Object[]> data = get();
+                SwingUtilities.invokeLater(() -> {
+                    tableModel.setRowCount(0);
+                    rowToExamIdMap.clear();
+                    
+                    int stt = 1;
+                    for (Object[] row : data) {
+                        Object[] displayRow = new Object[]{
+                            stt,
+                            row[0],
+                            row[1],
+                            row[2],
+                            row[3],
+                            ""
+                        };
+                        
+                        int examId = 0;
+                        if (row[4] instanceof Number) {
+                            examId = ((Number) row[4]).intValue();
+                        } else if (row[4] != null) {
+                            try { examId = Integer.parseInt(row[4].toString()); } catch (Exception ignored) {}
+                        }
+                        rowToExamIdMap.put(stt - 1, examId);
+                        
+                        tableModel.addRow(displayRow);
+                        stt++;
+                    }
+                    totalExamsLabel.setText("Tổng số bài kiểm tra: " + data.size());
+                    System.out.println("UI: Loaded " + data.size() + " exams for student " + studentId + " in class " + classId);
+                });
+            } catch (Exception e) {
+                e.printStackTrace();
+                SwingUtilities.invokeLater(() -> 
+                    JOptionPane.showMessageDialog(StudentExamListWindow.this,
+                        "Lỗi khi tải danh sách bài thi: " + e.getMessage(),
+                        "Lỗi",
+                        JOptionPane.ERROR_MESSAGE)
+                );
+            }
+        }
+    };
+    worker.execute();
+}
+    
+    // ========== HELPER METHODS ==========
+    
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> normalizeApiList(Object resp) {
+        if (resp == null) return Collections.emptyList();
+        if (resp instanceof List) {
+            return (List<Map<String, Object>>) resp;
+        }
+        if (resp instanceof Map) {
+            Map<?,?> m = (Map<?,?>) resp;
+            Object data = m.get("data");
+            if (data instanceof List) return (List<Map<String, Object>>) data;
+            List<Map<String, Object>> list = new ArrayList<>();
+            for (Object key : m.keySet()) {
+                if (key == null) continue;
+                String ks = key.toString();
+                if (ks.matches("\\d+")) {
+                    Object val = m.get(key);
+                    if (val instanceof Map) list.add((Map<String, Object>) val);
+                }
+            }
+            if (!list.isEmpty()) return list;
+        }
+        System.out.println("WARN: cannot normalize API response, resp=" + Objects.toString(resp));
+        return Collections.emptyList();
+    }
+    
+    private Object firstNonNull(Map<String, Object> m, String... keys) {
+        if (m == null) return null;
+        for (String k : keys) {
+            if (k == null) continue;
+            Object v = m.get(k);
+            if (v != null) return v;
+            
+            // Thử case-insensitive
+            for (Map.Entry<String, Object> entry : m.entrySet()) {
+                if (entry.getKey() != null && entry.getKey().equalsIgnoreCase(k)) {
+                    return entry.getValue();
+                }
+            }
+        }
+        return null;
+    }
+    
+    private String formatDate(Object dateObj) {
+        if (dateObj == null) return "Chưa làm";
+        String date = dateObj.toString().trim();
+        if (date.isEmpty() || "null".equalsIgnoreCase(date)) return "Chưa làm";
+        return date;
+    }
+    
+    // ========== OPEN EXAM DETAIL ==========
     
     private void openExamDetail(int row) {
-        Object examIdObj = tableModel.getValueAt(row, 5);
-        String examName = (String) tableModel.getValueAt(row, 1);
-        double score = (Double) tableModel.getValueAt(row, 3);
+    try {
+        // Lấy examId từ map
+        Integer examId = rowToExamIdMap.get(row);
+        if (examId == null || examId <= 0) {
+            JOptionPane.showMessageDialog(this,
+                "Không tìm thấy ID bài thi!",
+                "Lỗi",
+                JOptionPane.ERROR_MESSAGE);
+            return;
+        }
         
-        int examId = examIdObj instanceof Integer ? (int) examIdObj : 0;
+        String examName = (String) tableModel.getValueAt(row, 1); // Cột 1: Tên Bài
+        Object scoreObj = tableModel.getValueAt(row, 3); // Cột 3: Điểm
         
-        // Open exam detail window
+        double score = 0.0;
+        if (scoreObj instanceof Number) {
+            score = ((Number) scoreObj).doubleValue();
+        } else if (scoreObj != null) {
+            try {
+                score = Double.parseDouble(scoreObj.toString());
+            } catch (NumberFormatException e) {
+                System.err.println("ERROR: Cannot parse score from " + scoreObj);
+            }
+        }
+        
+        System.out.println("DEBUG: Opening ExamDetailWindow for examId=" + examId + ", studentId=" + studentId);
+        
         new ExamDetailWindow(apiService, authService, examId, studentId, 
                             studentName, examName, score);
+        
+    } catch (Exception e) {
+        e.printStackTrace();
+        JOptionPane.showMessageDialog(this,
+            "Lỗi khi mở chi tiết bài thi: " + e.getMessage(),
+            "Lỗi",
+            JOptionPane.ERROR_MESSAGE);
     }
+}
+    
+    // ========== RENDERERS ==========
     
     // Score Renderer
     class ScoreRenderer extends DefaultTableCellRenderer {

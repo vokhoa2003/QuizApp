@@ -420,7 +420,10 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
             Map<String, Object> payload = new HashMap<>();
             payload.put("method", "SELECT");
             payload.put("action", "get");
-            payload.put("table", List.of("student", "account", "classes"));
+            
+            // 4 BẢNG: student → account, student → student_class → classes
+            payload.put("table", List.of("student", "account", "student_class", "classes"));
+            
             payload.put("columns", List.of(
                 "student.Id as StudentId",
                 "account.FullName",
@@ -428,8 +431,9 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                 "classes.Name as ClassName"
             ));
 
-            // JOIN 1: student → account
-            // JOIN 2: student → classes
+            // JOIN 1: student → account (lấy tên từ account)
+            // JOIN 2: student → student_class (quan hệ student-class)
+            // JOIN 3: student_class → classes (lấy tên lớp)
             List<Map<String, Object>> joins = new ArrayList<>();
             joins.add(Map.of(
                 "type", "inner",
@@ -437,13 +441,17 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
             ));
             joins.add(Map.of(
                 "type", "inner",
-                "on", List.of("student.ClassId = classes.Id")
+                "on", List.of("student.Id = student_class.StudentId")
+            ));
+            joins.add(Map.of(
+                "type", "inner",
+                "on", List.of("student_class.ClassId = classes.Id")
             ));
             payload.put("join", joins);
 
-            // WHERE: chỉ lấy học sinh của lớp classId
+            // WHERE: lọc theo classId trong bảng student_class
             Map<String, Object> where = new HashMap<>();
-            where.put("student.ClassId", classId);
+            where.put("student_class.ClassId", classId);
             payload.put("where", where);
 
             System.out.println("DEBUG: loadStudentData payload = " + payload);
@@ -455,7 +463,10 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                 rows.add(new Object[]{
                     row.get("StudentId"),
                     row.get("FullName") != null ? row.get("FullName") : row.get("StudentName"),
-                    row.get("ClassName")
+                    row.get("ClassName"),
+                    0,  // Số bài đã làm (TODO: tính sau)
+                    0.0, // Điểm TB (TODO: tính sau)
+                    ""   // Placeholder cho button
                 });
             }
             return rows;
@@ -467,8 +478,13 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                 List<Object[]> data = get();
                 SwingUtilities.invokeLater(() -> {
                     studentTableModel.setRowCount(0);
+                    int stt = 1;
                     for (Object[] row : data) {
-                        studentTableModel.addRow(row);
+                        // Thêm cột STT vào đầu
+                        Object[] rowWithSTT = new Object[row.length + 1];
+                        rowWithSTT[0] = stt++;
+                        System.arraycopy(row, 0, rowWithSTT, 1, row.length);
+                        studentTableModel.addRow(rowWithSTT);
                     }
                     studentCountLabel.setText("Tổng số học sinh: " + data.size());
                     System.out.println("UI: Loaded " + data.size() + " students");
@@ -476,6 +492,11 @@ examsContainer.setAlignmentX(Component.LEFT_ALIGNMENT);
                 });
             } catch (Exception e) {
                 e.printStackTrace();
+                SwingUtilities.invokeLater(() -> 
+                    JOptionPane.showMessageDialog(ClassDetailWindow.this, 
+                        "Lỗi khi tải danh sách học sinh: " + e.getMessage(),
+                        "Lỗi", JOptionPane.ERROR_MESSAGE)
+                );
             }
         }
     };
@@ -636,122 +657,19 @@ private String formatDate(Object dateObj) {
 }
     
     private void openExamDetail(int row) {
-        try {
-            // lấy studentId và studentName từ bảng (dùng studentTableModel)
-            Object idObj = studentTableModel.getValueAt(row, 0);
-            Integer studentId = null;
-            if (idObj instanceof Number) studentId = ((Number) idObj).intValue();
-            else if (idObj != null) studentId = Integer.parseInt(idObj.toString());
-
-            String studentName = String.valueOf(studentTableModel.getValueAt(row, 1));
-
-            if (studentId == null) {
-                JOptionPane.showMessageDialog(this,
-                    "Không xác định được StudentId.",
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            // 1) Thử lấy latest attempt của học sinh trong lớp (nếu có)
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("action", "get");
-            payload.put("method", "SELECT");
-            payload.put("table", List.of("exam_attempts", "exams"));
-            payload.put("columns", List.of(
-                "exam_attempts.Id as AttemptId",
-                "exam_attempts.ExamId as ExamId",
-                "exam_attempts.StudentId as StudentId",
-                "exam_attempts.AttemptDate as AttemptDate",
-                "exams.ExamName as ExamName"
-            ));
-            Map<String, Object> join = new HashMap<>();
-            join.put("type", "inner");
-            join.put("on", List.of("exam_attempts.ExamId = exams.id"));
-            payload.put("join", List.of(join));
-            Map<String, Object> where = new HashMap<>();
-            where.put("exam_attempts.StudentId", studentId);
-            // gắn điều kiện classId để giới hạn trong lớp hiện tại
-            where.put("exams.ClassId", classId);
-            payload.put("where", where);
-            payload.put("order", "exam_attempts.id DESC");
-            payload.put("limit", 1);
-
-            Object resp = apiService.postApiGetList("/autoGet", payload);
-            List<Map<String, Object>> list = normalizeApiList(resp);
-
-            if (list == null || list.isEmpty()) {
-                JOptionPane.showMessageDialog(this,
-                    "Không tìm thấy bài làm nào của học sinh trong lớp này.",
-                    "Thông báo", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-
-            Map<String, Object> rowData = list.get(0);
-            // parse attemptId / examId / examName
-            Integer attemptId = null;
-            Integer examId = null;
-            String examName = null;
-
-            Object aObj = rowData.getOrDefault("AttemptId", rowData.get("id"));
-            if (aObj instanceof Number) attemptId = ((Number) aObj).intValue();
-            else if (aObj != null) {
-                try { attemptId = Integer.parseInt(aObj.toString()); } catch (Exception ignored) {}
-            }
-
-            Object eObj = rowData.getOrDefault("ExamId", rowData.get("exam_attempts.ExamId"));
-            if (eObj instanceof Number) examId = ((Number) eObj).intValue();
-            else if (eObj != null) {
-                try { examId = Integer.parseInt(eObj.toString()); } catch (Exception ignored) {}
-            }
-
-            Object en = rowData.getOrDefault("ExamName", rowData.get("exams.ExamName"));
-            if (en != null) examName = en.toString();
-
-            // 2) Lấy điểm lưu (nếu có) từ exam_results
-            double savedScore = 0.0;
-            if (examId != null) {
-                try {
-                    Map<String, Object> q = new HashMap<>();
-                    q.put("action", "get");
-                    q.put("method", "SELECT");
-                    q.put("table", "exam_results");
-                    q.put("columns", List.of("Score"));
-                    Map<String, Object> w2 = new HashMap<>();
-                    w2.put("ExamId", examId);
-                    w2.put("StudentId", studentId);
-                    q.put("where", w2);
-                    q.put("limit", 1);
-                    Object rresp = apiService.postApiGetList("/autoGet", q);
-                    List<Map<String, Object>> rlist = normalizeApiList(rresp);
-                    if (rlist != null && !rlist.isEmpty()) {
-                        Object sc = rlist.get(0).getOrDefault("Score", rlist.get(0).get("score"));
-                        if (sc instanceof Number) savedScore = ((Number) sc).doubleValue();
-                        else if (sc != null) {
-                            try { savedScore = Double.parseDouble(sc.toString()); } catch (Exception ignored) {}
-                        }
-                    }
-                } catch (Exception ex) {
-                    System.err.println("WARN: cannot read saved score: " + ex.getMessage());
-                }
-            }
-
-            // 3) Mở ExamDetailWindow truyền examId, studentId, studentName, examName, savedScore
-            if (examId == null) {
-                JOptionPane.showMessageDialog(this,
-                    "Không xác định được ExamId để mở chi tiết.",
-                    "Lỗi", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            new ExamDetailWindow(apiService, authService, examId, studentId, studentName, examName != null ? examName : "Bài kiểm tra", savedScore);
-
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            JOptionPane.showMessageDialog(this,
-                "Lỗi khi mở chi tiết bài làm: " + ex.getMessage(),
-                "Lỗi", JOptionPane.ERROR_MESSAGE);
-        }
+    Object studentIdObj = studentTableModel.getValueAt(row, 1); // StudentId
+    String studentName = (String) studentTableModel.getValueAt(row, 2); // FullName
+    
+    int studentId = 0;
+    if (studentIdObj instanceof Number) {
+        studentId = ((Number) studentIdObj).intValue();
+    } else if (studentIdObj != null) {
+        studentId = Integer.parseInt(studentIdObj.toString());
     }
+    
+    // ← TRUYỀN THÊM classId VÀO CONSTRUCTOR
+    new StudentExamListWindow(apiService, authService, studentId, studentName, className, classId);
+}
 
     private void openExamDetailForExam(int examId, String examName) {
         JOptionPane.showMessageDialog(this,
@@ -819,7 +737,7 @@ private String formatDate(Object dateObj) {
         
         public Component getTableCellRendererComponent(JTable table, Object value,
                 boolean isSelected, boolean hasFocus, int row, int column) {
-            setText("📋 Xem Bài Thi");
+            setText("Xem Chi Tiết");
             return this;
         }
     }
