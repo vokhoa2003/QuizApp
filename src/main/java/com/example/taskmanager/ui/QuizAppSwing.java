@@ -186,17 +186,17 @@ if (chosenProfile == null) {
     chosenProfile = new HashMap<>();
 }
 
-String studentName = getFirstString(chosenProfile, "StudentName", "student.Name", "Name");
-String className = getFirstString(chosenProfile, "ClassName", "classes.Name");
+    String studentName = getFirstString(chosenProfile, "StudentName", "student.Name", "Name");
+    String className = getFirstString(chosenProfile, "ClassName", "classes.Name");
 
-infoPanel.add(new JLabel("Họ và tên: " + (studentName != null ? studentName : "N/A")));
-infoPanel.add(new JLabel("Lớp: " + (className != null ? className : "N/A")));
-infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề thi #" + examId : "N/A")));
-infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now()
-    .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
-infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));
-infoPanel.add(Box.createVerticalGlue());
-add(infoPanel, BorderLayout.WEST);
+    infoPanel.add(new JLabel("Họ và tên: " + (studentName != null ? studentName : "N/A")));
+    infoPanel.add(new JLabel("Lớp: " + (className != null ? className : "N/A")));
+    infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề thi #" + examId : "N/A")));
+    infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now()
+        .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
+    infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));
+    infoPanel.add(Box.createVerticalGlue());
+    add(infoPanel, BorderLayout.WEST);
 
         // --------- CENTER: Câu hỏi ---------
         questionPanel = new JPanel();
@@ -249,7 +249,9 @@ add(infoPanel, BorderLayout.WEST);
 
         add(sidebar, BorderLayout.EAST);
 
+        System.out.println("🚀 Starting QuizAppSwing for ExamId=" + examId + ", StudentId=" + studentId);
 
+         // Kiểm tra nếu đã có attempt trước đó
         List<Map<String, Object>> examAttempts = examService.fetchExamAttemptsByExamAndStudent(examId, studentId);
         if (examAttempts != null && !examAttempts.isEmpty()) {
             Map<String, Object> latestAttempt = examAttempts.get(0);

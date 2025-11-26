@@ -28,7 +28,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JSpinner;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.SpinnerNumberModel;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 
@@ -369,14 +368,32 @@ panel.add(Box.createVerticalStrut(25));
         Map<String, Object> params = new HashMap<>();
         params.put("action", "get");
         params.put("method", "SELECT");
-        params.put("table", List.of("teacher", "classes"));
-        params.put("columns", List.of("teacher.id as teacherId", "classes.id as classId"));
+
+        // teacher -> teacher_class -> classes
+        params.put("table", List.of("teacher", "teacher_class", "classes"));
+
+        params.put("columns", List.of(
+                "teacher.Id AS teacherId",
+                "classes.Id AS classId"
+        ));
+
         List<Map<String, Object>> join = new ArrayList<>();
+
+        // JOIN 1: teacher.Id = teacher_class.TeacherId
         Map<String, Object> j1 = new HashMap<>();
         j1.put("type", "inner");
-        j1.put("on", List.of("teacher.ClassId = classes.Id"));
+        j1.put("on", List.of("teacher.Id = teacher_class.TeacherId"));
         join.add(j1);
+
+        // JOIN 2: teacher_class.ClassId = classes.Id
+        Map<String, Object> j2 = new HashMap<>();
+        j2.put("type", "inner");
+        j2.put("on", List.of("teacher_class.ClassId = classes.Id"));
+        join.add(j2);
+
         params.put("join", join);
+
+        // WHERE
         Map<String, Object> where = new HashMap<>();
         where.put("teacher.Name", teacherName);
         where.put("classes.Name", className);
@@ -388,11 +405,12 @@ panel.add(Box.createVerticalStrut(25));
 
         if (!result.isEmpty()) {
             Map<String, Object> record = result.get(0);
-            Object teacherIdObj = record.get("teachers.id");
-            Object classIdObj = record.get("classes.id");
+            Object teacherIdObj = record.get("teacherId");
+            Object classIdObj = record.get("classId");
             teacherId = teacherIdObj != null ? Integer.parseInt(teacherIdObj.toString()) : 0;
             classId = classIdObj != null ? Integer.parseInt(classIdObj.toString()) : 0;
         }
+        System.out.println("Loaded teacherId: " + teacherId + ", classId: " + classId);
     }
     
     // private void loadTeacherAndClassInfo() {
@@ -561,24 +579,43 @@ private static class PeriodComboBoxRenderer extends javax.swing.DefaultListCellR
 
                 // === Gửi API ===
                 Map<String, Object> params = new HashMap<>();
-                params.put("action", "insert");
-                params.put("table", "exams");
+                params.put("action", "multiInsert"); // optional, backend không dùng nhưng để rõ ràng
 
-                Map<String, Object> data = new HashMap<>();
-                data.put("ClassId", classId);
-                data.put("Name", examName);
-                data.put("NumberQuestion", numberOfQuestions);
-                data.put("Description", description);
-                data.put("CreateDate", createDateStr);
-                data.put("PublishDate", publishDateStr);
-                data.put("ExpireDate", expireDateStr);
-                data.put("TeacherId", teacherId);
-                data.put("PeriodId", periodId);
-                data.put("TimeLimit", timeLimit);
+                // Tạo danh sách operations
+                List<Map<String, Object>> operations = new ArrayList<>();
 
-                params.put("data", data);
+                Map<String, Object> op = new HashMap<>();
+                op.put("table", "exams");
 
-                apiService.postApiGetList("/autoUpdate", params);
+                // rows: phải là danh sách (list) các row
+                List<Map<String, Object>> rows = new ArrayList<>();
+
+                Map<String, Object> row = new HashMap<>();
+                row.put("ClassId", classId);
+                row.put("ExamName", examName);
+                row.put("NumberQuestion", numberOfQuestions);
+                row.put("Description", description);
+                row.put("CreateDate", createDateStr);
+                row.put("PublishDate", publishDateStr);
+                row.put("ExpireDate", expireDateStr);
+                row.put("TeacherId", teacherId);
+                row.put("PeriodId", periodId);
+                row.put("TimeLimit", timeLimit);
+
+                rows.add(row);
+
+                // Gắn rows vào op
+                op.put("rows", rows);
+
+                // Thêm vào operations
+                operations.add(op);
+
+                // Nhét vào params
+                params.put("operations", operations);
+
+                // CALL API
+
+                apiService.postApiGetList("/multiInsert", params);
                 return true;
             } catch (Exception e) {
                 e.printStackTrace();

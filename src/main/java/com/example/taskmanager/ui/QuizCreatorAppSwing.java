@@ -34,8 +34,6 @@ import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
-import javax.swing.JComboBox;
-
 
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
@@ -783,21 +781,37 @@ private Map<String, Object> createEmptyPeriodItem() {
             Map<String,Object> params = new HashMap<>();
             params.put("action", "get");
             params.put("method", "SELECT");
-            // join account -> teacher -> classes to find classes owned by this teacher
-            params.put("table", List.of("account", "teacher", "classes"));
-            params.put("columns", List.of("classes.id as ClassId", "classes.Name as ClassName"));
+
+            // join account -> teacher -> teacher_class -> classes
+            params.put("table", List.of("account", "teacher", "teacher_class", "classes"));
+
+            params.put("columns", List.of(
+                    "classes.Id AS ClassId",
+                    "classes.Name AS ClassName"
+            ));
+
+            // WHERE email = ?
             Map<String,Object> where = new HashMap<>();
             where.put("account.email", email);
             params.put("where", where);
+
+            // JOIN 1: account.id = teacher.IdAccount
             Map<String,Object> j1 = new HashMap<>();
             j1.put("type", "inner");
             j1.put("on", List.of("account.id = teacher.IdAccount"));
+
+            // JOIN 2: teacher.Id = teacher_class.TeacherId
             Map<String,Object> j2 = new HashMap<>();
             j2.put("type", "inner");
-            // adapt join condition if your schema uses TeacherId in classes
-            // Schema hiện tại: teacher.ClassId -> classes.Id
-            j2.put("on", List.of("teacher.ClassId = classes.Id"));
-            params.put("join", List.of(j1, j2));
+            j2.put("on", List.of("teacher.Id = teacher_class.TeacherId"));
+
+            // JOIN 3: teacher_class.ClassId = classes.Id
+            Map<String,Object> j3 = new HashMap<>();
+            j3.put("type", "inner");
+            j3.put("on", List.of("teacher_class.ClassId = classes.Id"));
+
+            // Put all joins
+            params.put("join", List.of(j1, j2, j3));
 
             System.out.println("DEBUG: fetching teacher classes with params=" + params);
             List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", params);

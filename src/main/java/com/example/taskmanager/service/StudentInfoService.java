@@ -146,37 +146,66 @@ public class StudentInfoService {
         try {
             Map<String, Object> params = new HashMap<>();
             params.put("action", "get");
-            // account -> student -> classes -> teacher
-            params.put("table", List.of("account", "student", "classes", "teacher"));
+            params.put("method", "SELECT");
 
+            // Bảng chính theo thứ tự join
+            params.put("table", List.of(
+                    "account", 
+                    "student", 
+                    "student_class", 
+                    "classes", 
+                    "teacher_class", 
+                    "teacher"
+            ));
+
+            // JOIN LIST
             List<Map<String, Object>> join = new ArrayList<>();
+
+            // JOIN 1: account.id = student.IdAccount
             Map<String, Object> j1 = new HashMap<>();
             j1.put("type", "inner");
             j1.put("on", List.of("account.id = student.IdAccount"));
             join.add(j1);
 
+            // JOIN 2: student.Id = student_class.StudentId
             Map<String, Object> j2 = new HashMap<>();
             j2.put("type", "inner");
-            j2.put("on", List.of("student.ClassId = classes.Id"));
+            j2.put("on", List.of("student.Id = student_class.StudentId"));
             join.add(j2);
 
+            // JOIN 3: student_class.ClassId = classes.Id
             Map<String, Object> j3 = new HashMap<>();
-            j3.put("type", "left"); // dùng left để không loại lớp nếu thiếu giáo viên
-            // Nếu schema khác, đổi điều kiện dưới đây:
-            j3.put("on", List.of("classes.id = teacher.ClassId"));
+            j3.put("type", "inner");
+            j3.put("on", List.of("student_class.ClassId = classes.Id"));
             join.add(j3);
 
+            // JOIN 4: classes.Id = teacher_class.ClassId (LEFT để không loại lớp nếu chưa có giáo viên)
+            Map<String, Object> j4 = new HashMap<>();
+            j4.put("type", "left");
+            j4.put("on", List.of("classes.Id = teacher_class.ClassId"));
+            join.add(j4);
+
+            // JOIN 5: teacher_class.TeacherId = teacher.Id (LEFT cùng lý do)
+            Map<String, Object> j5 = new HashMap<>();
+            j5.put("type", "left");
+            j5.put("on", List.of("teacher_class.TeacherId = teacher.Id"));
+            join.add(j5);
+
+            // Add join list into params
             params.put("join", join);
 
+            // COLUMNS SELECT
             params.put("columns", List.of(
-                "classes.Id as ClassId",
-                "classes.Name as ClassName",
-                "COALESCE(teacher.Name, 'Đang cập nhật') as TeacherName"
+                    "classes.Id AS ClassId",
+                    "classes.Name AS ClassName",
+                    "COALESCE(teacher.Name, 'Đang cập nhật') AS TeacherName"
             ));
 
+            // WHERE
             Map<String, Object> where = new HashMap<>();
             where.put("account.email", email);
             params.put("where", where);
+
 
             List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
             return result != null ? result : Collections.emptyList();

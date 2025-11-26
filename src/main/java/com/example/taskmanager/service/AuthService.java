@@ -206,7 +206,7 @@ public class AuthService {
                     "&access_token=" + accessTokenFake +
                     "&expires_at=" + expiresAt +
                     "&csrf_token=" + csrfEnc;
-
+                System.out.println(formData);
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/app_login"))
                     .header("Content-Type", "application/x-www-form-urlencoded")
@@ -217,7 +217,7 @@ public class AuthService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             this.lastLoginResponse = response.body();
-
+                System.out.println("Login response: " + response.body());
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
                 if (jsonNode.has("token") || jsonNode.has("status")) {

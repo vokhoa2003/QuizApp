@@ -13,9 +13,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -280,96 +282,6 @@ public class StudentDashboard extends JFrame {
         };
         worker.execute();
     }
-
-    // Resolve account id from email (calls API)
-    // private Integer resolveAccountIdByEmail(String email) {
-    //     if (email == null) return null;
-    //     try {
-    //         Map<String,Object> p = new HashMap<>();
-    //         p.put("action", "get");
-    //         p.put("method", "SELECT");
-    //         p.put("table", "account");
-    //         p.put("columns", List.of("id as AccountId"));
-    //         p.put("where", Map.of("email", email));
-    //         p.put("limit", 1);
-    //         System.out.println("DEBUG: resolveAccountIdByEmail payload=" + p);
-    //         List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
-    //         System.out.println("DEBUG: resolveAccountIdByEmail resp=" + resp);
-    //         if (resp != null && !resp.isEmpty()) {
-    //             Object v = resp.get(0).get("AccountId");
-    //             if (v == null) v = resp.get(0).get("id");
-    //             if (v instanceof Number) return ((Number)v).intValue();
-    //             if (v != null) return Integer.parseInt(v.toString());
-    //         }
-    //     } catch (Exception ex) {
-    //         ex.printStackTrace();
-    //     }
-    //     return null;
-    // }
-
-    // Get ClassId list from student table for given account id
-    // private Set<Integer> fetchStudentClassIdsForAccount(Integer accountId) {
-    //     Set<Integer> out = new HashSet<>();
-    //     if (accountId == null) return out;
-    //     try {
-    //         Map<String,Object> p = new HashMap<>();
-    //         p.put("action", "get");
-    //         p.put("method", "SELECT");
-    //         p.put("table", "student");
-    //         p.put("columns", List.of("ClassId"));
-    //         Map<String,Object> where = new HashMap<>();
-    //         where.put("IdAccount", accountId);
-    //         p.put("where", where);
-    //         p.put("groupBy", List.of("ClassId"));
-    //         System.out.println("DEBUG: fetchStudentClassIdsForAccount payload=" + accountId);
-    //         List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
-    //         System.out.println("DEBUG: fetchStudentClassIdsForAccount resp=" + resp);
-    //         if (resp != null) {
-    //             for (Map<String,Object> r : resp) {
-    //                 Object c = r.get("ClassId");
-    //                 if (c == null) c = r.get("classid");
-    //                 if (c instanceof Number) out.add(((Number)c).intValue());
-    //                 else if (c != null) {
-    //                     try { out.add(Integer.parseInt(c.toString())); } catch (Exception ignored) {}
-    //                 }
-    //             }
-    //         }
-    //     } catch (Exception ex) {
-    //         ex.printStackTrace();
-    //     }
-    //     return out;
-    // }
-
-    // Lấy danh sách classes theo tập Ids từ API
-    // private List<Map<String, Object>> fetchClassesByIds(Set<Integer> ids) {
-    //     if (ids == null || ids.isEmpty()) return Collections.emptyList();
-    //     try {
-    //         Map<String,Object> p = new HashMap<>();
-    //         p.put("action", "get");
-    //         p.put("method", "SELECT");
-    //         p.put("table", "classes");
-    //         p.put("columns", List.of("Id", "Name", "TeacherName", "StudentCount"));
-    //         Map<String,Object> where = new HashMap<>();
-    //         where.put("Id", ids);
-    //         p.put("where", where);
-    //         System.out.println("DEBUG: fetchClassesByIds payload=" + p);
-    //         List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
-    //         if (resp == null) return Collections.emptyList();
-
-    //         // Chuẩn hoá key ClassName nếu cần
-    //         List<Map<String,Object>> out = new ArrayList<>();
-    //         for (Map<String,Object> r : resp) {
-    //             Map<String,Object> m = new HashMap<>(r);
-    //             Object name = r.getOrDefault("Name", r.get("name"));
-    //             if (name != null) m.put("ClassName", name.toString());
-    //             out.add(m);
-    //         }
-    //         return out;
-    //     } catch (Exception ex) {
-    //         ex.printStackTrace();
-    //         return Collections.emptyList();
-    //     }
-    // }
     private List<Map<String, Object>> fetchStudentClassesForAccount(Integer accountId) {
         if (accountId == null) return Collections.emptyList();
         try {
@@ -1140,10 +1052,6 @@ public class StudentDashboard extends JFrame {
         worker.execute();
     }
     
-    // private void openExamDetail(int examId, String studentName, String examName) {
-    //     new ExamDetailWindow(apiService, authService, examId, currentStudent.getEmail(), 
-    //                        studentName, examName, 0);
-    // }
     
     private void startExam(int examId) {
         // TODO: Implement start exam functionality
@@ -1286,57 +1194,6 @@ public void refreshCurrentClassExams() {
         }
     }
 
-    // New: fetch classes for an account using JOIN student -> classes
-    // private List<Map<String, Object>> fetchStudentClassesForAccount(Integer accountId) {
-    //     if (accountId == null) return Collections.emptyList();
-    //     try {
-    //         Map<String, Object> p = new HashMap<>();
-    //         p.put("action", "get");
-    //         p.put("method", "SELECT");
-    //         // gửi table như mảng để API xây JOIN
-    //         p.put("table", List.of("student", "classes", "teacher"));
-    //         // lấy thông tin lớp cần hiển thị
-    //         p.put("columns", List.of("classes.Id", "classes.Name as classesName", "teacher.Name as TeacherName"));
-    //         // cấu trúc join phù hợp với ModelSQL.autoQuery
-    //         Map<String, Object> join1 = new HashMap<>();
-    //         join1.put("type", "INNER");
-    //         join1.put("on", List.of("student.ClassId = classes.Id"));
-
-    //         Map<String, Object> join2 = new HashMap<>();
-    //         join2.put("type", "Left");
-    //         join2.put("on", List.of("classes.Id = teacher.ClassId"));
-
-    //         p.put("join", List.of(join1, join2));
-
-    //         Map<String, Object> conditions = new HashMap<>();
-    //         conditions.put("student.IdAccount", accountId);
-    //         p.put("conditions", conditions);
-            
-
-    //         System.out.println("DEBUG: fetchStudentClassesForAccount payload=" + p);
-    //         List<Map<String, Object>> resp = apiService.postApiGetList("/autoGet", p);
-    //         System.out.println("DEBUG: fetchStudentClassesForAccount resp=" + resp);
-    //         if (resp == null) return Collections.emptyList();
-
-    //         // Chuẩn hoá key: đảm bảo có ClassName/Id/TeacherName
-    //         List<Map<String, Object>> out = new ArrayList<>();
-    //         for (Map<String, Object> r : resp) {
-    //             Map<String, Object> m = new HashMap<>(r);
-    //             Object name = r.getOrDefault("Name", r.get("classes.Name"));
-    //             if (name != null) m.put("ClassName", name.toString());
-    //             // normalize Id key
-    //             if (!m.containsKey("Id")) {
-    //                 Object cid = r.getOrDefault("classes.Id", r.get("ClassId"));
-    //                 if (cid != null) m.put("Id", cid);
-    //             }
-    //             out.add(m);
-    //         }
-    //         return out;
-    //     } catch (Exception ex) {
-    //         ex.printStackTrace();
-    //         return Collections.emptyList();
-    //     }
-    // }
     
     // Tạo card hiển thị lớp (đã bao gồm classId) — gọi selectClass khi click
     private JPanel createClassCard(Integer classId, String className, String teacherName, int studentCount) {
