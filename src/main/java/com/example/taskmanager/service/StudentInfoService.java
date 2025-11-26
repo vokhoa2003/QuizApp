@@ -176,4 +176,40 @@ public class StudentInfoService {
             return Collections.emptyList();
         }
     }
+    public List<Map<String, Object>> fetchStudentInfoExam(String email, int examId) {
+        if (email == null || email.isEmpty()) return Collections.emptyList();
+        try {
+            Map<String, Object> params = new HashMap<>();
+            params.put("action", "get");
+            params.put("method", "SELECT");
+            params.put("table", List.of("account", "student", "exam_attempts"));
+
+            List<Map<String, Object>> joinList = new ArrayList<>();
+            Map<String, Object> j1 = new HashMap<>();
+            j1.put("type", "inner");
+            j1.put("on", List.of("account.Id = student.IdAccount"));
+            joinList.add(j1);
+
+            Map<String, Object> j2 = new HashMap<>();
+            j2.put("type", "inner");
+            j2.put("on", List.of("student.Id = exam_attempts.StudentId"));
+            joinList.add(j2);
+
+            params.put("join", joinList);
+            params.put("columns", List.of(
+                "account.Id", "account.FullName", "account.email", "account.GoogleID",
+                "student.Id as StudentId"
+            ));
+
+            Map<String, Object> where = new HashMap<>();
+            where.put("exam_attempts.ExamId", examId);
+            params.put("where", where);
+
+            List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
+            return result != null ? result : Collections.emptyList();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return Collections.emptyList();
+        }
+    }
 }

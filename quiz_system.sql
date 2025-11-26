@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Máy chủ: 127.0.0.1
--- Thời gian đã tạo: Th10 01, 2025 lúc 11:16 AM
+-- Thời gian đã tạo: Th10 14, 2025 lúc 11:49 AM
 -- Phiên bản máy phục vụ: 10.4.32-MariaDB
 -- Phiên bản PHP: 8.2.12
 
@@ -83,21 +83,6 @@ CREATE TABLE `answers` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `api_token`
---
-
-CREATE TABLE `api_token` (
-  `id` int(11) NOT NULL,
-  `IdAccount` int(11) DEFAULT NULL,
-  `token` varchar(255) DEFAULT NULL,
-  `EndTime` datetime DEFAULT NULL,
-  `CreateDate` datetime DEFAULT NULL,
-  `UpdateDate` datetime DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Cấu trúc bảng cho bảng `classes`
 --
 
@@ -107,19 +92,6 @@ CREATE TABLE `classes` (
   `Description` text DEFAULT NULL,
   `CreateDate` datetime NOT NULL DEFAULT current_timestamp(),
   `UpdateDate` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Cấu trúc bảng cho bảng `customer`
---
-
-CREATE TABLE `customer` (
-  `Id` int(11) NOT NULL,
-  `IdAccount` int(11) DEFAULT NULL,
-  `CreateDate` datetime DEFAULT NULL,
-  `UpdateDate` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -152,7 +124,6 @@ CREATE TABLE `exams` (
 CREATE TABLE `exam_answers` (
   `id` int(11) NOT NULL,
   `StudentId` int(11) DEFAULT NULL,
-  `exam_questions_id` int(11) DEFAULT NULL,
   `QuestionId` int(11) DEFAULT NULL,
   `AnswerId` int(11) DEFAULT NULL,
   `AttemptId` int(11) DEFAULT NULL
@@ -181,24 +152,11 @@ CREATE TABLE `exam_attempts` (
 --
 
 CREATE TABLE `exam_period` (
-  `Id` int(10) UNSIGNED NOT NULL,
+  `id` int(10) UNSIGNED NOT NULL,
   `Name` varchar(255) NOT NULL,
   `Description` text DEFAULT NULL,
   `CreateDate` datetime NOT NULL DEFAULT current_timestamp(),
   `UpdateDate` datetime NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Cấu trúc bảng cho bảng `exam_questions`
---
-
-CREATE TABLE `exam_questions` (
-  `id` int(11) NOT NULL,
-  `ExamId` int(11) DEFAULT NULL,
-  `ClassId` int(10) UNSIGNED DEFAULT NULL,
-  `QuestionId` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -209,26 +167,10 @@ CREATE TABLE `exam_questions` (
 
 CREATE TABLE `exam_results` (
   `id` int(11) NOT NULL,
-  `ExamId` int(11) DEFAULT NULL,
   `StudentId` int(11) DEFAULT NULL,
   `Score` decimal(5,2) DEFAULT NULL,
   `SubmittedDate` datetime DEFAULT current_timestamp(),
   `AttemptId` int(11) DEFAULT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
--- Cấu trúc bảng cho bảng `grade`
---
-
-CREATE TABLE `grade` (
-  `Id` int(11) NOT NULL,
-  `StudentId` int(11) NOT NULL,
-  `Subject` varchar(100) NOT NULL,
-  `Score` decimal(5,2) DEFAULT NULL,
-  `CreateDate` datetime DEFAULT NULL,
-  `UpdateDate` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -295,18 +237,6 @@ CREATE TABLE `teacher` (
 -- --------------------------------------------------------
 
 --
--- Cấu trúc bảng cho bảng `teacher_student`
---
-
-CREATE TABLE `teacher_student` (
-  `Id` int(11) NOT NULL,
-  `TeacherId` int(11) NOT NULL,
-  `StudentId` int(11) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Cấu trúc bảng cho bảng `user_tokens`
 --
 
@@ -354,25 +284,11 @@ ALTER TABLE `answers`
   ADD KEY `answers_ibfk_1` (`QuestionId`);
 
 --
--- Chỉ mục cho bảng `api_token`
---
-ALTER TABLE `api_token`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `idx_token_account` (`IdAccount`);
-
---
 -- Chỉ mục cho bảng `classes`
 --
 ALTER TABLE `classes`
   ADD PRIMARY KEY (`Id`),
   ADD UNIQUE KEY `Name` (`Name`);
-
---
--- Chỉ mục cho bảng `customer`
---
-ALTER TABLE `customer`
-  ADD PRIMARY KEY (`Id`),
-  ADD KEY `idx_customer_account` (`IdAccount`);
 
 --
 -- Chỉ mục cho bảng `exams`
@@ -392,7 +308,6 @@ ALTER TABLE `exam_answers`
   ADD UNIQUE KEY `unique_attempt_question` (`AttemptId`,`QuestionId`),
   ADD KEY `AnswerId` (`AnswerId`),
   ADD KEY `StudentId` (`StudentId`),
-  ADD KEY `exam_questions_id` (`exam_questions_id`),
   ADD KEY `idx_examanswers_student_attempt` (`StudentId`,`AttemptId`),
   ADD KEY `idx_examanswers_question_attempt` (`QuestionId`,`AttemptId`);
 
@@ -408,31 +323,14 @@ ALTER TABLE `exam_attempts`
 -- Chỉ mục cho bảng `exam_period`
 --
 ALTER TABLE `exam_period`
-  ADD PRIMARY KEY (`Id`);
-
---
--- Chỉ mục cho bảng `exam_questions`
---
-ALTER TABLE `exam_questions`
-  ADD PRIMARY KEY (`id`),
-  ADD KEY `ExamId` (`ExamId`),
-  ADD KEY `QuestionId` (`QuestionId`),
-  ADD KEY `ClassId` (`ClassId`);
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Chỉ mục cho bảng `exam_results`
 --
 ALTER TABLE `exam_results`
   ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `ExamId` (`ExamId`,`StudentId`),
-  ADD KEY `AttemptId` (`AttemptId`);
-
---
--- Chỉ mục cho bảng `grade`
---
-ALTER TABLE `grade`
-  ADD PRIMARY KEY (`Id`),
-  ADD KEY `idx_grade_student` (`StudentId`);
+  ADD KEY `AttemptId` (`AttemptId`,`StudentId`) USING BTREE;
 
 --
 -- Chỉ mục cho bảng `permission`
@@ -464,14 +362,6 @@ ALTER TABLE `teacher`
   ADD PRIMARY KEY (`Id`),
   ADD UNIQUE KEY `unique_teacher_account_class_check` (`IdAccount`,`ClassId`),
   ADD KEY `ClassId` (`ClassId`);
-
---
--- Chỉ mục cho bảng `teacher_student`
---
-ALTER TABLE `teacher_student`
-  ADD PRIMARY KEY (`Id`),
-  ADD KEY `idx_teacher_student_teacher` (`TeacherId`),
-  ADD KEY `idx_teacher_student_student` (`StudentId`);
 
 --
 -- Chỉ mục cho bảng `user_tokens`
@@ -509,22 +399,10 @@ ALTER TABLE `answers`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
--- AUTO_INCREMENT cho bảng `api_token`
---
-ALTER TABLE `api_token`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
 -- AUTO_INCREMENT cho bảng `classes`
 --
 ALTER TABLE `classes`
   MODIFY `Id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT cho bảng `customer`
---
-ALTER TABLE `customer`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `exams`
@@ -548,25 +426,13 @@ ALTER TABLE `exam_attempts`
 -- AUTO_INCREMENT cho bảng `exam_period`
 --
 ALTER TABLE `exam_period`
-  MODIFY `Id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT cho bảng `exam_questions`
---
-ALTER TABLE `exam_questions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `exam_results`
 --
 ALTER TABLE `exam_results`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT cho bảng `grade`
---
-ALTER TABLE `grade`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT cho bảng `permission`
@@ -590,12 +456,6 @@ ALTER TABLE `student`
 -- AUTO_INCREMENT cho bảng `teacher`
 --
 ALTER TABLE `teacher`
-  MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT cho bảng `teacher_student`
---
-ALTER TABLE `teacher_student`
   MODIFY `Id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
@@ -628,18 +488,6 @@ ALTER TABLE `answers`
   ADD CONSTRAINT `answers_ibfk_1` FOREIGN KEY (`QuestionId`) REFERENCES `questions` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
--- Các ràng buộc cho bảng `api_token`
---
-ALTER TABLE `api_token`
-  ADD CONSTRAINT `api_token_ibfk_1` FOREIGN KEY (`IdAccount`) REFERENCES `account` (`id`);
-
---
--- Các ràng buộc cho bảng `customer`
---
-ALTER TABLE `customer`
-  ADD CONSTRAINT `customer_ibfk_1` FOREIGN KEY (`IdAccount`) REFERENCES `account` (`id`);
-
---
 -- Các ràng buộc cho bảng `exams`
 --
 ALTER TABLE `exams`
@@ -653,9 +501,8 @@ ALTER TABLE `exams`
 ALTER TABLE `exam_answers`
   ADD CONSTRAINT `exam_answers_ibfk_2` FOREIGN KEY (`QuestionId`) REFERENCES `questions` (`id`) ON DELETE CASCADE,
   ADD CONSTRAINT `exam_answers_ibfk_3` FOREIGN KEY (`AnswerId`) REFERENCES `answers` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `exam_answers_ibfk_4` FOREIGN KEY (`exam_questions_id`) REFERENCES `exam_questions` (`id`),
-  ADD CONSTRAINT `exam_answers_ibfk_5` FOREIGN KEY (`AttemptId`) REFERENCES `exam_attempts` (`id`),
-  ADD CONSTRAINT `exam_answers_ibfk_6` FOREIGN KEY (`StudentId`) REFERENCES `student` (`Id`) ON DELETE CASCADE;
+  ADD CONSTRAINT `exam_answers_ibfk_5` FOREIGN KEY (`AttemptId`) REFERENCES `exam_attempts` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `exam_answers_ibfk_6` FOREIGN KEY (`StudentId`) REFERENCES `exam_attempts` (`StudentId`) ON DELETE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `exam_attempts`
@@ -665,25 +512,10 @@ ALTER TABLE `exam_attempts`
   ADD CONSTRAINT `exam_attempts_ibfk_2` FOREIGN KEY (`StudentId`) REFERENCES `student` (`Id`) ON DELETE CASCADE;
 
 --
--- Các ràng buộc cho bảng `exam_questions`
---
-ALTER TABLE `exam_questions`
-  ADD CONSTRAINT `exam_questions_ibfk_1` FOREIGN KEY (`ExamId`) REFERENCES `exams` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `exam_questions_ibfk_2` FOREIGN KEY (`QuestionId`) REFERENCES `questions` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `exam_questions_ibfk_3` FOREIGN KEY (`ClassId`) REFERENCES `classes` (`Id`);
-
---
 -- Các ràng buộc cho bảng `exam_results`
 --
 ALTER TABLE `exam_results`
-  ADD CONSTRAINT `exam_results_ibfk_1` FOREIGN KEY (`ExamId`) REFERENCES `exams` (`id`) ON DELETE CASCADE,
-  ADD CONSTRAINT `exam_results_ibfk_2` FOREIGN KEY (`AttemptId`) REFERENCES `exam_attempts` (`id`);
-
---
--- Các ràng buộc cho bảng `grade`
---
-ALTER TABLE `grade`
-  ADD CONSTRAINT `grade_ibfk_1` FOREIGN KEY (`StudentId`) REFERENCES `student` (`Id`);
+  ADD CONSTRAINT `exam_results_ibfk_2` FOREIGN KEY (`AttemptId`) REFERENCES `exam_attempts` (`id`) ON DELETE CASCADE;
 
 --
 -- Các ràng buộc cho bảng `questions`
@@ -705,13 +537,6 @@ ALTER TABLE `student`
 ALTER TABLE `teacher`
   ADD CONSTRAINT `teacher_ibfk_1` FOREIGN KEY (`ClassId`) REFERENCES `classes` (`Id`) ON DELETE CASCADE,
   ADD CONSTRAINT `teacher_ibfk_2` FOREIGN KEY (`IdAccount`) REFERENCES `account` (`id`) ON DELETE CASCADE;
-
---
--- Các ràng buộc cho bảng `teacher_student`
---
-ALTER TABLE `teacher_student`
-  ADD CONSTRAINT `fk_teacher_student_student` FOREIGN KEY (`StudentId`) REFERENCES `student` (`Id`),
-  ADD CONSTRAINT `fk_teacher_student_teacher` FOREIGN KEY (`TeacherId`) REFERENCES `teacher` (`Id`);
 
 --
 -- Các ràng buộc cho bảng `user_tokens`

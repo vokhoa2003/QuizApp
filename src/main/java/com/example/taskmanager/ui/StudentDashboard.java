@@ -13,11 +13,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -295,94 +293,94 @@ public class StudentDashboard extends JFrame {
     }
 
     // Resolve account id from email (calls API)
-    private Integer resolveAccountIdByEmail(String email) {
-        if (email == null) return null;
-        try {
-            Map<String,Object> p = new HashMap<>();
-            p.put("action", "get");
-            p.put("method", "SELECT");
-            p.put("table", "account");
-            p.put("columns", List.of("id as AccountId"));
-            p.put("where", Map.of("email", email));
-            p.put("limit", 1);
-            System.out.println("DEBUG: resolveAccountIdByEmail payload=" + p);
-            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
-            System.out.println("DEBUG: resolveAccountIdByEmail resp=" + resp);
-            if (resp != null && !resp.isEmpty()) {
-                Object v = resp.get(0).get("AccountId");
-                if (v == null) v = resp.get(0).get("id");
-                if (v instanceof Number) return ((Number)v).intValue();
-                if (v != null) return Integer.parseInt(v.toString());
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return null;
-    }
+    // private Integer resolveAccountIdByEmail(String email) {
+    //     if (email == null) return null;
+    //     try {
+    //         Map<String,Object> p = new HashMap<>();
+    //         p.put("action", "get");
+    //         p.put("method", "SELECT");
+    //         p.put("table", "account");
+    //         p.put("columns", List.of("id as AccountId"));
+    //         p.put("where", Map.of("email", email));
+    //         p.put("limit", 1);
+    //         System.out.println("DEBUG: resolveAccountIdByEmail payload=" + p);
+    //         List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
+    //         System.out.println("DEBUG: resolveAccountIdByEmail resp=" + resp);
+    //         if (resp != null && !resp.isEmpty()) {
+    //             Object v = resp.get(0).get("AccountId");
+    //             if (v == null) v = resp.get(0).get("id");
+    //             if (v instanceof Number) return ((Number)v).intValue();
+    //             if (v != null) return Integer.parseInt(v.toString());
+    //         }
+    //     } catch (Exception ex) {
+    //         ex.printStackTrace();
+    //     }
+    //     return null;
+    // }
 
     // Get ClassId list from student table for given account id
-    private Set<Integer> fetchStudentClassIdsForAccount(Integer accountId) {
-        Set<Integer> out = new HashSet<>();
-        if (accountId == null) return out;
-        try {
-            Map<String,Object> p = new HashMap<>();
-            p.put("action", "get");
-            p.put("method", "SELECT");
-            p.put("table", "student");
-            p.put("columns", List.of("ClassId"));
-            Map<String,Object> where = new HashMap<>();
-            where.put("IdAccount", accountId);
-            p.put("where", where);
-            p.put("groupBy", List.of("ClassId"));
-            System.out.println("DEBUG: fetchStudentClassIdsForAccount payload=" + accountId);
-            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
-            System.out.println("DEBUG: fetchStudentClassIdsForAccount resp=" + resp);
-            if (resp != null) {
-                for (Map<String,Object> r : resp) {
-                    Object c = r.get("ClassId");
-                    if (c == null) c = r.get("classid");
-                    if (c instanceof Number) out.add(((Number)c).intValue());
-                    else if (c != null) {
-                        try { out.add(Integer.parseInt(c.toString())); } catch (Exception ignored) {}
-                    }
-                }
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return out;
-    }
+    // private Set<Integer> fetchStudentClassIdsForAccount(Integer accountId) {
+    //     Set<Integer> out = new HashSet<>();
+    //     if (accountId == null) return out;
+    //     try {
+    //         Map<String,Object> p = new HashMap<>();
+    //         p.put("action", "get");
+    //         p.put("method", "SELECT");
+    //         p.put("table", "student");
+    //         p.put("columns", List.of("ClassId"));
+    //         Map<String,Object> where = new HashMap<>();
+    //         where.put("IdAccount", accountId);
+    //         p.put("where", where);
+    //         p.put("groupBy", List.of("ClassId"));
+    //         System.out.println("DEBUG: fetchStudentClassIdsForAccount payload=" + accountId);
+    //         List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
+    //         System.out.println("DEBUG: fetchStudentClassIdsForAccount resp=" + resp);
+    //         if (resp != null) {
+    //             for (Map<String,Object> r : resp) {
+    //                 Object c = r.get("ClassId");
+    //                 if (c == null) c = r.get("classid");
+    //                 if (c instanceof Number) out.add(((Number)c).intValue());
+    //                 else if (c != null) {
+    //                     try { out.add(Integer.parseInt(c.toString())); } catch (Exception ignored) {}
+    //                 }
+    //             }
+    //         }
+    //     } catch (Exception ex) {
+    //         ex.printStackTrace();
+    //     }
+    //     return out;
+    // }
 
     // Lấy danh sách classes theo tập Ids từ API
-    private List<Map<String, Object>> fetchClassesByIds(Set<Integer> ids) {
-        if (ids == null || ids.isEmpty()) return Collections.emptyList();
-        try {
-            Map<String,Object> p = new HashMap<>();
-            p.put("action", "get");
-            p.put("method", "SELECT");
-            p.put("table", "classes");
-            p.put("columns", List.of("Id", "Name", "TeacherName", "StudentCount"));
-            Map<String,Object> where = new HashMap<>();
-            where.put("Id", ids);
-            p.put("where", where);
-            System.out.println("DEBUG: fetchClassesByIds payload=" + p);
-            List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
-            if (resp == null) return Collections.emptyList();
+    // private List<Map<String, Object>> fetchClassesByIds(Set<Integer> ids) {
+    //     if (ids == null || ids.isEmpty()) return Collections.emptyList();
+    //     try {
+    //         Map<String,Object> p = new HashMap<>();
+    //         p.put("action", "get");
+    //         p.put("method", "SELECT");
+    //         p.put("table", "classes");
+    //         p.put("columns", List.of("Id", "Name", "TeacherName", "StudentCount"));
+    //         Map<String,Object> where = new HashMap<>();
+    //         where.put("Id", ids);
+    //         p.put("where", where);
+    //         System.out.println("DEBUG: fetchClassesByIds payload=" + p);
+    //         List<Map<String,Object>> resp = apiService.postApiGetList("/autoGet", p);
+    //         if (resp == null) return Collections.emptyList();
 
-            // Chuẩn hoá key ClassName nếu cần
-            List<Map<String,Object>> out = new ArrayList<>();
-            for (Map<String,Object> r : resp) {
-                Map<String,Object> m = new HashMap<>(r);
-                Object name = r.getOrDefault("Name", r.get("name"));
-                if (name != null) m.put("ClassName", name.toString());
-                out.add(m);
-            }
-            return out;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return Collections.emptyList();
-        }
-    }
+    //         // Chuẩn hoá key ClassName nếu cần
+    //         List<Map<String,Object>> out = new ArrayList<>();
+    //         for (Map<String,Object> r : resp) {
+    //             Map<String,Object> m = new HashMap<>(r);
+    //             Object name = r.getOrDefault("Name", r.get("name"));
+    //             if (name != null) m.put("ClassName", name.toString());
+    //             out.add(m);
+    //         }
+    //         return out;
+    //     } catch (Exception ex) {
+    //         ex.printStackTrace();
+    //         return Collections.emptyList();
+    //     }
+    // }
     
     private void displayClasses(List<Map<String, Object>> classes) {
         classesPanel.removeAll();
@@ -1053,9 +1051,12 @@ public void refreshCurrentClassExams() {
                     String email = currentStudent != null ? currentStudent.getEmail() : null;
                     if (email == null || email.isEmpty()) return null;
 
+                    System.out.println("Debug: check student email and exam Id for exam detail: " + email + ", examId=" + examId);
                     // Lấy student profile -> tìm Student.Id
-                    List<Map<String, Object>> profile = sis.fetchProfileByEmail(email);
+                    List<Map<String, Object>> profile = sis.fetchStudentInfoExam(email, examId);
+                    System.out.println("Debug: student profile for exam detail: " + profile.size());
                     if (profile != null && !profile.isEmpty()) {
+                        
                         Object sid = profile.get(0).getOrDefault("StudentId", profile.get(0).get("Id"));
                         if (sid instanceof Number) studentId = ((Number) sid).intValue();
                         else if (sid != null) studentId = Integer.parseInt(sid.toString());
