@@ -32,13 +32,11 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
-import com.formdev.flatlaf.FlatLightLaf;
 
 public class QuizCreatorAppSwing extends JFrame {
     private ApiService apiService;
@@ -745,26 +743,6 @@ private Map<String, Object> createEmptyPeriodItem() {
         }
         return null;
     }
-
-    public static void main(String[] args) {
-        // SwingUtilities.invokeLater(() -> {
-        // try {
-        // UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        // } catch (Exception ignored) {}
-        // // tạo service test (nếu cần thay thế bằng đúng instance trong app)
-        // //ApiService apiService = new ApiService();
-        // //AuthService authService = new AuthService();
-        // //QuizCreatorAppSwing app = new QuizCreatorAppSwing(apiService, authService,
-        // null);
-        // app.setVisible(true);
-        // });
-        try {
-            UIManager.setLookAndFeel(new FlatLightLaf());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     // Fetch classes for the logged-in teacher and return distinct class names (preserve order)
     private List<ClassItem> loadTeacherClassesForCombo() {
         List<ClassItem> out = new ArrayList<>();
