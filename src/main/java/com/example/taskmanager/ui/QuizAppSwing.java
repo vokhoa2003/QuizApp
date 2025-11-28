@@ -246,7 +246,7 @@ if (chosenProfile == null) {
 
     infoPanel.add(new JLabel("Họ và tên: " + (studentName != null ? studentName : "N/A")));
     infoPanel.add(new JLabel("Lớp: " + (className != null ? className : "N/A")));
-    infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề thi #" + examId : "N/A")));
+    infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề " + examId : "N/A")));
     infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now()
         .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
     infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));

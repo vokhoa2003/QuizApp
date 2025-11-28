@@ -208,9 +208,9 @@ public class ApiService {
         // Backend dùng id làm WHERE condition, không phải data update
         
         // ✅ CHỈ GỬI CÁC FIELD CẦN UPDATE (KHÔNG BAO GỒM id)
-        data.put("email", user.getEmail());
+        data.put("emailUpdate", user.getEmail());
         data.put("FullName", user.getFullName());
-        data.put("role", user.getRole());
+        data.put("roleUpdate", user.getRole());
         data.put("Status", user.getStatus());
         data.put("Phone", user.getPhone());
         data.put("Address", user.getAddress());
@@ -241,7 +241,7 @@ public class ApiService {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
                 .header("Authorization", "Bearer " + authService.getAccessToken())
-                .header("Content-Type", "application/json; charset=UTF-8")
+                .header("Content-Type", "application/json")
                 .header("Cookie", "csrf_token=" + csrfToken)
                 .header("X-CSRF-Token", csrfToken)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody, 
