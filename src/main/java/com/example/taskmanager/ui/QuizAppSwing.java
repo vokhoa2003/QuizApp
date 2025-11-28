@@ -144,38 +144,7 @@ public class QuizAppSwing extends JFrame {
         setAlwaysOnTop(true);
         setResizable(false); // Không cho phép resize
 
-        // Xử lý khi nhấn nút X
-addWindowListener(new WindowAdapter() {
-    @Override
-    public void windowClosing(WindowEvent e) {
-        int choice = JOptionPane.showConfirmDialog(
-            QuizAppSwing.this,
-            "Bạn có chắc muốn thoát bài kiểm tra?\n" +
-            "Các câu trả lời đã được lưu tự động.",
-            "Xác nhận thoát",
-            JOptionPane.YES_NO_OPTION,
-            JOptionPane.WARNING_MESSAGE
-        );
         
-        if (choice == JOptionPane.YES_OPTION) {
-            // Dừng timer trước khi thoát
-            if (timer != null) timer.stop();
-            if (autoSubmitTimer != null) autoSubmitTimer.stop();
-            
-            // Hiện dashboard nếu có
-            if (studentDashboard != null) {
-                studentDashboard.setVisible(true);
-                studentDashboard.toFront();
-                studentDashboard.refreshCurrentClassExams();
-            }
-            
-            dispose(); // Đóng cửa sổ
-            System.out.println("User confirmed exit");
-        } else {
-            System.out.println("User cancelled exit");
-        }
-    }
-});
 
 // Ngăn thay đổi vị trí/kích thước
 addComponentListener(new ComponentAdapter() {
@@ -197,16 +166,45 @@ addComponentListener(new ComponentAdapter() {
     }
 });
 
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowIconified(WindowEvent e) {
-                setState(JFrame.NORMAL);
-                toFront();
-                JOptionPane.showMessageDialog(QuizAppSwing.this,
-                        "Không được thu nhỏ bài kiểm tra!",
-                        "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        // ✅ CHỈ ADD 1 LẦN
+addWindowListener(new WindowAdapter() {
+    @Override
+    public void windowClosing(WindowEvent e) {
+        int choice = JOptionPane.showConfirmDialog(
+            QuizAppSwing.this,
+            "Bạn có chắc muốn thoát bài kiểm tra?\n" +
+            "Các câu trả lời đã được lưu tự động.",
+            "Xác nhận thoát",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        );
+        
+        if (choice == JOptionPane.YES_OPTION) {
+            if (timer != null) timer.stop();
+            if (autoSubmitTimer != null) autoSubmitTimer.stop();
+            
+            if (studentDashboard != null) {
+                studentDashboard.setVisible(true);
+                studentDashboard.toFront();
+                studentDashboard.refreshCurrentClassExams();
             }
-        });
+            
+            dispose();
+            System.out.println("User confirmed exit");
+        } else {
+            System.out.println("User cancelled exit");
+        }
+    }
+    
+    @Override
+    public void windowIconified(WindowEvent e) {
+        setState(JFrame.NORMAL);
+        toFront();
+        JOptionPane.showMessageDialog(QuizAppSwing.this,
+                "Không được thu nhỏ bài kiểm tra!",
+                "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+    }
+});
 
         // --------- LEFT: Thông tin người làm bài ---------
         JPanel infoPanel = new JPanel();
