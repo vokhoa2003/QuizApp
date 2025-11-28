@@ -32,13 +32,11 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
-import javax.swing.UIManager;
 import javax.swing.border.EmptyBorder;
 
 import com.example.taskmanager.model.Task;
 import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
-import com.formdev.flatlaf.FlatLightLaf;
 
 public class QuizCreatorAppSwing extends JFrame {
     private ApiService apiService;
@@ -745,26 +743,6 @@ private Map<String, Object> createEmptyPeriodItem() {
         }
         return null;
     }
-
-    public static void main(String[] args) {
-        // SwingUtilities.invokeLater(() -> {
-        // try {
-        // UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        // } catch (Exception ignored) {}
-        // // tạo service test (nếu cần thay thế bằng đúng instance trong app)
-        // //ApiService apiService = new ApiService();
-        // //AuthService authService = new AuthService();
-        // //QuizCreatorAppSwing app = new QuizCreatorAppSwing(apiService, authService,
-        // null);
-        // app.setVisible(true);
-        // });
-        try {
-            UIManager.setLookAndFeel(new FlatLightLaf());
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     // Fetch classes for the logged-in teacher and return distinct class names (preserve order)
     private List<ClassItem> loadTeacherClassesForCombo() {
         List<ClassItem> out = new ArrayList<>();
@@ -893,62 +871,38 @@ private Map<String, Object> createEmptyPeriodItem() {
         }
     }
 
-    // Orchestrator: insert exam -> insert questions -> insert answers (uses callMultiInsert)
-    private void insertExamWithQuestionsAndAnswers(long teacherId, int classId, String examName, int periodId) {
+    // Orchestrator: insert questions -> insert answers (uses callMultiInsert)
+    private void insertExamWithQuestionsAndAnswers(long teacherId, int classId, String examCode, int periodId) {
         SwingWorker<Void, Void> worker = new SwingWorker<>() {
             @Override
             protected Void doInBackground() throws Exception {
                 try {
-                    // 1) exam row
-                    Map<String,Object> examRow = new HashMap<>();
-                    if (classId > 0) examRow.put("ClassId", classId);
-                    examRow.put("ExamName", examName);
-                    examRow.put("NumberQuestion", questions.size());
-                    examRow.put("Description", descriptionArea.getText());
-                    examRow.put("PublishDate", getPublishDateTimeString());
-                    examRow.put("ExpireDate", getEndPublishDateTimeString());
-                    examRow.put("TeacherId", teacherId);
-                    examRow.put("PeriodId", periodId);
-
-                    Map<String,Object> opExam = new HashMap<>();
-                    opExam.put("table", "exams");
-                    opExam.put("rows", List.of(examRow));
-
-                    System.out.println("DEBUG: will insert exam op = " + opExam);
-                    List<Map<String,Object>> resExam = callMultiInsert(List.of(opExam));
-                    System.out.println("DEBUG: resExam = " + resExam);
-
-                    Integer examId = null;
-                    // try to parse insert_ids from response (robust)
-                    if (resExam != null && !resExam.isEmpty()) {
-                        Object maybe = resExam.get(0).get("insert_ids");
-                        if (maybe instanceof List) {
-                            List<?> ids = (List<?>) maybe;
-                            if (!ids.isEmpty() && ids.get(0) instanceof Number) examId = ((Number) ids.get(0)).intValue();
-                        } else {
-                            // sometimes API returns row with last_insert_id
-                            Object lid = resExam.get(0).get("last_insert_id");
-                            if (lid instanceof Number) examId = ((Number)lid).intValue();
+                    // Parse TestNumber from examCode (take digits). If none, fallback to per-question number.
+                    Integer parsedTestNumber = null;
+                    if (examCode != null) {
+                        String digits = examCode.replaceAll("\\D+", "");
+                        if (!digits.isEmpty()) {
+                            try { parsedTestNumber = Integer.parseInt(digits); } catch (NumberFormatException ignore) { parsedTestNumber = null; }
                         }
                     }
 
-                    System.out.println("DEBUG: examId parsed = " + examId);
-
-                    // 2) insert questions (batch)
+                    // Build question rows (no exams table insert)
                     List<Map<String,Object>> questionRows = new ArrayList<>();
                     for (Question q : questions) {
                         Map<String,Object> qr = new HashMap<>();
-                        qr.put("TestNumber", q.getQuestionNumber());
+                        // TestNumber is from examCode (same for all questions) or fallback to question number
+                        if (parsedTestNumber != null) qr.put("TestNumber", parsedTestNumber);
+                        else qr.put("TestNumber", q.getQuestionNumber());
                         if (classId > 0) qr.put("ClassId", classId);
                         qr.put("Question", q.getQuestionText());
                         qr.put("PeriodId", periodId);
                         qr.put("PublishDate", getPublishDateTimeString());
                         qr.put("ExpireDate", getEndPublishDateTimeString());
                         qr.put("TeacherId", teacherId);
-                        // NOTE: do NOT include ExamId here — questions table in DB does not have ExamId column.
                         questionRows.add(qr);
                     }
 
+                    List<Integer> questionIds = new ArrayList<>();
                     if (!questionRows.isEmpty()) {
                         Map<String,Object> opQuestions = new HashMap<>();
                         opQuestions.put("table", "questions");
@@ -958,70 +912,51 @@ private Map<String, Object> createEmptyPeriodItem() {
                         System.out.println("DEBUG: resQuestions = " + resQuestions);
 
                         // parse inserted question ids (in order)
-                        List<Integer> questionIds = new ArrayList<>();
                         if (resQuestions != null && !resQuestions.isEmpty()) {
                             Object maybe = resQuestions.get(0).get("insert_ids");
                             if (maybe instanceof List) {
                                 for (Object o : (List<?>) maybe) {
                                     if (o instanceof Number) questionIds.add(((Number)o).intValue());
+                                    else if (o instanceof String) {
+                                        try { questionIds.add(Integer.parseInt((String)o)); } catch (Exception ignored) {}
+                                    }
                                 }
                             } else {
-                                // fallback: if API returned single id
                                 Object lid = resQuestions.get(0).get("last_insert_id");
                                 if (lid instanceof Number) questionIds.add(((Number)lid).intValue());
+                                else if (lid instanceof String) {
+                                    try { questionIds.add(Integer.parseInt((String)lid)); } catch (Exception ignored) {}
+                                }
                             }
-                        }
-
-                        System.out.println("DEBUG: parsed questionIds count = " + questionIds.size());
-
-                        // --- NEW: create exam_questions mapping (ExamId <-> QuestionId) if we have both examId and questionIds
-                        if (examId != null && !questionIds.isEmpty()) {
-                            List<Map<String,Object>> examQuestionRows = new ArrayList<>();
-                            for (Integer qid : questionIds) {
-                                Map<String,Object> mq = new HashMap<>();
-                                mq.put("ExamId", examId);
-                                mq.put("QuestionId", qid);
-                                examQuestionRows.add(mq);
-                            }
-                            Map<String,Object> opExamQuestions = new HashMap<>();
-                            opExamQuestions.put("table", "exam_questions");
-                            opExamQuestions.put("rows", examQuestionRows);
-                            System.out.println("DEBUG: will insert exam_questions mapping (rows=" + examQuestionRows.size() + ")");
-                            List<Map<String,Object>> resExamQ = callMultiInsert(List.of(opExamQuestions));
-                            System.out.println("DEBUG: resExamQ = " + resExamQ);
-                        } else {
-                            if (examId != null && questionIds.isEmpty()) {
-                                System.err.println("WARN: questions inserted but no questionIds returned from API; answers mapping will be attempted without QuestionId.");
-                            }
-                        }
-
-                        // 3) insert answers, map answers to created question ids if available
-                        List<Map<String,Object>> answerRows = new ArrayList<>();
-                        int qIndex = 0;
-                        for (Question q : questions) {
-                            Integer qId = (qIndex < questionIds.size()) ? questionIds.get(qIndex) : null;
-                            for (int ai = 0; ai < q.getAnswers().size(); ai++) {
-                                Map<String,Object> ar = new HashMap<>();
-                                if (qId != null) ar.put("QuestionId", qId);
-                                ar.put("Answer", q.getAnswers().get(ai));
-                                ar.put("IsCorrect", (ai == q.getCorrectAnswer()) ? 1 : 0);
-                                answerRows.add(ar);
-                            }
-                            qIndex++;
-                        }
-
-                        if (!answerRows.isEmpty()) {
-                            Map<String,Object> opAnswers = new HashMap<>();
-                            opAnswers.put("table", "answers");
-                            opAnswers.put("rows", answerRows);
-                            System.out.println("DEBUG: will insert answers op (rows=" + answerRows.size() + ")");
-                            List<Map<String,Object>> resAnswers = callMultiInsert(List.of(opAnswers));
-                            System.out.println("DEBUG: resAnswers = " + resAnswers);
                         }
                     }
 
+                    // Insert answers, mapping to created question ids if available
+                    List<Map<String,Object>> answerRows = new ArrayList<>();
+                    int qIndex = 0;
+                    for (Question q : questions) {
+                        Integer qId = (qIndex < questionIds.size()) ? questionIds.get(qIndex) : null;
+                        for (int ai = 0; ai < q.getAnswers().size(); ai++) {
+                            Map<String,Object> ar = new HashMap<>();
+                            if (qId != null) ar.put("QuestionId", qId);
+                            ar.put("Answer", q.getAnswers().get(ai));
+                            ar.put("IsCorrect", (ai == q.getCorrectAnswer()) ? 1 : 0);
+                            answerRows.add(ar);
+                        }
+                        qIndex++;
+                    }
+
+                    if (!answerRows.isEmpty()) {
+                        Map<String,Object> opAnswers = new HashMap<>();
+                        opAnswers.put("table", "answers");
+                        opAnswers.put("rows", answerRows);
+                        System.out.println("DEBUG: will insert answers op (rows=" + answerRows.size() + ")");
+                        List<Map<String,Object>> resAnswers = callMultiInsert(List.of(opAnswers));
+                        System.out.println("DEBUG: resAnswers = " + resAnswers);
+                    }
+
                     SwingUtilities.invokeLater(() -> {
-                        JOptionPane.showMessageDialog(QuizCreatorAppSwing.this, "Đã lưu đề và câu trả lời (gửi lên server).", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(QuizCreatorAppSwing.this, "Đã lưu câu hỏi và đáp án (gửi lên server).", "Thành công", JOptionPane.INFORMATION_MESSAGE);
                     });
                 } catch (Exception ex) {
                     ex.printStackTrace();

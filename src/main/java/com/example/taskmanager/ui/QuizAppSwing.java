@@ -334,7 +334,8 @@ if (chosenProfile == null) {
                     } else {
                         // EndTime đã qua -> đặt 0 (sẽ nộp nếu cần)
                         this.duration = 0;
-                        System.out.println("EndTime đã qua cho attempt " + this.attemptId + " (remainingSec=" + remainingSec + ")");
+                        System.out.println("⌛ EndTime đã qua cho attempt " + this.attemptId + " (remainingSec=" + remainingSec + ")");
+
                     }
                 } catch (Exception ex) {
                     System.err.println("Lỗi parse EndTime: " + ex.getMessage() + " -> sử dụng duration mặc định");
@@ -667,6 +668,7 @@ if (chosenProfile == null) {
         if (classId > 0) {
             where.put("questions.ClassId", classId);
         }
+        where.put("questions.PeriodId", periodId);
         params.put("where", where);
         
         params.put("order", "RAND()");
@@ -1070,7 +1072,7 @@ if (chosenProfile == null) {
             params.put("action", "get");
             params.put("method", "SELECT");
             params.put("table", "exam_attempts");
-            params.put("columns", List.of("id", "Status", "EndTime", "StartTime", "SubmitTime"));
+            params.put("columns", List.of("id", "ExamId", "StudentId", "Status", "EndTime", "StartTime", "SubmitTime"));
             Map<String, Object> where = new HashMap<>();
             where.put("ExamId", examId);
             where.put("StudentId", studentId);
@@ -1396,14 +1398,13 @@ if (chosenProfile == null) {
             Map<String, Object> rec = new HashMap<>();
             // gửi cả 2 key "id" và "Id" để tương thích với nhiều backend
             rec.put("id", attemptId);
-            rec.put("Id", attemptId);
             rec.put("Status", "submitted");
             rec.put("SubmitTime", now);
             rec.put("EndTime", now);
 
             Map<String, Object> params = new HashMap<>();
             params.put("action", "update");
-            params.put("method", "UPDATE");
+            params.put("method", "UPSERT");
             params.put("table", "exam_attempts");
             params.put("data", List.of(rec));
 
