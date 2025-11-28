@@ -27,7 +27,7 @@ public class GoogleLoginHelper {
     private static final List<String> SCOPES = List.of(
             "https://www.googleapis.com/auth/userinfo.profile",
             "https://www.googleapis.com/auth/userinfo.email");
-    private static final String TOKENS_DIRECTORY_PATH = "tokens";
+    private static final String TOKENS_DIRECTORY_PATH = System.getProperty("user.home") + File.separator + ".quiz-app" + File.separator + "tokens";
     private static final ApiConfig apiConfig = ApiConfig.getInstance();
 
     public static Userinfo login() throws Exception {

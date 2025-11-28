@@ -80,6 +80,7 @@ public class QuizAppSwing extends JFrame {
     private Integer attemptId = null; // Attempt hiện tại
     private Timer autoSubmitTimer = null; // Timer để tự nộp theo EndTime
     private StudentDashboard studentDashboard;  // Thêm reference đến MainWindow
+    private int timeLimit;
 
 
     // ------------------------- Question Class -------------------------
@@ -114,6 +115,7 @@ public class QuizAppSwing extends JFrame {
         this.studentDashboard = studentDashboard;
         this.periodId = periodId;
         this.examService = new ExamService(apiService);
+        this.timeLimit = timeLimit;
         
         // Try to get accountId from authService 
         Integer accountId = authService.getUserIdFromToken(authService.getAccessToken());
@@ -249,7 +251,7 @@ if (chosenProfile == null) {
     infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề " + examId : "N/A")));
     infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now()
         .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
-    infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));
+    infoPanel.add(new JLabel("Thời gian: " + (timeLimit > 0 ? (timeLimit) + " phút" : "Không giới hạn")));
     infoPanel.add(Box.createVerticalGlue());
     add(infoPanel, BorderLayout.WEST);
 
