@@ -477,7 +477,7 @@ public boolean updateClass(ClassRoom classRoom) {
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(apiConfig.getApiBaseUrl() + "/AdminUpdate"))
                 .header("Authorization", "Bearer " + authService.getAccessToken())
-                .header("Content-Type", "application/json; charset=UTF-8")
+                .header("Content-Type", "application/json")
                 .header("Cookie", "csrf_token=" + csrfToken)
                 .header("X-CSRF-Token", csrfToken)
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody, java.nio.charset.StandardCharsets.UTF_8))

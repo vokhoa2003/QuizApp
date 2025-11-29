@@ -13,6 +13,9 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDateTime;
@@ -38,8 +41,8 @@ import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.Timer;
-import static javax.swing.WindowConstants.EXIT_ON_CLOSE;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
@@ -47,8 +50,6 @@ import com.example.taskmanager.service.ApiService;
 import com.example.taskmanager.service.AuthService;
 import com.example.taskmanager.service.ExamService;
 import com.example.taskmanager.service.StudentInfoService;
-
-
 
 /**
  *
@@ -74,11 +75,12 @@ public class QuizAppSwing extends JFrame {
     private int classId = -1;
     private int numberQuestion = 0;
     private int periodId = -1;
-    private int studentId = -1; // ✅ Thêm field để lưu StudentId
-    private String studentEmail = null; // ✅ Thêm field để lưu email
-    private Integer attemptId = null; // ✅ Attempt hiện tại
+    private int studentId = -1; // Thêm field để lưu StudentId
+    private String studentEmail = null; // Thêm field để lưu email
+    private Integer attemptId = null; // Attempt hiện tại
     private Timer autoSubmitTimer = null; // Timer để tự nộp theo EndTime
     private StudentDashboard studentDashboard;  // Thêm reference đến MainWindow
+    private int timeLimit;
 
 
     // ------------------------- Question Class -------------------------
@@ -113,18 +115,19 @@ public class QuizAppSwing extends JFrame {
         this.studentDashboard = studentDashboard;
         this.periodId = periodId;
         this.examService = new ExamService(apiService);
+        this.timeLimit = timeLimit;
         
-        // Try to get accountId from authService (preferred)
+        // Try to get accountId from authService 
         Integer accountId = authService.getUserIdFromToken(authService.getAccessToken());
-        System.out.println("🔑 Resolved accountId: " + accountId);
+        System.out.println("Resolved accountId: " + accountId);
 
         if (accountId != null && accountId > 0) {
             this.studentId = getStudentIdByAccountId(accountId);
             this.studentEmail = authService.extractEmailFromToken(authService.getAccessToken());
-            System.out.println("👤 Student ID (from accountId): " + studentId);
+            System.out.println("Student ID (from accountId): " + studentId);
         }
         
-        System.out.println("🎯 QuizAppSwing initialized:");
+        System.out.println("QuizAppSwing initialized:");
         System.out.println("   ExamId: " + examId);
         System.out.println("   ClassId: " + classId);
         System.out.println("   NumberQuestion: " + numberQuestion);
@@ -134,22 +137,73 @@ public class QuizAppSwing extends JFrame {
         System.out.println("   Email: " + this.studentEmail);
 
         setTitle("Bài kiểm tra trắc nghiệm");
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE); // Không đóng ngay
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLayout(new BorderLayout(10, 10));
         getContentPane().setBackground(new Color(245, 245, 245));
         setAlwaysOnTop(true);
+        setResizable(false); // Không cho phép resize
 
-        addWindowListener(new WindowAdapter() {
-            @Override
-            public void windowIconified(WindowEvent e) {
-                setState(JFrame.NORMAL);
-                toFront();
-                JOptionPane.showMessageDialog(QuizAppSwing.this,
-                        "Không được thu nhỏ bài kiểm tra!",
-                        "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+        
+
+// Ngăn thay đổi vị trí/kích thước
+addComponentListener(new ComponentAdapter() {
+    @Override
+    public void componentResized(ComponentEvent e) {
+        if (getExtendedState() != JFrame.MAXIMIZED_BOTH) {
+            SwingUtilities.invokeLater(() -> {
+                setExtendedState(JFrame.MAXIMIZED_BOTH);
+                setLocation(0, 0);
+            });
+        }
+    }
+    
+    @Override
+    public void componentMoved(ComponentEvent e) {
+        if (getX() != 0 || getY() != 0) {
+            SwingUtilities.invokeLater(() -> setLocation(0, 0));
+        }
+    }
+});
+
+addWindowListener(new WindowAdapter() {
+    @Override
+    public void windowClosing(WindowEvent e) {
+        int choice = JOptionPane.showConfirmDialog(
+            QuizAppSwing.this,
+            "Bạn có chắc muốn thoát bài kiểm tra?\n" +
+            "Các câu trả lời đã được lưu tự động.",
+            "Xác nhận thoát",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        );
+        
+        if (choice == JOptionPane.YES_OPTION) {
+            if (timer != null) timer.stop();
+            if (autoSubmitTimer != null) autoSubmitTimer.stop();
+            
+            if (studentDashboard != null) {
+                studentDashboard.setVisible(true);
+                studentDashboard.toFront();
+                studentDashboard.refreshCurrentClassExams();
             }
-        });
+            
+            dispose();
+            System.out.println("User confirmed exit");
+        } else {
+            System.out.println("User cancelled exit");
+        }
+    }
+    
+    @Override
+    public void windowIconified(WindowEvent e) {
+        setState(JFrame.NORMAL);
+        toFront();
+        JOptionPane.showMessageDialog(QuizAppSwing.this,
+                "Không được thu nhỏ bài kiểm tra!",
+                "Cảnh báo", JOptionPane.WARNING_MESSAGE);
+    }
+});
 
         // --------- LEFT: Thông tin người làm bài ---------
         JPanel infoPanel = new JPanel();
@@ -160,7 +214,7 @@ infoPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
 infoPanel.add(new JLabel("Thông tin người làm bài:", SwingConstants.CENTER));
 infoPanel.add(Box.createVerticalStrut(10));
 
-// ✅ SỬ DỤNG StudentInfoService đã được cập nhật
+// SỬ DỤNG StudentInfoService đã được cập nhật
 List<Map<String, Object>> studentExamData = studentInfoService.fetchProfileById(accountId);
 System.out.println("Loading student exam data..." + studentExamData);
 
@@ -168,13 +222,13 @@ if (studentExamData == null || studentExamData.isEmpty()) {
     studentExamData = List.of(new HashMap<>());
 }
 
-// ✅ Tìm profile phù hợp với classId hiện tại
+// Tìm profile phù hợp với classId hiện tại
 Map<String, Object> chosenProfile = null;
 for (Map<String, Object> profile : studentExamData) {
     Integer cid = getFirstInteger(profile, "ClassId", "classes.Id");
     if (cid != null && cid == this.classId) {
         chosenProfile = profile;
-        System.out.println("✅ Found matching class profile: ClassId=" + cid);
+        System.out.println("Found matching class profile: ClassId=" + cid);
         break;
     }
     if (chosenProfile == null) {
@@ -191,10 +245,10 @@ if (chosenProfile == null) {
 
     infoPanel.add(new JLabel("Họ và tên: " + (studentName != null ? studentName : "N/A")));
     infoPanel.add(new JLabel("Lớp: " + (className != null ? className : "N/A")));
-    infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề thi #" + examId : "N/A")));
+    infoPanel.add(new JLabel("Môn: " + (examId > 0 ? "Đề " + examId : "N/A")));
     infoPanel.add(new JLabel("Ngày tháng: " + LocalDateTime.now()
         .format(DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm"))));
-    infoPanel.add(new JLabel("Thời gian: " + (duration > 0 ? (duration / 60) + " phút" : "Không giới hạn")));
+    infoPanel.add(new JLabel("Thời gian: " + (timeLimit > 0 ? (timeLimit) + " phút" : "Không giới hạn")));
     infoPanel.add(Box.createVerticalGlue());
     add(infoPanel, BorderLayout.WEST);
 
@@ -215,7 +269,7 @@ if (chosenProfile == null) {
 
         JPanel timerPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         timerPanel.setBackground(new Color(240, 248, 255));
-        JLabel timeLabel = new JLabel("⏰ Thời gian còn lại:");
+        JLabel timeLabel = new JLabel("Thời gian còn lại:");
         timeLabel.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         timeLabel.setForeground(Color.BLUE);
         timerPanel.add(timeLabel);
@@ -228,7 +282,7 @@ if (chosenProfile == null) {
 
         JPanel navSection = new JPanel(new FlowLayout(FlowLayout.LEFT));
         navSection.setBackground(new Color(240, 248, 255));
-        JLabel navLabel = new JLabel("📋 Danh sách câu hỏi:");
+        JLabel navLabel = new JLabel("Danh sách câu hỏi:");
         navLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         navLabel.setForeground(Color.BLUE);
         navSection.add(navLabel);
@@ -249,7 +303,7 @@ if (chosenProfile == null) {
 
         add(sidebar, BorderLayout.EAST);
 
-        System.out.println("🚀 Starting QuizAppSwing for ExamId=" + examId + ", StudentId=" + studentId);
+        System.out.println("Starting QuizAppSwing for ExamId=" + examId + ", StudentId=" + studentId);
 
          // Kiểm tra nếu đã có attempt trước đó
         List<Map<String, Object>> examAttempts = examService.fetchExamAttemptsByExamAndStudent(examId, studentId);
@@ -259,13 +313,13 @@ if (chosenProfile == null) {
             Object attemptIdObj = latestAttempt.get("id");
             if (attemptIdObj instanceof Number) {
                 this.attemptId = ((Number) attemptIdObj).intValue();
-                System.out.println("✅ Resolved existing AttemptId: " + this.attemptId);
+                System.out.println("Resolved existing AttemptId: " + this.attemptId);
             }
 
             // Lấy chuỗi EndTime từ nhiều key khả dĩ
             String endTimeStr = getFirstString(latestAttempt, "EndTime", "end_time", "endtime", "End_Time");
             if (endTimeStr == null || endTimeStr.isEmpty() || "null".equalsIgnoreCase(endTimeStr)) {
-                System.out.println("ℹ️ EndTime không xác định cho attempt " + this.attemptId + " — sử dụng duration mặc định");
+                System.out.println("ℹEndTime không xác định cho attempt " + this.attemptId + " — sử dụng duration mặc định");
                 this.duration = (timeLimit > 0) ? timeLimit * 60 : this.duration;
             } else {
                 try {
@@ -275,7 +329,7 @@ if (chosenProfile == null) {
                     long remainingSec = (endDate.getTime() - System.currentTimeMillis()) / 1000;
                     if (remainingSec > 0) {
                         this.duration = (int) remainingSec;
-                        System.out.println("⏱️ Remaining seconds for attempt " + this.attemptId + " = " + this.duration);
+                        System.out.println("⏱Remaining seconds for attempt " + this.attemptId + " = " + this.duration);
                     } else {
                         // EndTime đã qua -> đặt 0 (sẽ nộp nếu cần)
                         this.duration = 0;
@@ -283,7 +337,7 @@ if (chosenProfile == null) {
 
                     }
                 } catch (Exception ex) {
-                    System.err.println("⚠️ Lỗi parse EndTime: " + ex.getMessage() + " -> sử dụng duration mặc định");
+                    System.err.println("Lỗi parse EndTime: " + ex.getMessage() + " -> sử dụng duration mặc định");
                     this.duration = (timeLimit > 0) ? timeLimit * 60 : this.duration;
                 }
             }
@@ -316,7 +370,7 @@ if (chosenProfile == null) {
             } catch (NoSuchMethodException nsme) {
                 // ignore - try next
             } catch (Exception ex) {
-                System.err.println("⚠️ resolveAccountIdFromAuthService failed on " + name + ": " + ex.getMessage());
+                System.err.println("resolveAccountIdFromAuthService failed on " + name + ": " + ex.getMessage());
             }
         }
         // try field fallback
@@ -334,10 +388,10 @@ if (chosenProfile == null) {
     try {
         // ✅ GỌI fetchProfileById từ StudentInfoService (đã được cập nhật)
         List<Map<String, Object>> profiles = studentInfoService.fetchProfileById(accountId);
-        System.out.println("📥 fetchProfileById response: " + profiles);
+        System.out.println("fetchProfileById response: " + profiles);
         
         if (profiles == null || profiles.isEmpty()) {
-            System.err.println("⚠️ No student found for accountId: " + accountId);
+            System.err.println("No student found for accountId: " + accountId);
             return -1;
         }
         
@@ -350,7 +404,7 @@ if (chosenProfile == null) {
             if (sid != null && sid > 0) {
                 if (cid != null && cid == this.classId) {
                     chosen = p;
-                    System.out.println("✅ Found matching class: StudentId=" + sid + ", ClassId=" + cid);
+                    System.out.println("Found matching class: StudentId=" + sid + ", ClassId=" + cid);
                     break;
                 }
                 if (chosen == null) chosen = p;
@@ -358,18 +412,18 @@ if (chosenProfile == null) {
         }
         
         if (chosen == null) {
-            System.err.println("⚠️ No valid student profile found");
+            System.err.println("No valid student profile found");
             return -1;
         }
         
         Integer sid = getFirstInteger(chosen, "StudentId", "student.Id", "Id", "id");
         Integer cid = getFirstInteger(chosen, "ClassId", "classes.Id");
         
-        System.out.println("ℹ️ Resolved: StudentId=" + sid + ", ClassId=" + cid);
+        System.out.println("ℹResolved: StudentId=" + sid + ", ClassId=" + cid);
         return sid != null ? sid : -1;
         
     } catch (Exception e) {
-        System.err.println("❌ getStudentIdByAccountId error: " + e.getMessage());
+        System.err.println("getStudentIdByAccountId error: " + e.getMessage());
         e.printStackTrace();
         return -1;
     }
@@ -497,14 +551,14 @@ if (chosenProfile == null) {
             params.put("limit", numberQuestion * 4);
         }
         
-        System.out.println("📡 Loading questions with params: " + params);
+        System.out.println("Loading questions with params: " + params);
         
         List<Map<String, Object>> apiData = apiService.postApiGetList("/autoGet", params);
         
-        System.out.println("📦 API Response: " + (apiData != null ? apiData.size() + " rows" : "null"));
+        System.out.println("API Response: " + (apiData != null ? apiData.size() + " rows" : "null"));
 
         if (apiData == null || apiData.isEmpty()) {
-            System.err.println("⚠️ No questions found!");
+            System.err.println("No questions found!");
             JOptionPane.showMessageDialog(this, 
                 "Không tìm thấy back up cho bài kiểm tra!", 
                 "Lỗi", 
@@ -516,7 +570,7 @@ if (chosenProfile == null) {
         }
 
         if (!apiData.isEmpty()) {
-            System.out.println("📋 Sample data: " + apiData.get(0));
+            System.out.println("Sample data: " + apiData.get(0));
         }
 
         Map<Integer, String> questionTextMap = new LinkedHashMap<>();
@@ -530,11 +584,11 @@ if (chosenProfile == null) {
             String answerText = getFirstString(item, "AnswerText", "Answer");
 
             if (questionId == null || questionText == null || answerText == null || answerId == null) {
-                System.err.println("⚠️ Skipping invalid row: " + item);
+                System.err.println("Skipping invalid row: " + item);
                 continue;
             }
 
-            System.out.println("✅ Processing Q" + questionId + ": " + questionText.substring(0, Math.min(30, questionText.length())) + "... | A" + answerId);
+            System.out.println("Processing Q" + questionId + ": " + questionText.substring(0, Math.min(30, questionText.length())) + "... | A" + answerId);
 
             questionTextMap.putIfAbsent(questionId, questionText);
             optionsMap.computeIfAbsent(questionId, k -> new ArrayList<>()).add(answerText);
@@ -547,7 +601,7 @@ if (chosenProfile == null) {
             List<String> opts = optionsMap.get(qId);
             List<Integer> aids = answerIdMap.get(qId);
             
-            System.out.println("✅ Adding question Q" + qId + " with " + opts.size() + " answers");
+            System.out.println("Adding question Q" + qId + " with " + opts.size() + " answers");
             
             questions.add(new Question(qId, e.getValue(), opts, aids));
         }
@@ -559,12 +613,12 @@ if (chosenProfile == null) {
         }
  
         totalQuestions = questions.size();
-        System.out.println("✅ Final: Loaded " + totalQuestions + " questions");
+        System.out.println("Final: Loaded " + totalQuestions + " questions");
 
-        // ✅ Đảm bảo có Attempt và prefill exam_answers trước khi render
+        // Đảm bảo có Attempt và prefill exam_answers trước khi render
         ensureAttemptAndPrefill();
 
-        // ✅ Khôi phục các lựa chọn đã lưu theo AttemptId
+        // Khôi phục các lựa chọn đã lưu theo AttemptId
         loadPreviousSelections();
 
         navPanel.removeAll();
@@ -583,7 +637,7 @@ if (chosenProfile == null) {
         navPanel.revalidate();
         navPanel.repaint();
 
-        System.out.println("🎨 Rendering questions...");
+        System.out.println("Rendering questions...");
         renderQuestions();
     }
     // ------------------------------------------------------------
@@ -622,14 +676,14 @@ if (chosenProfile == null) {
             params.put("limit", numberQuestion * 4);
         }
         
-        System.out.println("📡 Loading questions with params: " + params);
+        System.out.println("Loading questions with params: " + params);
         
         List<Map<String, Object>> apiData = apiService.postApiGetList("/autoGet", params);
         
-        System.out.println("📦 API Response: " + (apiData != null ? apiData.size() + " rows" : "null"));
+        System.out.println("API Response: " + (apiData != null ? apiData.size() + " rows" : "null"));
 
         if (apiData == null || apiData.isEmpty()) {
-            System.err.println("⚠️ No questions found!");
+            System.err.println("No questions found!");
             JOptionPane.showMessageDialog(this, 
                 "Không tìm thấy câu hỏi cho bài kiểm tra này!", 
                 "Lỗi", 
@@ -641,7 +695,7 @@ if (chosenProfile == null) {
         }
 
         if (!apiData.isEmpty()) {
-            System.out.println("📋 Sample data: " + apiData.get(0));
+            System.out.println("Sample data: " + apiData.get(0));
         }
 
         Map<Integer, String> questionTextMap = new LinkedHashMap<>();
@@ -655,11 +709,11 @@ if (chosenProfile == null) {
             String answerText = getFirstString(item, "AnswerText", "Answer");
 
             if (questionId == null || questionText == null || answerText == null || answerId == null) {
-                System.err.println("⚠️ Skipping invalid row: " + item);
+                System.err.println("Skipping invalid row: " + item);
                 continue;
             }
 
-            System.out.println("✅ Processing Q" + questionId + ": " + questionText.substring(0, Math.min(30, questionText.length())) + "... | A" + answerId);
+            System.out.println("Processing Q" + questionId + ": " + questionText.substring(0, Math.min(30, questionText.length())) + "... | A" + answerId);
 
             questionTextMap.putIfAbsent(questionId, questionText);
             optionsMap.computeIfAbsent(questionId, k -> new ArrayList<>()).add(answerText);
@@ -672,7 +726,7 @@ if (chosenProfile == null) {
             List<String> opts = optionsMap.get(qId);
             List<Integer> aids = answerIdMap.get(qId);
             
-            System.out.println("✅ Adding question Q" + qId + " with " + opts.size() + " answers");
+            System.out.println("Adding question Q" + qId + " with " + opts.size() + " answers");
             
             questions.add(new Question(qId, e.getValue(), opts, aids));
         }
@@ -684,12 +738,12 @@ if (chosenProfile == null) {
         }
  
         totalQuestions = questions.size();
-        System.out.println("✅ Final: Loaded " + totalQuestions + " questions");
+        System.out.println("Final: Loaded " + totalQuestions + " questions");
 
-        // ✅ Đảm bảo có Attempt và prefill exam_answers trước khi render
+        // Đảm bảo có Attempt và prefill exam_answers trước khi render
         ensureAttemptAndPrefill();
 
-        // ✅ Khôi phục các lựa chọn đã lưu theo AttemptId
+        // Khôi phục các lựa chọn đã lưu theo AttemptId
         loadPreviousSelections();
 
         navPanel.removeAll();
@@ -708,11 +762,11 @@ if (chosenProfile == null) {
         navPanel.revalidate();
         navPanel.repaint();
 
-        System.out.println("🎨 Rendering questions...");
+        System.out.println("Rendering questions...");
         renderQuestions();
     }
 
-    // ✅ Method mới: Lấy StudentId từ email
+    // Method mới: Lấy StudentId từ email
     private int getStudentIdByEmail(String email) {
     try {
         Map<String, Object> params = new HashMap<>();
@@ -750,10 +804,10 @@ if (chosenProfile == null) {
         where.put("account.email", email);
         params.put("where", where);
         
-        System.out.println("📡 getStudentIdByEmail params: " + params);
+        System.out.println("getStudentIdByEmail params: " + params);
         
         List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
-        System.out.println("📥 getStudentIdByEmail response: " + result);
+        System.out.println("getStudentIdByEmail response: " + result);
         
         if (result != null && !result.isEmpty()) {
             // Ưu tiên record có ClassId trùng
@@ -770,23 +824,23 @@ if (chosenProfile == null) {
             if (chosen != null) {
                 Integer sid = getFirstInteger(chosen, "StudentId", "student.Id", "Id", "id");
                 if (sid != null && sid > 0) {
-                    System.out.println("✅ Found StudentId=" + sid + " for email=" + email);
+                    System.out.println("Found StudentId=" + sid + " for email=" + email);
                     return sid;
                 }
             }
         }
         
-        System.err.println("⚠️ Student not found for email: " + email);
+        System.err.println("Student not found for email: " + email);
         return -1;
         
     } catch (Exception e) {
-        System.err.println("❌ getStudentIdByEmail error: " + e.getMessage());
+        System.err.println("getStudentIdByEmail error: " + e.getMessage());
         e.printStackTrace();
         return -1;
     }
 }
 
-    // ✅ Method mới: Lấy IsCorrect từ bảng answers 
+    // Lấy IsCorrect từ bảng answers 
     private Integer getIsCorrectFromAnswer(int questionId, int answerId) {
         try {
             Map<String, Object> params = new HashMap<>();
@@ -800,7 +854,7 @@ if (chosenProfile == null) {
             where.put("id", answerId);
             params.put("where", where);
             
-            System.out.println("🔍 Checking IsCorrect for Q" + questionId + ", A" + answerId);
+            System.out.println("Checking IsCorrect for Q" + questionId + ", A" + answerId);
             
             List<Map<String, Object>> result = apiService.postApiGetList("/autoGet", params);
             
@@ -811,24 +865,24 @@ if (chosenProfile == null) {
                 
                 if (isCorrectObj instanceof Number) {
                     int value = ((Number) isCorrectObj).intValue();
-                    System.out.println("   ✅ IsCorrect = " + value);
+                    System.out.println("   IsCorrect = " + value);
                     return value;
                 } else if (isCorrectObj instanceof Boolean) {
                     int value = ((Boolean) isCorrectObj) ? 1 : 0;
-                    System.out.println("   ✅ IsCorrect = " + value);
+                    System.out.println("   IsCorrect = " + value);
                     return value;
                 } else if (isCorrectObj instanceof String) {
                     int value = ("1".equals(isCorrectObj) || "true".equalsIgnoreCase((String) isCorrectObj)) ? 1 : 0;
-                    System.out.println("   ✅ IsCorrect = " + value);
+                    System.out.println("   IsCorrect = " + value);
                     return value;
                 }
             }
             
-            System.err.println("   ⚠️ IsCorrect not found, defaulting to 0");
+            System.err.println("   IsCorrect not found, defaulting to 0");
             return 0;
             
         } catch (Exception e) {
-            System.err.println("❌ Error getting IsCorrect for Q" + questionId + " A" + answerId + ": " + e.getMessage());
+            System.err.println("Error getting IsCorrect for Q" + questionId + " A" + answerId + ": " + e.getMessage());
             e.printStackTrace();
             return 0;
         }
@@ -843,18 +897,18 @@ if (chosenProfile == null) {
                 int resolved = getStudentIdByEmail(studentEmail);
                 if (resolved > 0) {
                     studentId = resolved;
-                    System.out.println("ℹ️ Resolved studentId from email: " + studentId);
+                    System.out.println("Resolved studentId from email: " + studentId);
                 }
             }
             if (studentId <= 0) {
-                System.err.println("❌ Aborting saveExamResult: invalid studentId=" + studentId);
+                System.err.println("Aborting saveExamResult: invalid studentId=" + studentId);
                 return;
             }
 
             int correctCount = countCorrectAnswersByAttempt(attemptId);
             double score = totalQuestions > 0 ? Math.round((correctCount * 10.0 / totalQuestions) * 100.0) / 100.0 : 0.0;
 
-            System.out.println("📊 Score: " + correctCount + "/" + totalQuestions + " = " + score + " điểm");
+            System.out.println("Score: " + correctCount + "/" + totalQuestions + " = " + score + " điểm");
 
             Map<String, Object> resultRecord = new HashMap<>();
             //resultRecord.put("ExamId", examId);
@@ -870,12 +924,12 @@ if (chosenProfile == null) {
             params.put("data", List.of(resultRecord));
 
             // debug log payload before sending
-            System.out.println("🔁 saveExamResult payload = " + params);
+            System.out.println("saveExamResult payload = " + params);
 
             List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
-            System.out.println("✅ Saved exam result: " + response);
+            System.out.println("Saved exam result: " + response);
         } catch (Exception e) {
-            System.err.println("❌ Error saving exam result: " + e.getMessage());
+            System.err.println("Error saving exam result: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -915,13 +969,13 @@ if (chosenProfile == null) {
             }
             return cnt;
         } catch (Exception e) {
-            System.err.println("⚠️ countCorrectAnswersByAttempt error: " + e.getMessage());
+            System.err.println("countCorrectAnswersByAttempt error: " + e.getMessage());
             return 0;
         }
     }
 
 
-    // ✅ Method kiểm tra đáp án đúng
+    // Method kiểm tra đáp án đúng
     private boolean isCorrectAnswer(int questionId, int answerId) {
         Integer isCorrect = getIsCorrectFromAnswer(questionId, answerId);
         return isCorrect != null && isCorrect == 1;
@@ -956,11 +1010,11 @@ if (chosenProfile == null) {
                 try {
                     Date pubDate = sdf.parse(publishDate);
                     if (now.before(pubDate)) {
-                        System.out.println("❌ Exam not yet published. PublishDate: " + publishDate);
+                        System.out.println("Exam not yet published. PublishDate: " + publishDate);
                         return false;
                     }
                 } catch (ParseException e) {
-                    System.err.println("⚠️ Cannot parse PublishDate: " + publishDate);
+                    System.err.println("Cannot parse PublishDate: " + publishDate);
                 }
             }
             
@@ -968,18 +1022,18 @@ if (chosenProfile == null) {
                 try {
                     Date expDate = sdf.parse(expireDate);
                     if (now.after(expDate)) {
-                        System.out.println("❌ Exam expired. ExpireDate: " + expireDate);
+                        System.out.println("Exam expired. ExpireDate: " + expireDate);
                         return false;
                     }
                 } catch (ParseException e) {
-                    System.err.println("⚠️ Cannot parse ExpireDate: " + expireDate);
+                    System.err.println("Cannot parse ExpireDate: " + expireDate);
                 }
             }
             
-            System.out.println("✅ Exam time is valid");
+            System.out.println("Exam time is valid");
             return true;
         } catch (Exception e) {
-            System.err.println("⚠️ Error checking exam time: " + e.getMessage());
+            System.err.println("Error checking exam time: " + e.getMessage());
             return true;
         }
     }
@@ -987,21 +1041,21 @@ if (chosenProfile == null) {
     // Tạo/FIND attempt và prefill exam_answers (đã có)
     private synchronized void ensureAttemptAndPrefill() {
         if (studentId <= 0 || examId <= 0) {
-            System.err.println("❌ Missing studentId/examId for attempt creation");
+            System.err.println("Missing studentId/examId for attempt creation");
             return;
         }
         if (attemptId != null) {
-            System.out.println("ℹ️ Attempt already initialized: " + attemptId);
+            System.out.println("Attempt already initialized: " + attemptId);
             return;
         }
 
         Integer existing = findExistingAttemptId(examId, studentId);
         if (existing != null) {
             attemptId = existing;
-            System.out.println("🔁 Reusing existing attemptId=" + attemptId);
+            System.out.println("Reusing existing attemptId=" + attemptId);
         } else {
             attemptId = createAttempt(examId, studentId);
-            System.out.println("🆕 Created attemptId=" + attemptId);
+            System.out.println("Created attemptId=" + attemptId);
         }
 
         prefillExamAnswersForAttempt();
@@ -1041,7 +1095,7 @@ if (chosenProfile == null) {
 
                 // Nếu đang in_progress thì resume
                 if ("in_progress".equalsIgnoreCase(status)) {
-                    System.out.println("🔁 Found in_progress attempt: " + id);
+                    System.out.println("Found in_progress attempt: " + id);
                     return id;
                 }
 
@@ -1049,23 +1103,23 @@ if (chosenProfile == null) {
                 boolean submitFlag = "submitted".equalsIgnoreCase(status);
                 if (!submitFlag) {
                     if (endTimeStr == null || endTimeStr.isEmpty() || "null".equalsIgnoreCase(endTimeStr)) {
-                        System.out.println("🔁 Found resumable attempt (no EndTime): " + id + " status=" + status);
+                        System.out.println("Found resumable attempt (no EndTime): " + id + " status=" + status);
                         return id;
                     }
                     try {
                         Date endTime = sdf.parse(endTimeStr);
                         if (endTime.after(now)) {
-                            System.out.println("🔁 Found resumable attempt (EndTime in future): " + id + " EndTime=" + endTimeStr);
+                            System.out.println("Found resumable attempt (EndTime in future): " + id + " EndTime=" + endTimeStr);
                             return id;
                         }
                     } catch (Exception pe) {
-                        System.err.println("⚠️ Cannot parse EndTime for attempt " + id + ": " + endTimeStr);
+                        System.err.println("Cannot parse EndTime for attempt " + id + ": " + endTimeStr);
                         // nếu parse lỗi, để tiếp tục kiểm tra bản ghi khác
                     }
                 }
             }
         } catch (Exception e) {
-            System.err.println("⚠️ findExistingAttemptId error: " + e.getMessage());
+            System.err.println("findExistingAttemptId error: " + e.getMessage());
         }
         return null;
     }
@@ -1096,7 +1150,7 @@ if (chosenProfile == null) {
             params.put("data", List.of(record));
 
             List<Map<String, Object>> resp = apiService.postApiGetList("/autoUpdate", params);
-            System.out.println("🆕 createAttempt resp: " + resp);
+            System.out.println("createAttempt resp: " + resp);
 
             Integer id = null;
             if (resp != null && !resp.isEmpty()) {
@@ -1108,7 +1162,7 @@ if (chosenProfile == null) {
             }
             return id;
         } catch (Exception e) {
-            System.err.println("❌ createAttempt error: " + e.getMessage());
+            System.err.println("createAttempt error: " + e.getMessage());
             return null;
         }
     }
@@ -1116,7 +1170,7 @@ if (chosenProfile == null) {
     // Prefill exam_answers cho toàn bộ câu hỏi của Attempt - CHỈ CHÈN các câu còn thiếu
     private void prefillExamAnswersForAttempt() {
         if (attemptId == null) {
-            System.err.println("❌ Cannot prefill answers: attemptId is null");
+            System.err.println("Cannot prefill answers: attemptId is null");
             return;
         }
         try {
@@ -1234,16 +1288,16 @@ if (chosenProfile == null) {
             params.put("data", List.of(record));
 
             List<Map<String, Object>> response = apiService.postApiGetList("/autoUpdate", params);
-            System.out.println("✅ Saved: " + response);
+            System.out.println("Saved: " + response);
         } catch (Exception ex) {
-            System.err.println("❌ Error saving: " + ex.getMessage());
+            System.err.println("Error saving: " + ex.getMessage());
         }
     }
 
     // Nộp bài: lưu tất cả đáp án + đánh dấu attempt + tính điểm
     private void submitExam() {
     
-    // ✅ Validate thông tin cơ bản
+    // Validate thông tin cơ bản
     if (studentId <= 0 || examId <= 0) {
         JOptionPane.showMessageDialog(this, 
             "Thiếu thông tin học sinh/bài thi", 
@@ -1252,7 +1306,7 @@ if (chosenProfile == null) {
         return;
     }
     
-    // ✅ Đảm bảo có attemptId
+    // Đảm bảo có attemptId
     if (attemptId == null) {
         ensureAttemptAndPrefill();
         if (attemptId == null) {
@@ -1264,7 +1318,7 @@ if (chosenProfile == null) {
         }
     }
 
-    System.out.println("📝 Submitting exam for StudentId=" + studentId + 
+    System.out.println("Submitting exam for StudentId=" + studentId + 
                        ", ExamId=" + examId + 
                        ", AttemptId=" + attemptId);
 
@@ -1305,27 +1359,27 @@ if (chosenProfile == null) {
             autoSubmitTimer.stop();
         }
         
-        // ✅ QUAN TRỌNG: Hiển thị dashboard TRƯỚC khi dispose
+        // Hiển thị dashboard TRƯỚC khi dispose
         if (studentDashboard != null) {
             studentDashboard.setVisible(true);
             studentDashboard.toFront();
             // GỌI REFRESH DANH SÁCH BÀI KIỂM TRA
     studentDashboard.refreshCurrentClassExams();
             studentDashboard.requestFocus();
-            System.out.println("✅ StudentDashboard shown");
+            System.out.println("StudentDashboard shown");
         } else {
             System.err.println("⚠️ studentDashboard is null!");
         }
         
-        // ✅ Dispose CUỐI CÙNG - sử dụng invokeLater để đảm bảo dashboard hiện trước
+        // Dispose CUỐI CÙNG - sử dụng invokeLater để đảm bảo dashboard hiện trước
         javax.swing.SwingUtilities.invokeLater(() -> {
             this.setVisible(false);
             this.dispose();
-            System.out.println("✅ QuizAppSwing disposed");
+            System.out.println("QuizAppSwing disposed");
         });
         
     } catch (Exception e) {
-        System.err.println("❌ Error submitting exam: " + e.getMessage());
+        System.err.println("Error submitting exam: " + e.getMessage());
         JOptionPane.showMessageDialog(this, "Lỗi khi nộp bài: " + e.getMessage(), "Lỗi", JOptionPane.ERROR_MESSAGE);
     }
 
@@ -1335,7 +1389,7 @@ if (chosenProfile == null) {
     // Cập nhật trạng thái attempt -> submitted
     private void markAttemptSubmitted() {
         if (attemptId == null) {
-            System.err.println("⚠️ markAttemptSubmitted: attemptId is null");
+            System.err.println("markAttemptSubmitted: attemptId is null");
             return;
         }
         try {
@@ -1353,19 +1407,19 @@ if (chosenProfile == null) {
             params.put("table", "exam_attempts");
             params.put("data", List.of(rec));
 
-            System.out.println("🔁 markAttemptSubmitted - sending UPDATE params: " + params);
+            System.out.println("markAttemptSubmitted - sending UPDATE params: " + params);
             List<Map<String, Object>> resp = apiService.postApiGetList("/autoUpdate", params);
-            System.out.println("🧾 markAttemptSubmitted UPDATE resp: " + resp);
+            System.out.println("markAttemptSubmitted UPDATE resp: " + resp);
 
             // Fallback: một số API cần UPSERT để thực sự ghi đè/insert
             if (resp == null || resp.isEmpty()) {
-                System.out.println("⚠️ markAttemptSubmitted: UPDATE returned empty, retrying with UPSERT");
+                System.out.println("markAttemptSubmitted: UPDATE returned empty, retrying with UPSERT");
                 params.put("method", "UPSERT");
                 resp = apiService.postApiGetList("/autoUpdate", params);
-                System.out.println("🧾 markAttemptSubmitted UPSERT resp: " + resp);
+                System.out.println("markAttemptSubmitted UPSERT resp: " + resp);
             }
         } catch (Exception e) {
-            System.err.println("⚠️ markAttemptSubmitted error: " + e.getMessage());
+            System.err.println("markAttemptSubmitted error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -1379,7 +1433,7 @@ if (chosenProfile == null) {
             duration--;
             if (duration < 0) {
                 timer.stop();
-                JOptionPane.showMessageDialog(this, "⏰ Hết giờ, tự động nộp bài!", "Hết thời gian", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Hết giờ, tự động nộp bài!", "Hết thời gian", JOptionPane.WARNING_MESSAGE);
                 submitExam();
             }
         });
@@ -1409,18 +1463,18 @@ if (chosenProfile == null) {
             String status = getFirstString(rs.get(0), "Status");
             String endTimeStr = getFirstString(rs.get(0), "EndTime");
             if ("submitted".equalsIgnoreCase(status)) {
-                System.out.println("ℹ️ Attempt already submitted: " + attemptId);
+                System.out.println("Attempt already submitted: " + attemptId);
                 return;
             }
             if (endTimeStr == null || endTimeStr.isEmpty() || "null".equalsIgnoreCase(endTimeStr)) {
-                System.out.println("ℹ️ No EndTime set for attempt " + attemptId + ", auto-submit not scheduled");
+                System.out.println("No EndTime set for attempt " + attemptId + ", auto-submit not scheduled");
                 return;
             }
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
             Date endTime = sdf.parse(endTimeStr);
             long delayMs = endTime.getTime() - System.currentTimeMillis();
             if (delayMs <= 0) {
-                System.out.println("⌛ EndTime passed — submitting now for attempt " + attemptId);
+                System.out.println("EndTime passed — submitting now for attempt " + attemptId);
                 submitExam();
                 return;
             }
@@ -1443,14 +1497,14 @@ if (chosenProfile == null) {
                         String s2 = getFirstString(r2.get(0), "Status");
                         String e2 = getFirstString(r2.get(0), "EndTime");
                         if (!"submitted".equalsIgnoreCase(s2)) {
-                            System.out.println("⌛ Auto-submitting attempt " + attemptId + " due to EndTime=" + e2);
+                            System.out.println("Auto-submitting attempt " + attemptId + " due to EndTime=" + e2);
                             submitExam();
                         } else {
-                            System.out.println("ℹ️ Attempt already submitted by other process: " + attemptId);
+                            System.out.println("Attempt already submitted by other process: " + attemptId);
                         }
                     }
                 } catch (Exception ex) {
-                    System.err.println("⚠️ Error during autoSubmitTimer action: " + ex.getMessage());
+                    System.err.println("Error during autoSubmitTimer action: " + ex.getMessage());
                 } finally {
                     Timer t = (Timer) ev.getSource();
                     t.stop();
@@ -1458,9 +1512,9 @@ if (chosenProfile == null) {
             });
             autoSubmitTimer.setRepeats(false);
             autoSubmitTimer.start();
-            System.out.println("⏱️ Auto-submit scheduled in " + (delayMs / 1000) + "s for attempt " + attemptId);
+            System.out.println("Auto-submit scheduled in " + (delayMs / 1000) + "s for attempt " + attemptId);
         } catch (Exception e) {
-            System.err.println("⚠️ scheduleAutoSubmit error: " + e.getMessage());
+            System.err.println("scheduleAutoSubmit error: " + e.getMessage());
         }
     }
 }

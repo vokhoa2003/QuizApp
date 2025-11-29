@@ -282,7 +282,7 @@ public class MainWindow extends JFrame {
             logoLabel.setIcon(new ImageIcon(img));
         } catch (Exception e) {
             // If logo not found, use text instead
-            logoLabel.setText("TASK MANAGER");
+            logoLabel.setText("SecureStudy");
             logoLabel.setFont(new Font("Segoe UI", Font.BOLD, (int) (18 * scaleFactor)));
             logoLabel.setForeground(PRIMARY_COLOR);
         }
