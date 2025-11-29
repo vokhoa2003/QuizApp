@@ -624,92 +624,81 @@ public class StudentDashboard extends JFrame {
     }
 
     private List<Map<String, Object>> processExams(List<Map<String, Object>> exams, List<Map<String, Object>> results) {
-        List<Map<String, Object>> processedExams = new ArrayList<>();
-        
-        if (currentStudent == null) {
-            System.err.println("❌ currentStudent is null");
-            return processedExams;
-        }
-
-        String studentEmail = currentStudent.getEmail();
-
-        // Resolve studentId once (fallback) để so sánh với exam_results.StudentId nếu cần
-        Integer resolvedStudentId = null;
-        try {
-            StudentInfoService sis = new StudentInfoService(apiService);
-            List<Map<String, Object>> profile = sis.fetchProfileByEmail(studentEmail);
-            if (profile != null && !profile.isEmpty()) {
-                Object sid = profile.get(0).getOrDefault("StudentId", profile.get(0).get("Id"));
-                if (sid instanceof Number) resolvedStudentId = ((Number) sid).intValue();
-                else if (sid != null) resolvedStudentId = Integer.parseInt(sid.toString());
-            }
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        
-        for (Map<String, Object> exam : exams) {
-            try {
-                // Lấy PublishDate và ExpireDate
-                String publishDate = exam.get("PublicDate") != null ? exam.get("PublicDate").toString() : null;
-                String expireDate = exam.get("ExpireDate") != null ? exam.get("ExpireDate").toString() : null;
-                
-                // Lấy ExamId - an toàn
-                Object examIdObj = exam.get("ExamId");
-                if (examIdObj == null) {
-                    examIdObj = exam.get("exams.id");
-                }
-                if (examIdObj == null) {
-                    examIdObj = exam.get("id");
-                }
-                
-                Integer examId = null;
-                if (examIdObj instanceof Number) {
-                    examId = ((Number) examIdObj).intValue();
-                }
-                
-                if (examId == null) {
-                    System.err.println("⚠️ Skipping exam without valid ExamId: " + exam);
-                    continue;
-                }
-
-                // Kiểm tra điều kiện hiển thị theo thời gian
-                if (isExamVisible(publishDate, expireDate)) {
-                    Map<String, Object> processedExam = new HashMap<>(exam);
-                    
-                    // Kiểm tra xem học sinh đã làm bài chưa
-                    final Integer finalExamId = examId;
-                    final Integer finalResolvedStudentId = resolvedStudentId;
-                    // Robust matching: support multiple possible keys/casing, log mismatch for debug
-                    boolean hasResult = results.stream().anyMatch(r -> {
-                        Integer rEid = safeGetInt(r, "ExamId", "exam_results.ExamId", "exam_id", "examid", "examId");
-                        if (rEid == null || !finalExamId.equals(rEid)) return false;
-
-                        // try email keys (ignore case)
-                        String rEmail = safeGetString(r, "StudentEmail", "account.email", "student.email", "email");
-                        if (studentEmail != null && rEmail != null && studentEmail.equalsIgnoreCase(rEmail)) return true;
-
-                        // try student id keys
-                        Integer rSid = safeGetInt(r, "StudentId", "exam_results.StudentId", "student.Id", "studentid");
-                        if (finalResolvedStudentId != null && rSid != null && finalResolvedStudentId.equals(rSid)) return true;
-
-                        return false;
-                    });
-                    if (!hasResult) {
-                        System.out.println("DEBUG: No matching exam_results for examId=" + finalExamId + " student=" + studentEmail + ". Sample results=" + (results.isEmpty() ? "[]": results.stream().limit(5).toList()));
-                    }
-
-                    processedExam.put("Action", computeExamAction(publishDate, expireDate, hasResult));
-                    processedExams.add(processedExam);
-                }
-            } catch (Exception e) {
-                System.err.println("❌ Error processing exam: " + e.getMessage());
-                e.printStackTrace();
-            }
-        }
-        
-        System.out.println("✅ Processed " + processedExams.size() + " exams");
+    List<Map<String, Object>> processedExams = new ArrayList<>();
+    
+    if (currentStudent == null) {
+        System.err.println("❌ currentStudent is null");
         return processedExams;
     }
+
+    String studentEmail = currentStudent.getEmail();
+
+    // Resolve studentId once
+    Integer resolvedStudentId = null;
+    try {
+        StudentInfoService sis = new StudentInfoService(apiService);
+        List<Map<String, Object>> profile = sis.fetchProfileByEmail(studentEmail);
+        if (profile != null && !profile.isEmpty()) {
+            Object sid = profile.get(0).getOrDefault("StudentId", profile.get(0).get("Id"));
+            if (sid instanceof Number) resolvedStudentId = ((Number) sid).intValue();
+            else if (sid != null) resolvedStudentId = Integer.parseInt(sid.toString());
+        }
+    } catch (Exception ex) {
+        ex.printStackTrace();
+    }
+    
+    for (Map<String, Object> exam : exams) {
+        try {
+            String publishDate = exam.get("PublishDate") != null ? exam.get("PublishDate").toString() : null;
+            String expireDate = exam.get("ExpireDate") != null ? exam.get("ExpireDate").toString() : null;
+            
+            // Lấy ExamId
+            Object examIdObj = exam.get("ExamId");
+            if (examIdObj == null) examIdObj = exam.get("exams.id");
+            if (examIdObj == null) examIdObj = exam.get("id");
+            
+            Integer examId = null;
+            if (examIdObj instanceof Number) {
+                examId = ((Number) examIdObj).intValue();
+            }
+            
+            if (examId == null) {
+                System.err.println("⚠️ Skipping exam without valid ExamId: " + exam);
+                continue;
+            }
+
+            // ✅ KHÔNG check isExamVisible - xử lý tất cả bài thi
+            Map<String, Object> processedExam = new HashMap<>(exam);
+            
+            // Kiểm tra xem học sinh đã làm bài chưa
+            final Integer finalExamId = examId;
+            final Integer finalResolvedStudentId = resolvedStudentId;
+            
+            boolean hasResult = results.stream().anyMatch(r -> {
+                Integer rEid = safeGetInt(r, "ExamId", "exam_results.ExamId", "exam_id", "examid", "examId");
+                if (rEid == null || !finalExamId.equals(rEid)) return false;
+
+                String rEmail = safeGetString(r, "StudentEmail", "account.email", "student.email", "email");
+                if (studentEmail != null && rEmail != null && studentEmail.equalsIgnoreCase(rEmail)) return true;
+
+                Integer rSid = safeGetInt(r, "StudentId", "exam_results.StudentId", "student.Id", "studentid");
+                if (finalResolvedStudentId != null && rSid != null && finalResolvedStudentId.equals(rSid)) return true;
+
+                return false;
+            });
+
+            processedExam.put("Action", computeExamAction(publishDate, expireDate, hasResult));
+            processedExams.add(processedExam);
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error processing exam: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    System.out.println("✅ Processed " + processedExams.size() + " exams");
+    return processedExams;
+}
     
     // Trả về Action cho exam: nếu hasResult -> Xem Chi Tiết
     // nếu chưa làm and expireDate đã qua -> Hết hạn, ngược lại -> Làm Kiểm Tra

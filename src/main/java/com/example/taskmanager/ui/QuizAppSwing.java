@@ -166,7 +166,6 @@ addComponentListener(new ComponentAdapter() {
     }
 });
 
-        // ✅ CHỈ ADD 1 LẦN
 addWindowListener(new WindowAdapter() {
     @Override
     public void windowClosing(WindowEvent e) {
