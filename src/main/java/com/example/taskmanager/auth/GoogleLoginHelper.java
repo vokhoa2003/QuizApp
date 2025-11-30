@@ -19,18 +19,62 @@ import java.nio.file.Files;
 import java.util.List;
 
 import com.example.taskmanager.config.ApiConfig;
-import com.example.taskmanager.security.EncryptionUtil;
-import com.google.api.client.auth.oauth2.StoredCredential;
-import com.google.api.client.util.store.DataStore;
 
+/**
+ * Helper class để xử lý Google OAuth 2.0 login
+ */
 public class GoogleLoginHelper {
     private static final List<String> SCOPES = List.of(
             "https://www.googleapis.com/auth/userinfo.profile",
             "https://www.googleapis.com/auth/userinfo.email");
-    private static final String TOKENS_DIRECTORY_PATH = System.getProperty("user.home") + File.separator + ".quiz-app" + File.separator + "tokens";
+    private static final String TOKENS_DIRECTORY_PATH = System.getProperty("user.home") + 
+            File.separator + ".quiz-app" + File.separator + "tokens";
     private static final ApiConfig apiConfig = ApiConfig.getInstance();
 
+    /**
+     * Wrapper class để return cả Userinfo và access token
+     */
+    public static class LoginResult {
+        private final Userinfo userinfo;
+        private final String accessToken;
+        private final String refreshToken;
+
+        public LoginResult(Userinfo userinfo, String accessToken, String refreshToken) {
+            this.userinfo = userinfo;
+            this.accessToken = accessToken;
+            this.refreshToken = refreshToken;
+        }
+
+        public Userinfo getUserinfo() {
+            return userinfo;
+        }
+
+        public String getAccessToken() {
+            return accessToken;
+        }
+
+        public String getRefreshToken() {
+            return refreshToken;
+        }
+    }
+
+    /**
+     * Method CŨ - Giữ lại để backward compatible
+     * @deprecated Sử dụng loginWithToken() để lấy cả access token
+     * @return Chỉ trả về Userinfo (không có token)
+     */
+    @Deprecated
     public static Userinfo login() throws Exception {
+        System.out.println("⚠️  Calling deprecated login() method. Consider using loginWithToken() instead.");
+        LoginResult result = loginWithToken();
+        return result.getUserinfo();
+    }
+
+    /**
+     * Method MỚI - Thực hiện Google OAuth 2.0 login flow
+     * @return LoginResult chứa userinfo và access token THẬT (không mã hóa)
+     */
+    public static LoginResult loginWithToken() throws Exception {
         final NetHttpTransport httpTransport = GoogleNetHttpTransport.newTrustedTransport();
         JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
 
@@ -52,7 +96,8 @@ public class GoogleLoginHelper {
                 """, apiConfig.getClientId(), apiConfig.getClientSecret());
 
         ByteArrayInputStream in = new ByteArrayInputStream(credentialsJson.getBytes(StandardCharsets.UTF_8));
-        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(jsonFactory, new InputStreamReader(in, StandardCharsets.UTF_8));
+        GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(jsonFactory, 
+                new InputStreamReader(in, StandardCharsets.UTF_8));
 
         GoogleAuthorizationCodeFlow flow = new GoogleAuthorizationCodeFlow.Builder(
                 httpTransport, jsonFactory, clientSecrets, SCOPES)
@@ -64,13 +109,12 @@ public class GoogleLoginHelper {
 
         Credential credential = new AuthorizationCodeInstalledApp(flow, receiver) {
             @Override
-            protected void onAuthorization(com.google.api.client.auth.oauth2.AuthorizationCodeRequestUrl authorizationUrl) throws IOException {
+            protected void onAuthorization(com.google.api.client.auth.oauth2.AuthorizationCodeRequestUrl authorizationUrl) 
+                    throws IOException {
                 authorizationUrl.set("prompt", "select_account");
-                // Gọi phương thức browse tùy chỉnh thay vì super.onAuthorization
                 customBrowse(authorizationUrl.build());
             }
 
-            // Không gắn @Override vì có thể không tồn tại trong phiên bản cũ
             protected boolean customBrowse(String url) throws IOException {
                 try {
                     java.awt.Desktop.getDesktop().browse(new java.net.URI(url));
@@ -90,66 +134,22 @@ public class GoogleLoginHelper {
                 .build();
 
         Userinfo userinfo = oauth2.userinfo().get().execute();
-        // Mã hóa access token với email người dùng
-        String encryptedAccessToken = EncryptionUtil.encrypt(credential.getAccessToken(), userinfo.getEmail());
-        credential.setAccessToken(encryptedAccessToken);
         
-        String encryptedRefreshToken = credential.getRefreshToken() != null 
-        ? EncryptionUtil.encrypt(credential.getRefreshToken(), userinfo.getEmail()) 
-        : null;
-        if (encryptedRefreshToken != null) {
-            credential.setRefreshToken(encryptedRefreshToken);
-        }
-        // Lưu credential vào file sau khi mã hóa
-//        try {
-//            DataStore<com.google.api.client.auth.oauth2.StoredCredential> dataStore = 
-//                flow.getDataStoreFactory().getDataStore("StoredCredential");
-//            dataStore.set("user", new com.google.api.client.auth.oauth2.StoredCredential(credential));
-//            System.out.println("Credential saved to tokens directory");
-//            
-//            // Kiểm tra lại nội dung file
-//            com.google.api.client.auth.oauth2.StoredCredential storedCredential = dataStore.get("user");
-//            if (storedCredential != null) {
-//                System.out.println("Stored Access Token: " + storedCredential.getAccessToken());
-//                System.out.println("Stored Refresh Token: " + storedCredential.getRefreshToken());
-//                String decryptedAccessToken = EncryptionUtil.decrypt(storedCredential.getAccessToken(), userinfo.getEmail());
-//                System.out.println("Decrypted Stored Access Token: " + decryptedAccessToken);
-//            } else {
-//                System.out.println("No credential found in tokens directory");
-//            }
-//        } catch (Exception e) {
-//            System.out.println("Error saving credential: " + e.getMessage());
-//            e.printStackTrace();
-//        }
-try {
-    FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(TOKENS_DIRECTORY_PATH));
-    DataStore<StoredCredential> dataStore = dataStoreFactory.getDataStore("StoredCredential");
-    if (dataStore == null) {
-        System.out.println("DataStore is null. Check if tokens directory is accessible.");
-        throw new Exception("Failed to initialize DataStore");
-    }
-    StoredCredential storedCredential = new StoredCredential(credential);
-    dataStore.set("user", storedCredential);
-    //System.out.println("Credential saved successfully to tokens directory");
-
-    // Kiểm tra lại nội dung
-    StoredCredential retrievedCredential = dataStore.get("user");
-    if (retrievedCredential != null) {
-        //System.out.println("Stored Access Token: " + retrievedCredential.getAccessToken());
-        //System.out.println("Stored Refresh Token: " + retrievedCredential.getRefreshToken());
-        String decryptedAccessToken = EncryptionUtil.decrypt(retrievedCredential.getAccessToken(), userinfo.getEmail());
-        //System.out.println("Decrypted Stored Access Token: " + decryptedAccessToken);
-    } else {
-        //System.out.println("No credential found in DataStore");
-    }
-} catch (Exception e) {
-    System.out.println("Error saving or retrieving credential: " + e.getMessage());
-    e.printStackTrace();
-    throw e;
-}
-        return userinfo;
+        // ✅ LẤY TOKEN THẬT - KHÔNG MÃ HÓA
+        String realAccessToken = credential.getAccessToken();
+        String realRefreshToken = credential.getRefreshToken();
+        
+        System.out.println("✅ Lấy token thật từ Google thành công");
+        System.out.println("Access Token (first 20 chars): " + 
+                (realAccessToken != null ? realAccessToken.substring(0, Math.min(20, realAccessToken.length())) : "null"));
+        
+        // ✅ RETURN CẢ USERINFO VÀ TOKEN THẬT
+        return new LoginResult(userinfo, realAccessToken, realRefreshToken);
     }
 
+    /**
+     * Xóa stored tokens (vẫn giữ để logout)
+     */
     public static void clearStoredTokens() throws Exception {
         File tokensDirectory = new File(TOKENS_DIRECTORY_PATH);
         if (tokensDirectory.exists() && tokensDirectory.isDirectory()) {

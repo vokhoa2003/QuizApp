@@ -13,11 +13,9 @@ import java.time.LocalDateTime;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.prefs.Preferences;
 
 import com.example.taskmanager.auth.GoogleLoginHelper;
 import com.example.taskmanager.config.ApiConfig;
-import com.example.taskmanager.security.EncryptionUtil;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.api.services.oauth2.model.Userinfo;
@@ -26,49 +24,22 @@ public class AuthService {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final ApiConfig apiConfig;
-    private final Preferences preferences;
-    private String userEmail; // Lưu email người dùng sau khi đăng nhập
+    private String userEmail;
 
     private String accessToken;
     private String refreshToken;
-    private String lastLoginRole; // Thêm để lưu role từ response
+    private String lastLoginRole;
     private LocalDateTime expiryTime;
-    private String lastLoginResponse; // Thêm để lưu response từ /app_login
-
-    private static final String PREF_ACCESS_TOKEN = "access_token";
-    private static final String PREF_REFRESH_TOKEN = "refresh_token";
-    private static final String PREF_EXPIRY_TIME = "expiry_time";
+    private String lastLoginResponse;
+    private String csrfToken;
 
     public AuthService() {
         this.apiConfig = ApiConfig.getInstance();
         this.objectMapper = new ObjectMapper();
-        this.preferences = Preferences.userNodeForPackage(AuthService.class);
 
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(apiConfig.getConnectTimeout()))
                 .build();
-
-        loadTokenFromPreferences();
-    }
-
-    private void loadTokenFromPreferences() {
-        String encryptedAccessToken = preferences.get(PREF_ACCESS_TOKEN, null);
-        String encryptedRefreshToken = preferences.get(PREF_REFRESH_TOKEN, null);
-        String expiryTimeStr = preferences.get(PREF_EXPIRY_TIME, null);
-
-        if (encryptedAccessToken != null && encryptedRefreshToken != null && expiryTimeStr != null) {
-            this.accessToken = EncryptionUtil.decrypt(encryptedAccessToken, userEmail);
-            this.refreshToken = EncryptionUtil.decrypt(encryptedRefreshToken, userEmail);
-            this.expiryTime = LocalDateTime.parse(expiryTimeStr);
-        }
-    }
-
-    private void saveTokenToPreferences() {
-        if (accessToken != null && refreshToken != null && expiryTime != null && userEmail != null) {
-            preferences.put(PREF_ACCESS_TOKEN, EncryptionUtil.encrypt(accessToken, userEmail));
-            preferences.put(PREF_REFRESH_TOKEN, EncryptionUtil.encrypt(refreshToken, userEmail));
-            preferences.put(PREF_EXPIRY_TIME, expiryTime.toString());
-        }
     }
 
     public String getAccessToken() {
@@ -112,9 +83,6 @@ public class AuthService {
                 this.accessToken = null;
                 this.refreshToken = null;
                 this.expiryTime = null;
-                preferences.remove(PREF_ACCESS_TOKEN);
-                preferences.remove(PREF_REFRESH_TOKEN);
-                preferences.remove(PREF_EXPIRY_TIME);
                 return false;
             }
         } catch (IOException | InterruptedException e) {
@@ -123,47 +91,39 @@ public class AuthService {
         }
     }
 
-    private void processTokenResponse(com.fasterxml.jackson.databind.JsonNode json) throws java.io.IOException {
+    private void processTokenResponse(JsonNode json) throws IOException {
         if (json == null) {
-            throw new java.io.IOException("Empty token response from auth server");
+            throw new IOException("Empty token response from auth server");
         }
 
-        // use .path(...) to avoid NullPointerException (returns MissingNode instead of
-        // null)
         String accessToken = json.path("access_token").asText(null);
         String refreshToken = json.path("refresh_token").asText(null);
-        String tokenType = json.path("token_type").asText(null);
         Integer expiresIn = json.path("expires_in").isNumber() ? json.path("expires_in").intValue() : null;
 
-        // If access_token missing -> build informative exception (API may return error
-        // fields)
         if (accessToken == null || accessToken.isEmpty()) {
             String err = json.path("error").asText(null);
             String errDesc = json.path("error_description").asText(null);
-            throw new java.io.IOException("Invalid token response: access_token missing. error=" + err
-                    + ", description=" + errDesc + ", raw=" + json.toString());
+            throw new IOException("Invalid token response: access_token missing. error=" + err
+                    + ", description=" + errDesc);
         }
 
-        // Persist tokens / set state (example fields; keep existing logic)
         this.accessToken = accessToken;
         if (refreshToken != null && !refreshToken.isEmpty()) {
             this.refreshToken = refreshToken;
         }
         if (expiresIn != null) {
-            //this.tokenExpiry = java.time.Instant.now().plusSeconds(expiresIn);
             this.expiryTime = LocalDateTime.now().plusSeconds(expiresIn);
         }
-        saveTokenToPreferences();
     }
 
     public void logout() {
         this.accessToken = null;
         this.refreshToken = null;
         this.expiryTime = null;
-
-        preferences.remove(PREF_ACCESS_TOKEN);
-        preferences.remove(PREF_REFRESH_TOKEN);
-        preferences.remove(PREF_EXPIRY_TIME);
+        this.userEmail = null;
+        this.lastLoginRole = null;
+        this.lastLoginResponse = null;
+        this.csrfToken = null;
 
         try {
             GoogleLoginHelper.clearStoredTokens();
@@ -176,18 +136,23 @@ public class AuthService {
         return (accessToken != null && expiryTime != null && LocalDateTime.now().isBefore(expiryTime));
     }
 
-    private String csrfToken; // add field to persist token per instance
-
-    public boolean loginWithGoogle(Userinfo userInfo) {
+    /**
+     * ✅ SỬA: Thêm parameter realGoogleAccessToken
+     * Login với Google bằng cách gửi REAL access token đến backend
+     */
+    public boolean loginWithGoogle(Userinfo userInfo, String realGoogleAccessToken) {
         try {
             if (userInfo == null || userInfo.getEmail() == null || userInfo.getId() == null) {
                 System.out.println("Invalid Userinfo: " + (userInfo == null ? "null" : "email or ID missing"));
                 return false;
             }
 
-            this.userEmail = userInfo.getEmail();
+            if (realGoogleAccessToken == null || realGoogleAccessToken.isEmpty()) {
+                System.err.println("❌ Real Google access token is null or empty!");
+                return false;
+            }
 
-            // generate and save token in instance so ApiService can reuse if needed
+            this.userEmail = userInfo.getEmail();
             this.csrfToken = generateCsrfToken();
 
             String googleId = URLEncoder.encode(userInfo.getId(), StandardCharsets.UTF_8);
@@ -196,17 +161,23 @@ public class AuthService {
                     (userInfo.getName() != null ? userInfo.getName()
                             : (userInfo.getGivenName() + " " + userInfo.getFamilyName())),
                     StandardCharsets.UTF_8);
-            String accessTokenFake = URLEncoder.encode("google_" + System.currentTimeMillis(), StandardCharsets.UTF_8);
+            
+            // ✅ GỬI TOKEN THẬT TỪ GOOGLE
+            String accessTokenEnc = URLEncoder.encode(realGoogleAccessToken, StandardCharsets.UTF_8);
+            
             String expiresAt = URLEncoder.encode(LocalDateTime.now().plusHours(1).toString(), StandardCharsets.UTF_8);
             String csrfEnc = URLEncoder.encode(this.csrfToken, StandardCharsets.UTF_8);
 
             String formData = "GoogleID=" + googleId +
                     "&email=" + emailEnc +
                     "&FullName=" + fullName +
-                    "&access_token=" + accessTokenFake +
+                    "&access_token=" + accessTokenEnc +  // ← ✅ TOKEN THẬT
                     "&expires_at=" + expiresAt +
                     "&csrf_token=" + csrfEnc;
-                System.out.println(formData);
+
+            System.out.println("🔐 Sending REAL Google token to backend");
+            System.out.println("Token (first 30 chars): " + realGoogleAccessToken.substring(0, Math.min(30, realGoogleAccessToken.length())));
+            
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/app_login"))
                     .header("Content-Type", "application/x-www-form-urlencoded")
@@ -217,7 +188,8 @@ public class AuthService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             this.lastLoginResponse = response.body();
-                System.out.println("Login response: " + response.body());
+            System.out.println("Login response: " + response.body());
+            
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
                 if (jsonNode.has("token") || jsonNode.has("status")) {
@@ -225,9 +197,11 @@ public class AuthService {
                     this.refreshToken = this.accessToken;
                     this.expiryTime = LocalDateTime.now().plusHours(1);
                     this.lastLoginRole = extractRoleFromToken(this.accessToken);
-                    saveTokenToPreferences();
+                    System.out.println("✅ Login thành công với backend JWT");
                     return true;
                 }
+            } else {
+                System.err.println("❌ Backend returned: " + response.statusCode() + " - " + response.body());
             }
         } catch (Exception e) {
             System.err.println("Google login failed: " + e.getMessage());
@@ -236,7 +210,6 @@ public class AuthService {
         return false;
     }
 
-    // expose getter for token so ApiService can reuse if necessary
     public String getCsrfToken() {
         return this.csrfToken;
     }
@@ -310,8 +283,6 @@ public class AuthService {
     }
 
     public String getUserEmail() {
-        // Lấy từ token đã decode hoặc session hiện tại
-        // Ví dụ:
-        return userEmail; // hoặc decode từ token
+        return userEmail;
     }
 }

@@ -366,17 +366,19 @@ public class MainWindow extends JFrame {
         JButton googleLoginButton = (JButton)e.getSource();
         googleLoginButton.setEnabled(false);
         googleLoginButton.setText("Đang đăng nhập...");
-        SwingWorker<Userinfo, Void> worker = new SwingWorker<>() {
+        SwingWorker<GoogleLoginHelper.LoginResult, Void> worker = new SwingWorker<>() {
             @Override
-            protected Userinfo doInBackground() throws Exception {
-                return GoogleLoginHelper.login();
+            protected GoogleLoginHelper.LoginResult doInBackground() throws Exception {
+                return GoogleLoginHelper.loginWithToken();
             }
             @Override
             protected void done() {
                 try {
-                    Userinfo userInfo = get();
-                    if (userInfo != null) {
-                        boolean success = authService.loginWithGoogle(userInfo);
+                    GoogleLoginHelper.LoginResult loginResult = get();
+                    if (loginResult != null) {
+                        Userinfo userInfo = loginResult.getUserinfo();
+                        String accessToken = loginResult.getAccessToken();
+                        boolean success = authService.loginWithGoogle(userInfo,accessToken);
                         String responseBody = authService.getLastLoginResponse(); // Cần thêm phương thức này
                          // In ra để kiểm tra
                         System.err.println("Response Body: " + responseBody);
