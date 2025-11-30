@@ -1213,7 +1213,7 @@ if (chosenProfile == null) {
 
             Map<String, Object> params = new HashMap<>();
             params.put("action", "update");
-            params.put("method", "INSERT"); // INSERT only: không override các hàng đã có
+            params.put("method", "UPSERT"); // INSERT only: không override các hàng đã có
             params.put("table", "exam_answers");
             params.put("data", toInsert);
 
