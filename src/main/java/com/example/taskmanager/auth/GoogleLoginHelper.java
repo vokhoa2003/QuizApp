@@ -140,8 +140,8 @@ public class GoogleLoginHelper {
         String realRefreshToken = credential.getRefreshToken();
         
         System.out.println("✅ Lấy token thật từ Google thành công");
-        System.out.println("Access Token (first 20 chars): " + 
-                (realAccessToken != null ? realAccessToken.substring(0, Math.min(20, realAccessToken.length())) : "null"));
+        // System.out.println("Access Token (first 20 chars): " + 
+        //         (realAccessToken != null ? realAccessToken.substring(0, Math.min(20, realAccessToken.length())) : "null"));
         
         // ✅ RETURN CẢ USERINFO VÀ TOKEN THẬT
         return new LoginResult(userinfo, realAccessToken, realRefreshToken);

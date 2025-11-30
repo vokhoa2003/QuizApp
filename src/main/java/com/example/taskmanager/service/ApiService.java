@@ -295,7 +295,7 @@ public class ApiService {
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             System.out.println("API Response: " + response.statusCode());
             System.out.println("Request body: " + requestBody);
-            System.out.println("Response body: " + response.body());
+            //System.out.println("Response body: " + response.body());
 
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());

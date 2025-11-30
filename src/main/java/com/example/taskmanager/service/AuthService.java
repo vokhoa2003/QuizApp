@@ -176,7 +176,7 @@ public class AuthService {
                     "&csrf_token=" + csrfEnc;
 
             System.out.println("🔐 Sending REAL Google token to backend");
-            System.out.println("Token (first 30 chars): " + realGoogleAccessToken.substring(0, Math.min(30, realGoogleAccessToken.length())));
+            //System.out.println("Token (first 30 chars): " + realGoogleAccessToken.substring(0, Math.min(30, realGoogleAccessToken.length())));
             
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(apiConfig.getApiBaseUrl() + "/app_login"))
@@ -188,7 +188,7 @@ public class AuthService {
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             this.lastLoginResponse = response.body();
-            System.out.println("Login response: " + response.body());
+            //System.out.println("Login response: " + response.body());
             
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
