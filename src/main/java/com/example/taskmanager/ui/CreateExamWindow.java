@@ -125,7 +125,7 @@ private JTextField timeLimitField;
         backBtn.addActionListener(e -> dispose());
         leftPanel.add(backBtn);
         
-        JLabel titleLabel = new JLabel("📝 Tạo Bài Kiểm Tra Mới");
+        JLabel titleLabel = new JLabel("Tạo Bài Kiểm Tra Mới");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
         titleLabel.setForeground(Color.WHITE);
         leftPanel.add(titleLabel);
@@ -142,10 +142,10 @@ private JTextField timeLimitField;
         panel.setBorder(new EmptyBorder(25, 25, 25, 25));
         
         // Section: Thông tin chung
-        addSectionTitle(panel, "📋 Thông Tin Chung");
+        addSectionTitle(panel, "Thông Tin Chung");
         
         // Teacher info (read-only)
-        teacherInfoLabel = new JLabel("👨‍🏫 Giáo viên: " + teacherName);
+        teacherInfoLabel = new JLabel("Giáo viên: " + teacherName);
         teacherInfoLabel.setFont(new Font("Segoe UI", Font.PLAIN, 15));
         teacherInfoLabel.setForeground(new Color(0x6B7280));
         teacherInfoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -153,7 +153,7 @@ private JTextField timeLimitField;
         panel.add(Box.createVerticalStrut(8));
         
         // Class info (read-only)
-        classInfoLabel = new JLabel("🏫 Lớp: " + className);
+        classInfoLabel = new JLabel("Lớp: " + className);
         classInfoLabel.setFont(new Font("Segoe UI", Font.PLAIN, 15));
         classInfoLabel.setForeground(new Color(0x6B7280));
         classInfoLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -221,7 +221,7 @@ panel.add(Box.createVerticalStrut(25));
         panel.add(Box.createVerticalStrut(25));
         
         // Section: Thời gian
-        addSectionTitle(panel, "⏰ Thời Gian Làm Bài");
+        addSectionTitle(panel, "Thời Gian Làm Bài");
         
 
         // Publish date

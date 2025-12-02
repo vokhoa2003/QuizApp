@@ -158,24 +158,26 @@ public class ApiService {
 
             // ✅ KHÔNG wrap trong {action, method, table, data}
             String requestBody = objectMapper.writeValueAsString(data);
-            System.out.println("📤 Create user request: " + requestBody);
+            System.out.println("Create user request: " + requestBody);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(uri))
                     .header("Authorization", "Bearer " + authService.getAccessToken())
                     .header("Content-Type", "application/json")
                     .header("Cookie", "csrf_token=" + csrfToken)
-                    .header("X-CSRF-Token", csrfToken)
+                    //.header("X-CSRF-Token", csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
+            System.out.println("Send Cookie Header: csrf_token=" + csrfToken);
+//System.out.println("Send X-CSRF-Token Header: " + csrfToken);
 
             HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
             System.out.println("API Response: " + response.statusCode());
-            System.out.println("📥 Create user response: " + response.body());
+            System.out.println("Create user response: " + response.body());
             
             String responseBody = response.body().trim();
             if (!responseBody.startsWith("{") && !responseBody.startsWith("[")) {
-                System.err.println("⚠️ Invalid JSON response: " + responseBody.substring(0, Math.min(500, responseBody.length())));
+                System.err.println("Invalid JSON response: " + responseBody.substring(0, Math.min(500, responseBody.length())));
                 return false;
             }
 

@@ -294,7 +294,7 @@ if (chosenProfile == null) {
 
         submitButton = new JButton("Nộp bài");
         submitButton.setBackground(new Color(220, 50, 50));
-        submitButton.setForeground(Color.WHITE);
+        submitButton.setForeground(Color.BLACK);
         submitButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
         submitButton.setFocusPainted(false);
         submitButton.setPreferredSize(new Dimension(200, 40));

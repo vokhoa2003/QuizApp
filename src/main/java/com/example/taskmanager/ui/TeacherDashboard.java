@@ -209,10 +209,10 @@ private SwingWorker<Teacher, Void> teacherLoadWorker = null;
         actionPanel.setOpaque(false);
         actionPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
         
-        JButton createExamBtn = createPrimaryButton("➕ Tạo Đề Thi Mới");
+        JButton createExamBtn = createPrimaryButton("Tạo Đề Thi Mới");
         createExamBtn.addActionListener(e -> openQuizCreator());
         
-        JButton refreshBtn = createSecondaryButton("🔄 Làm Mới");
+        JButton refreshBtn = createSecondaryButton("Làm Mới");
         refreshBtn.addActionListener(e -> refresh());
         
         actionPanel.add(createExamBtn);
@@ -227,7 +227,7 @@ private SwingWorker<Teacher, Void> teacherLoadWorker = null;
         JPanel panel = new JPanel(new BorderLayout(0, 15));
         panel.setOpaque(false);
         
-        JLabel tableTitle = new JLabel("📋 Danh Sách Lớp Học");
+        JLabel tableTitle = new JLabel("Danh Sách Lớp Học");
         tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 20));
         tableTitle.setForeground(new Color(0x1F2937));
         panel.add(tableTitle, BorderLayout.NORTH);
