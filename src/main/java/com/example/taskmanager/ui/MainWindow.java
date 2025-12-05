@@ -468,7 +468,7 @@ public class MainWindow extends JFrame {
                             }
                         } else {
                             JOptionPane.showMessageDialog(MainWindow.this, 
-                                "Tài khoản không tồn tại hoặc chưa được admin tạo. Vui ", 
+                                "Tài khoản không tồn tại hoặc chưa được admin tạo. Vui lòng liên hệ bộ phận hỗ trợ!", 
                                 "Lỗi đăng nhập", 
                                 JOptionPane.ERROR_MESSAGE);
                             authService.logout();

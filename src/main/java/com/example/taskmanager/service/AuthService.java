@@ -197,11 +197,11 @@ public class AuthService {
                     this.refreshToken = this.accessToken;
                     this.expiryTime = LocalDateTime.now().plusHours(1);
                     this.lastLoginRole = extractRoleFromToken(this.accessToken);
-                    System.out.println("✅ Login thành công với backend JWT");
+                    System.out.println("Login thành công với backend JWT");
                     return true;
                 }
             } else {
-                System.err.println("❌ Backend returned: " + response.statusCode() + " - " + response.body());
+                System.err.println("Backend returned: " + response.statusCode() + " - " + response.body());
             }
         } catch (Exception e) {
             System.err.println("Google login failed: " + e.getMessage());

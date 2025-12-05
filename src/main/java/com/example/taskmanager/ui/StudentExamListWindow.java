@@ -58,7 +58,7 @@ public class StudentExamListWindow extends JFrame {
         this.className = className;
         this.classId = classId;
         
-        setTitle("Danh Sách Bài Kiểm Tra - " + studentName);
+        setTitle("Chi tiết học sinh - " + studentName);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setSize(1000, 600);
         setLocationRelativeTo(null);
@@ -115,7 +115,7 @@ public class StudentExamListWindow extends JFrame {
         backBtn.addActionListener(e -> dispose());
         leftPanel.add(backBtn);
         
-        JLabel titleLabel = new JLabel("Danh Sách Bài Kiểm Tra");
+        JLabel titleLabel = new JLabel("Chi tiết học sinh");
         titleLabel.setFont(new Font("Segoe UI", Font.BOLD, 22));
         titleLabel.setForeground(Color.WHITE);
         leftPanel.add(titleLabel);
@@ -155,11 +155,11 @@ public class StudentExamListWindow extends JFrame {
         JPanel titleBar = new JPanel(new BorderLayout());
         titleBar.setOpaque(false);
         
-        JLabel tableTitle = new JLabel("Các Bài Đã Làm");
+        JLabel tableTitle = new JLabel("Kết quả các bài kiểm tra");
         tableTitle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         tableTitle.setForeground(new Color(0x1F2937));
         
-        JButton refreshBtn = createActionButton("🔄 Làm Mới");
+        JButton refreshBtn = createActionButton("Làm Mới");
         refreshBtn.addActionListener(e -> loadExamList());  // ← BẬT LẠI
         
         titleBar.add(tableTitle, BorderLayout.WEST);

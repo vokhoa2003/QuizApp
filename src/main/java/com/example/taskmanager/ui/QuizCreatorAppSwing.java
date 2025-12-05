@@ -956,7 +956,7 @@ private Map<String, Object> createEmptyPeriodItem() {
                     }
 
                     SwingUtilities.invokeLater(() -> {
-                        JOptionPane.showMessageDialog(QuizCreatorAppSwing.this, "Đã lưu câu hỏi và đáp án (gửi lên server).", "Thành công", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(QuizCreatorAppSwing.this, "Đã lưu câu hỏi và đáp án.", "Thành công", JOptionPane.INFORMATION_MESSAGE);
                     });
                 } catch (Exception ex) {
                     ex.printStackTrace();
