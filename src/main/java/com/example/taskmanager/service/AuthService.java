@@ -43,7 +43,7 @@ public class AuthService {
     }
 
     public String getAccessToken() {
-        if (accessToken == null || expiryTime == null || LocalDateTime.now().isAfter(expiryTime)) {
+        if (accessToken == null) {
             if (refreshToken != null) {
                 refreshAccessToken();
             }
@@ -133,7 +133,7 @@ public class AuthService {
     }
 
     public boolean isLoggedIn() {
-        return (accessToken != null && expiryTime != null && LocalDateTime.now().isBefore(expiryTime));
+        return (accessToken != null);
     }
 
     /**
@@ -162,7 +162,7 @@ public class AuthService {
                             : (userInfo.getGivenName() + " " + userInfo.getFamilyName())),
                     StandardCharsets.UTF_8);
             
-            // ✅ GỬI TOKEN THẬT TỪ GOOGLE
+            //GỬI TOKEN THẬT TỪ GOOGLE
             String accessTokenEnc = URLEncoder.encode(realGoogleAccessToken, StandardCharsets.UTF_8);
             
             String expiresAt = URLEncoder.encode(LocalDateTime.now().plusHours(1).toString(), StandardCharsets.UTF_8);
@@ -171,11 +171,11 @@ public class AuthService {
             String formData = "GoogleID=" + googleId +
                     "&email=" + emailEnc +
                     "&FullName=" + fullName +
-                    "&access_token=" + accessTokenEnc +  // ← ✅ TOKEN THẬT
+                    "&access_token=" + accessTokenEnc +  // ← TOKEN THẬT
                     "&expires_at=" + expiresAt +
                     "&csrf_token=" + csrfEnc;
 
-            System.out.println("🔐 Sending REAL Google token to backend");
+            System.out.println("Sending REAL Google token to backend");
             //System.out.println("Token (first 30 chars): " + realGoogleAccessToken.substring(0, Math.min(30, realGoogleAccessToken.length())));
             
             HttpRequest request = HttpRequest.newBuilder()
@@ -194,8 +194,8 @@ public class AuthService {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
                 if (jsonNode.has("token") || jsonNode.has("status")) {
                     this.accessToken = jsonNode.has("token") ? jsonNode.get("token").asText() : null;
-                    this.refreshToken = this.accessToken;
-                    this.expiryTime = LocalDateTime.now().plusHours(1);
+                    // this.refreshToken = this.accessToken;
+                    // this.expiryTime = LocalDateTime.now().plusHours(1);
                     this.lastLoginRole = extractRoleFromToken(this.accessToken);
                     System.out.println("Login thành công với backend JWT");
                     return true;

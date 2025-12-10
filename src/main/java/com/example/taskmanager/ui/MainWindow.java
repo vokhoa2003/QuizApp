@@ -381,7 +381,7 @@ public class MainWindow extends JFrame {
                         boolean success = authService.loginWithGoogle(userInfo,accessToken);
                         String responseBody = authService.getLastLoginResponse(); // Cần thêm phương thức này
                          // In ra để kiểm tra
-                        //System.err.println("Response Body: " + responseBody);
+                        System.err.println("Response Body: " + responseBody);
                         if (success) {
                             // Lấy role và status từ response
                             String userRole = authService.getLastLoginRole();

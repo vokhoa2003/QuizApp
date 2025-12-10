@@ -164,7 +164,7 @@ public class QuizCreatorAppSwing extends JFrame {
         main.setBackground(new Color(0xF5F7FA));
 
         // Header
-        JLabel header = new JLabel("📚 TẠO ĐỀ THI TRẮC NGHIỆM");
+        JLabel header = new JLabel("TẠO ĐỀ THI TRẮC NGHIỆM");
         header.setFont(header.getFont().deriveFont(Font.BOLD, 20f));
         header.setForeground(new Color(0x2563eb));
         main.add(header, BorderLayout.NORTH);
@@ -219,7 +219,7 @@ public class QuizCreatorAppSwing extends JFrame {
         panel.add(Box.createVerticalStrut(10));
 
         // Exam code
-        JLabel codeLabel = new JLabel("📄 Mã đề thi:");
+        JLabel codeLabel = new JLabel("Mã đề thi:");
         examCodeField = new JTextField();
         examCodeField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         panel.add(codeLabel);
@@ -302,7 +302,7 @@ public class QuizCreatorAppSwing extends JFrame {
             else for (String n : classNamesSet) comboModel.addElement(new ClassItem(null, n));
         }
 
-        JLabel gradeLabel = new JLabel("👥 Lớp:");
+        JLabel gradeLabel = new JLabel("Lớp:");
         this.gradeComboBox = new JComboBox<>(comboModel);
         this.gradeComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 28));
         panel.add(gradeLabel);
@@ -310,7 +310,7 @@ public class QuizCreatorAppSwing extends JFrame {
         panel.add(Box.createVerticalStrut(10));
 
         // Thêm khu vực đếm số câu hỏi (khởi tạo label trước khi dùng)
-        JLabel countLabel = new JLabel("📊 Tổng số câu hỏi:");
+        JLabel countLabel = new JLabel("Tổng số câu hỏi:");
         this.questionCountLabel = new JLabel(); // khởi tạo
         updateQuestionCount(); // set giá trị ban đầu
         panel.add(countLabel);
@@ -318,7 +318,7 @@ public class QuizCreatorAppSwing extends JFrame {
         panel.add(Box.createVerticalStrut(10));
 
         // Description
-        JLabel descLabel = new JLabel("📝 Mô tả đề thi:");
+        JLabel descLabel = new JLabel("Mô tả đề thi:");
         descriptionArea = new JTextArea(4, 20);
         descriptionArea.setLineWrap(true);
         descriptionArea.setWrapStyleWord(true);
@@ -329,7 +329,7 @@ public class QuizCreatorAppSwing extends JFrame {
 
         // --- NEW: publish date/time pickers (below description) ---
         panel.add(Box.createVerticalStrut(8));
-        JLabel publishLabel = new JLabel("📅 Ngày giờ công bố (Start Publish):");
+        JLabel publishLabel = new JLabel("Ngày giờ công bố (Start Publish):");
         publishLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(publishLabel);
 
@@ -342,7 +342,7 @@ public class QuizCreatorAppSwing extends JFrame {
         panel.add(publishDateSpinner);
 
         panel.add(Box.createVerticalStrut(8));
-        JLabel endLabel = new JLabel("⏱️ Ngày giờ kết thúc (End Publish):");
+        JLabel endLabel = new JLabel("Ngày giờ kết thúc (End Publish):");
         endLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
         panel.add(endLabel);
 
@@ -524,10 +524,10 @@ loadExamPeriods();
     private JPanel createActionButtons() {
         JPanel box = new JPanel(new BorderLayout());
         box.setOpaque(false);
-        addQuestionBtn = new JButton("➕ Thêm câu hỏi");
+        addQuestionBtn = new JButton("Thêm câu hỏi");
         addQuestionBtn.addActionListener(e -> addNewQuestion());
 
-        saveExamBtn = new JButton("💾 Lưu đề thi");
+        saveExamBtn = new JButton("Lưu đề thi");
         saveExamBtn.addActionListener(e -> saveExam());
 
         JPanel left = new JPanel();
