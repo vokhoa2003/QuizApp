@@ -11,8 +11,6 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
 
 import com.example.taskmanager.auth.GoogleLoginHelper;
 import com.example.taskmanager.config.ApiConfig;
@@ -53,22 +51,35 @@ public class AuthService {
 
     public boolean refreshAccessToken() {
         try {
-            String authHeader = "Basic " + Base64.getEncoder().encodeToString(
-                    (apiConfig.getClientId() + ":" + apiConfig.getClientSecret()).getBytes());
+            if (userEmail == null || userEmail.isEmpty()) {
+                System.err.println("Cannot refresh token: no email stored");
+                return false;
+            }
 
-            Map<String, String> params = new HashMap<>();
-            params.put("grant_type", "refresh_token");
-            params.put("refresh_token", refreshToken);
+            // Tạo CSRF token mới
+            if (csrfToken == null) {
+                csrfToken = generateCsrfToken();
+            }
 
-            String formData = params.entrySet().stream()
-                    .map(e -> e.getKey() + "=" + e.getValue())
-                    .reduce((a, b) -> a + "&" + b)
-                    .orElse("");
+            // Chuẩn bị request theo format backend
+            String emailEnc = URLEncoder.encode(userEmail, StandardCharsets.UTF_8);
+            String csrfEnc = URLEncoder.encode(csrfToken, StandardCharsets.UTF_8);
+
+                // ✅ Gửi current_token để API verify (dù đã hết hạn)
+                String currentTokenEnc = URLEncoder.encode(this.accessToken != null ? this.accessToken : "", StandardCharsets.UTF_8);
+            
+                String formData = "action=refresh_token" +
+                    "&email=" + emailEnc +
+                    "&csrf_token=" + csrfEnc +
+                    "&current_token=" + currentTokenEnc;
+
+            System.out.println("🔄 Refreshing access token for: " + userEmail);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/refresh_token"))
-                    .header("Authorization", authHeader)
+                    .uri(URI.create(apiConfig.getApiBaseUrl() + "?action=refresh_token"))
                     .header("Content-Type", "application/x-www-form-urlencoded")
+                    .header("Cookie", "csrf_token=" + csrfToken)
+                    .header("X-CSRF-Token", csrfToken)
                     .POST(HttpRequest.BodyPublishers.ofString(formData))
                     .build();
 
@@ -76,8 +87,21 @@ public class AuthService {
 
             if (response.statusCode() == 200) {
                 JsonNode jsonNode = objectMapper.readTree(response.body());
-                processTokenResponse(jsonNode);
-                return true;
+                
+                // Backend trả về: {status: "success", token: "jwt...", message: "..."}
+                if ("success".equals(jsonNode.path("status").asText())) {
+                    String newToken = jsonNode.path("token").asText(null);
+                    if (newToken != null && !newToken.isEmpty()) {
+                        this.accessToken = newToken;
+                        this.refreshToken = newToken;
+                        this.expiryTime = LocalDateTime.now().plusSeconds(30); // JWT exp = 30s
+                        System.out.println("✅ Token refreshed successfully");
+                        return true;
+                    }
+                }
+                
+                System.err.println("Token refresh failed: " + jsonNode.path("message").asText("Unknown error"));
+                return false;
             } else {
                 System.err.println("Token refresh failed: " + response.statusCode() + " - " + response.body());
                 this.accessToken = null;
@@ -86,6 +110,7 @@ public class AuthService {
                 return false;
             }
         } catch (IOException | InterruptedException e) {
+            System.err.println("Exception during token refresh: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
