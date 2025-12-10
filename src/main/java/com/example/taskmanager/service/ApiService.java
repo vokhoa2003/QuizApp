@@ -74,6 +74,70 @@ public class ApiService {
         }
     }    
 
+    // ========================================
+    // ✅ THÊM: METHOD GỬI REQUEST VỚI AUTO-REFRESH
+    // ========================================
+    
+    /**
+     * Gửi HTTP request với tự động refresh token khi gặp 401
+     * @param request HttpRequest cần gửi
+     * @return HttpResponse hoặc null nếu refresh thất bại
+     */
+    private HttpResponse<String> sendWithAutoRefresh(HttpRequest request) 
+            throws IOException, InterruptedException {
+        
+        HttpResponse<String> response = httpClient.send(request, 
+            HttpResponse.BodyHandlers.ofString());
+        
+        // ✅ Nếu 401 → Token hết hạn → Refresh và retry
+        if (response.statusCode() == 401) {
+            System.out.println("⚠️ Token expired (401), attempting refresh...");
+            
+            if (authService.refreshAccessToken()) {
+                System.out.println("✅ Token refreshed, retrying request...");
+                
+                // Rebuild request với token mới
+                HttpRequest retryRequest = rebuildRequestWithNewToken(request);
+                
+                // Gửi lại request
+                response = httpClient.send(retryRequest, 
+                    HttpResponse.BodyHandlers.ofString());
+                
+                if (response.statusCode() == 401) {
+                    System.err.println("❌ Still 401 after refresh - need re-login");
+                }
+            } else {
+                System.err.println("❌ Token refresh failed - need re-login");
+                // Có thể throw exception hoặc trigger UI login
+            }
+        }
+        
+        return response;
+    }
+    
+    /**
+     * Rebuild HttpRequest với Authorization header mới
+     */
+    private HttpRequest rebuildRequestWithNewToken(HttpRequest original) {
+        HttpRequest.Builder builder = HttpRequest.newBuilder()
+            .uri(original.uri())
+            .method(original.method(), 
+                original.bodyPublisher().orElse(HttpRequest.BodyPublishers.noBody()));
+        
+        // Copy tất cả headers trừ Authorization
+        original.headers().map().forEach((key, values) -> {
+            if (!"authorization".equalsIgnoreCase(key)) {
+                values.forEach(value -> builder.header(key, value));
+            }
+        });
+        
+        // Thêm Authorization header mới
+        builder.header("Authorization", "Bearer " + authService.getAccessToken());
+        
+        return builder.build();
+    }
+
+
     public List<Task> getUsers() {
         try {
             String uri = apiConfig.getApiBaseUrl() + "/get";
@@ -94,7 +158,7 @@ public class ApiService {
             System.out.println("API Base URL: " + apiConfig.getApiBaseUrl());
             System.out.println("Request body: " + requestBody);
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithAutoRefresh(request);
             
             System.out.println("API Response: " + response.statusCode());
             System.out.println("Response body RAW: " + response.body()); // ✅ THÊM dòng này
@@ -171,7 +235,7 @@ public class ApiService {
             System.out.println("Send Cookie Header: csrf_token=" + csrfToken);
 //System.out.println("Send X-CSRF-Token Header: " + csrfToken);
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithAutoRefresh(request);
             System.out.println("API Response: " + response.statusCode());
             System.out.println("Create user response: " + response.body());
             
@@ -250,8 +314,7 @@ public class ApiService {
                     java.nio.charset.StandardCharsets.UTF_8))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, 
-            HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+        HttpResponse<String> response = sendWithAutoRefresh(request);
         
         System.out.println("📥 UPDATE User Response (" + response.statusCode() + "): " 
             + response.body());
@@ -294,7 +357,7 @@ public class ApiService {
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithAutoRefresh(request);
             System.out.println("API Response: " + response.statusCode());
             System.out.println("Request body: " + requestBody);
             //System.out.println("Response body: " + response.body());
@@ -336,7 +399,7 @@ public class ApiService {
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithAutoRefresh(request);
             System.out.println("API Response: " + response.statusCode());
 
             if (response.statusCode() == 200) {
@@ -370,7 +433,7 @@ public class ApiService {
                     .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> response = sendWithAutoRefresh(request);
 
             System.out.println("API Response: " + response.statusCode());
             System.out.println("Request body: " + requestBody);
@@ -485,8 +548,7 @@ public boolean updateClass(ClassRoom classRoom) {
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody, java.nio.charset.StandardCharsets.UTF_8))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, 
-            HttpResponse.BodyHandlers.ofString(java.nio.charset.StandardCharsets.UTF_8));
+        HttpResponse<String> response = sendWithAutoRefresh(request);
         
         System.out.println("📥 UPDATE Response (" + response.statusCode() + "): " + response.body());
 
@@ -564,7 +626,7 @@ private boolean postAndCheckSuccess(String endpoint, Map<String, Object> data) {
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+        HttpResponse<String> response = sendWithAutoRefresh(request);
         System.out.println("API [" + endpoint + "] Response: " + response.statusCode());
         System.out.println("Request: " + requestBody);
         System.out.println("Response: " + response.body());

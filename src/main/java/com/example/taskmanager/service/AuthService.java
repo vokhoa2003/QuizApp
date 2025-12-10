@@ -76,7 +76,7 @@ public class AuthService {
             System.out.println("🔄 Refreshing access token for: " + userEmail);
 
             HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(apiConfig.getApiBaseUrl() + "?action=refresh_token"))
+                    .uri(URI.create(apiConfig.getApiBaseUrl() + "/refresh_token"))
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .header("Cookie", "csrf_token=" + csrfToken)
                     .header("X-CSRF-Token", csrfToken)
@@ -94,7 +94,6 @@ public class AuthService {
                     if (newToken != null && !newToken.isEmpty()) {
                         this.accessToken = newToken;
                         this.refreshToken = newToken;
-                        this.expiryTime = LocalDateTime.now().plusSeconds(30); // JWT exp = 30s
                         System.out.println("✅ Token refreshed successfully");
                         return true;
                     }
@@ -106,7 +105,6 @@ public class AuthService {
                 System.err.println("Token refresh failed: " + response.statusCode() + " - " + response.body());
                 this.accessToken = null;
                 this.refreshToken = null;
-                this.expiryTime = null;
                 return false;
             }
         } catch (IOException | InterruptedException e) {
