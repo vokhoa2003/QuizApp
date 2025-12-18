@@ -382,6 +382,55 @@ public class MainWindow extends JFrame {
                         String responseBody = authService.getLastLoginResponse(); // Cần thêm phương thức này
                          // In ra để kiểm tra
                         System.err.println("Response Body: " + responseBody);
+                        
+                        // ✅ CHECK RATE LIMIT ERROR TRƯỚC
+                    if (responseBody != null) {
+                        try {
+                            JsonNode jsonNode = new ObjectMapper().readTree(responseBody);
+                            
+                            // ✅ Kiểm tra error_code = RATE_LIMIT_EXCEEDED
+                            if (jsonNode.has("error_code") && 
+                                "RATE_LIMIT_EXCEEDED".equals(jsonNode.get("error_code").asText())) {
+                                
+                                String message = jsonNode.has("message") ? 
+                                    jsonNode.get("message").asText() : 
+                                    "Bạn đã thử đăng nhập quá nhiều lần. Vui lòng thử lại sau 5 phút.";
+                                
+                                int retryAfter = jsonNode.has("retry_after") ? 
+                                    jsonNode.get("retry_after").asInt() : 300;
+                                
+                                // Hiển thị dialog với thời gian chờ
+                                int minutes = retryAfter / 60;
+                                JOptionPane.showMessageDialog(MainWindow.this, 
+                                    message + "\n\nThời gian chờ: " + minutes + " phút", 
+                                    "Quá nhiều lần thử đăng nhập", 
+                                    JOptionPane.WARNING_MESSAGE);
+                                
+                                authService.logout();
+                                return; // ✅ Dừng xử lý, không tiếp tục check success
+                            }
+                            
+                            // ✅ Kiểm tra các lỗi khác (status = error)
+                            if (jsonNode.has("status") && 
+                                "error".equals(jsonNode.get("status").asText())) {
+                                
+                                String errorMessage = jsonNode.has("message") ? 
+                                    jsonNode.get("message").asText() : 
+                                    "Đã có lỗi xảy ra khi đăng nhập";
+                                
+                                JOptionPane.showMessageDialog(MainWindow.this, 
+                                    errorMessage, 
+                                    "Lỗi đăng nhập", 
+                                    JOptionPane.ERROR_MESSAGE);
+                                
+                                authService.logout();
+                                return;
+                            }
+                            
+                        } catch (Exception parseEx) {
+                            System.err.println("Error parsing response: " + parseEx.getMessage());
+                        }
+                    }
                         if (success) {
                             // Lấy role và status từ response
                             String userRole = authService.getLastLoginRole();
@@ -458,7 +507,7 @@ public class MainWindow extends JFrame {
                                 } else if (userStatus != null && userStatus.equals("Blocked")) {
                                     errorMessage += "Tài khoản của bạn (" + userEmail + ") đã bị chặn.";
                                 } else {
-                                    errorMessage += "Tài khoản của bạn (" + userEmail + ") không có quyền admin hoặc không Active.";
+                                    errorMessage += "Tài khoản của bạn (" + userEmail + ") không có quyền truy cập hoặc không Active.";
                                 }
                                 JOptionPane.showMessageDialog(MainWindow.this, 
                                     errorMessage, 
